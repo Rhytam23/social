@@ -12,7 +12,7 @@ export function HeroSection() {
   return (
     <section className="w-full max-w-[1440px] mx-auto">
       {/* ─── MAIN RTX 5090 CAMPAIGN HERO (620–720px Height Desktop) ─── */}
-      <div className="relative w-full rounded-2xl bg-[#121317] border border-[#292a2e] overflow-hidden min-h-[580px] md:min-h-[640px] lg:min-h-[680px] flex flex-col justify-between p-6 sm:p-10 lg:p-16 shadow-2xl">
+      <div className="cinematic-hero-card relative w-full rounded-2xl bg-[#121317] border border-[#292a2e] overflow-hidden min-h-[580px] md:min-h-[640px] lg:min-h-[680px] flex flex-col justify-between p-6 sm:p-10 lg:p-16 shadow-2xl">
         {/* Background Cinematic Glows & Lighting */}
         <div className="absolute top-1/2 -right-10 -translate-y-1/2 w-[500px] sm:w-[650px] lg:w-[850px] h-[500px] sm:h-[650px] lg:h-[850px] bg-[#007aff]/15 rounded-full blur-[140px] pointer-events-none z-0" />
         <div className="absolute inset-0 bg-gradient-to-r from-[#121317] via-[#121317]/95 to-transparent z-[1] pointer-events-none hidden lg:block" />
@@ -30,7 +30,7 @@ export function HeroSection() {
 
             {/* Headline */}
             <h1 className="font-black tracking-tighter leading-[0.92] text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl mb-6">
-              <span className="text-white block">NVIDIA RTX 5090</span>
+              <span className="hero-white-text text-white block">NVIDIA RTX 5090</span>
               <span className="text-[#007aff] block mt-1">FOUNDERS EDITION</span>
             </h1>
 

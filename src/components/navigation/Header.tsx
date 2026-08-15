@@ -152,7 +152,7 @@ export function SearchBar({
     <div ref={containerRef} className={`relative ${className}`}>
       <form
         onSubmit={handleSearch}
-        className="relative flex items-center bg-[#18191e] rounded-md border border-[#292a2e] focus-within:border-[#007aff] transition-all shadow-inner"
+        className="header-search-container relative flex items-center bg-[#18191e] rounded-md border border-[#292a2e] focus-within:border-[#007aff] transition-all shadow-inner"
       >
         <button
           type="submit"
