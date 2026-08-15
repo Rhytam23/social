@@ -6,7 +6,6 @@ import { CategorySection } from './CategorySection'
 import { DealsSection } from './DealsSection'
 import { GamingPCSection } from './GamingPCSection'
 import { BrandSection } from './BrandSection'
-import { Newsletter } from './Newsletter'
 import { PromotionalCard } from './HeroSection'
 import {
   featuredProducts,
@@ -206,9 +205,6 @@ export function HomePage() {
 
         {/* ⑫ Authorized Brand Partners */}
         <BrandSection brands={featuredBrands} />
-
-        {/* ⑬ Newsletter */}
-        <Newsletter />
       </div>
     </main>
   )
