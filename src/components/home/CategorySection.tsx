@@ -29,14 +29,14 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
   return (
     <Link
       to={category.href}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 ${
+      className={`group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 ${
         featured
           ? 'col-span-1 sm:col-span-2 row-span-1 min-h-[240px] sm:min-h-[270px]'
           : 'col-span-1 min-h-[190px] sm:min-h-[220px]'
       } ${
         !imgError
-          ? 'border-[#292a2e] bg-[#16171d] hover:border-[#007aff]'
-          : 'bg-[#16171d] light-mode-non-img-card border-[#292a2e] hover:border-[#007aff]'
+          ? 'bg-[#16171d]'
+          : 'bg-[#16171d] light-mode-non-img-card'
       }`}
     >
       {/* ── Image-based Card Layout ── */}
@@ -57,7 +57,7 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
 
           {/* Item Count Badge */}
           <div className="relative z-10 p-4 flex justify-between items-start">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/75 backdrop-blur-md border border-white/20 rounded-md font-mono text-[10px] sm:text-xs text-[#007aff] font-bold tracking-wider shadow-md">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/75 backdrop-blur-md rounded-md font-mono text-[10px] sm:text-xs text-[#007aff] font-bold tracking-wider shadow-md">
               <Icon name={iconName} size={14} />
               {category.itemCount} ITEMS
             </span>
@@ -89,10 +89,10 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
         /* ── Non-Image Fallback Card Layout ── */
         <div className="relative z-10 flex flex-col justify-between h-full p-5 sm:p-6">
           <div className="flex justify-between items-start">
-            <div className="w-12 h-12 rounded-xl bg-[#007aff]/10 border border-[#007aff]/20 flex items-center justify-center text-[#007aff]">
+            <div className="w-12 h-12 rounded-xl bg-[#007aff]/10 flex items-center justify-center text-[#007aff]">
               <Icon name={iconName} size={24} />
             </div>
-            <span className="font-mono text-[10px] text-[#007aff] font-bold bg-[#007aff]/10 px-2.5 py-1 rounded-md border border-[#007aff]/20">
+            <span className="font-mono text-[10px] text-[#007aff] font-bold bg-[#007aff]/10 px-2.5 py-1 rounded-md">
               {category.itemCount} ITEMS
             </span>
           </div>
@@ -122,7 +122,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
   return (
     <section className="w-full">
       {/* Section Header */}
-      <div className="flex items-end justify-between mb-6 pb-3 border-b border-[#292a2e]">
+      <div className="flex items-end justify-between mb-6 pb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2.5 h-2.5 rounded-full bg-[#007aff] animate-pulse" />

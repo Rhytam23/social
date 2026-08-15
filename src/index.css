@@ -414,12 +414,10 @@ html.light-mode .category-non-img-price {
 /* ─── Product Card Light Mode Rules ─── */
 html.light-mode .product-card-container {
   background-color: #FFFFFF !important;
-  border-color: #E2E5EA !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05) !important;
 }
 
 html.light-mode .product-card-container:hover {
-  border-color: #007AFF !important;
   box-shadow: 0 12px 35px rgba(0, 122, 255, 0.12) !important;
 }
 
@@ -429,12 +427,10 @@ html.light-mode .product-card-title {
 
 html.light-mode .product-card-img-area {
   background-color: #F8FAFC !important;
-  border-color: #E2E5EA !important;
 }
 
 html.light-mode .product-spec-panel {
   background-color: #F3F4F6 !important;
-  border-color: #E2E5EA !important;
 }
 
 html.light-mode .product-spec-label {
@@ -443,10 +439,6 @@ html.light-mode .product-spec-label {
 
 html.light-mode .product-spec-value {
   color: #111318 !important;
-}
-
-html.light-mode .product-card-footer {
-  border-color: #E2E5EA !important;
 }
 
 /* Admin Dashboard & Recharts in Light Mode */

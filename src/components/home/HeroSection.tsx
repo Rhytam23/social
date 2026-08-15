@@ -12,7 +12,7 @@ export function HeroSection() {
   return (
     <section className="w-full max-w-[1440px] mx-auto">
       {/* ─── MAIN RTX 5090 CAMPAIGN HERO (620–720px Height Desktop) ─── */}
-      <div className="cinematic-hero-card relative w-full rounded-2xl bg-[#121317] border border-[#292a2e] overflow-hidden min-h-[580px] md:min-h-[640px] lg:min-h-[680px] flex flex-col justify-between p-6 sm:p-10 lg:p-16 shadow-2xl">
+      <div className="cinematic-hero-card relative w-full rounded-2xl bg-[#121317] overflow-hidden min-h-[580px] md:min-h-[640px] lg:min-h-[680px] flex flex-col justify-between p-6 sm:p-10 lg:p-16 shadow-2xl">
         {/* Background Cinematic Glows & Lighting */}
         <div className="absolute top-1/2 -right-10 -translate-y-1/2 w-[500px] sm:w-[650px] lg:w-[850px] h-[500px] sm:h-[650px] lg:h-[850px] bg-[#007aff]/15 rounded-full blur-[140px] pointer-events-none z-0" />
         <div className="hero-bg-gradient absolute inset-0 bg-gradient-to-r from-[#121317] via-[#121317]/95 to-transparent z-[1] pointer-events-none hidden lg:block" />
@@ -23,7 +23,7 @@ export function HeroSection() {
           {/* Left Column: 40% Width Typography & CTAs */}
           <div className="lg:col-span-5 xl:col-span-5 flex flex-col justify-center order-1 lg:order-1">
             {/* Label */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#007aff]/10 border border-[#007aff]/40 rounded text-[#007aff] font-mono text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] w-fit mb-5 shadow-[0_0_15px_rgba(0,122,255,0.2)]">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#007aff]/10 rounded text-[#007aff] font-mono text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] w-fit mb-5 shadow-[0_0_15px_rgba(0,122,255,0.15)]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#007aff] animate-pulse" />
               NEW ARRIVAL
             </div>
@@ -44,7 +44,7 @@ export function HeroSection() {
                   onError={() => setGpuImgError(true)}
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-lg border border-[#292a2e]">
+                <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-lg">
                   <Icon name="videogame_asset" size={56} className="text-[#007aff]" />
                   <span className="font-mono text-xs text-[#8b90a0] mt-2">RTX 5090 FE</span>
                 </div>
@@ -60,7 +60,7 @@ export function HeroSection() {
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 order-4">
               <Link
                 to="/gaming-pcs"
-                className="h-12 md:h-14 px-7 md:px-8 bg-[#007aff] hover:bg-[#0066d6] active:scale-[0.98] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-lg flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(0,122,255,0.4)] transition-all"
+                className="h-12 md:h-14 px-7 md:px-8 bg-[#007aff] hover:bg-[#0066d6] active:scale-[0.98] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(0,122,255,0.4)] transition-all"
               >
                 <span>SHOP GAMING PCS</span>
                 <Icon name="arrow_forward" size={16} />
@@ -68,7 +68,7 @@ export function HeroSection() {
 
               <Link
                 to="/builder"
-                className="hero-sec-btn h-12 md:h-14 px-7 md:px-8 bg-[#16171d]/90 border border-[#292a2e] hover:border-[#007aff] hover:bg-[#1a1b22] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-lg flex items-center justify-center gap-2 transition-all"
+                className="hero-sec-btn h-12 md:h-14 px-7 md:px-8 bg-[#16171d]/90 hover:bg-[#1a1b22] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
               >
                 <span>BUILD YOUR PC</span>
                 <Icon name="memory" size={16} className="text-[#007aff]" />
@@ -90,7 +90,7 @@ export function HeroSection() {
                   onError={() => setGpuImgError(true)}
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-xl border border-[#292a2e] p-8 z-10">
+                <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-xl p-8 z-10">
                   <Icon name="videogame_asset" size={96} className="text-[#007aff]" />
                   <span className="font-mono text-sm text-[#8b90a0] mt-3">NVIDIA RTX 5090 FOUNDERS EDITION</span>
                 </div>
@@ -103,9 +103,9 @@ export function HeroSection() {
       {/* ─── SUPPORTING PROMOTIONS STRIP (BELOW MAIN HERO) ─── */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mt-4 md:mt-6">
         {/* Strip Card 1: Intel i9-14900KS */}
-        <div className="group relative rounded-xl border border-[#292a2e] bg-[#16171d] hover:border-[#007aff]/50 p-5 md:p-6 flex items-center justify-between gap-4 transition-all duration-300 shadow-lg">
+        <div className="group relative rounded-2xl bg-[#16171d] p-5 md:p-6 flex items-center justify-between gap-4 transition-all duration-300 shadow-lg hover:shadow-xl">
           <div className="flex-1 min-w-0 z-10">
-            <span className="inline-block font-mono text-[9px] text-[#ff5c00] bg-[#ff5c00]/10 px-2 py-0.5 rounded border border-[#ff5c00]/30 font-bold uppercase mb-2">
+            <span className="inline-block font-mono text-[9px] text-[#ff5c00] bg-[#ff5c00]/10 px-2.5 py-0.5 rounded font-bold uppercase mb-2">
               FLAGSHIP PROCESSOR
             </span>
             <h3 className="text-white font-bold text-base md:text-lg tracking-tight truncate group-hover:text-[#007aff] transition-colors">
@@ -123,7 +123,7 @@ export function HeroSection() {
             </Link>
           </div>
 
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg bg-[#121317] border border-[#292a2e] shrink-0 overflow-hidden relative">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-[#121317] shrink-0 overflow-hidden relative">
             {!intelImgError ? (
               <img
                 src="https://images.unsplash.com/photo-1555617981-dac3880eac6e?w=400&q=80"

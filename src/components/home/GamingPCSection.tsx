@@ -18,11 +18,11 @@ function RigCard({ pc }: RigCardProps) {
   const wishlisted = isInWishlist(pc.id)
 
   return (
-    <article className="group relative flex flex-col bg-[#121317] border border-[#292a2e] hover:border-[#007aff]/60 rounded-2xl transition-all duration-300 overflow-hidden shadow-2xl hover:shadow-[0_16px_50px_rgba(0,122,255,0.15)] hover:-translate-y-1.5 h-full">
+    <article className="group relative flex flex-col bg-[#121317] rounded-2xl transition-all duration-300 overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1.5 h-full">
       {/* Top Header Badge Bar */}
-      <div className="px-5 py-3.5 bg-[#16171d] border-b border-[#292a2e] flex items-center justify-between z-10">
+      <div className="px-5 py-3.5 bg-[#16171d] flex items-center justify-between z-10">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] text-[#007aff] bg-[#007aff]/15 px-3 py-1 rounded-md border border-[#007aff]/30 font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(0,122,255,0.15)]">
+          <span className="font-mono text-[10px] text-[#007aff] bg-[#007aff]/15 px-3 py-1 rounded-md font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(0,122,255,0.15)]">
             {pc.performanceTier}
           </span>
         </div>
@@ -30,10 +30,10 @@ function RigCard({ pc }: RigCardProps) {
         <button
           type="button"
           onClick={() => toggleWishlist(pc.id)}
-          className={`p-2 transition-all rounded-lg backdrop-blur-md border border-transparent ${
+          className={`p-2 transition-all rounded-lg backdrop-blur-md ${
             wishlisted
-              ? 'text-[#ff453a] bg-[#ff453a]/15 border-[#ff453a]/30'
-              : 'text-[#8b90a0] hover:text-[#ff453a] hover:bg-[#1a1b1f] hover:border-[#292a2e]'
+              ? 'text-[#ff453a] bg-[#ff453a]/15'
+              : 'text-[#8b90a0] hover:text-[#ff453a] hover:bg-[#1a1b1f]'
           }`}
           aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
         >
@@ -63,10 +63,10 @@ function RigCard({ pc }: RigCardProps) {
 
         {/* Floating Chassis Label & Stock Status */}
         <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between z-20 font-mono text-[11px]">
-          <span className="bg-[#121317]/90 text-[#c1c6d7] px-3 py-1 rounded-md backdrop-blur-md border border-[#292a2e] truncate max-w-[60%] shadow-lg">
+          <span className="bg-[#121317]/90 text-[#c1c6d7] px-3 py-1 rounded-md backdrop-blur-md truncate max-w-[60%] shadow-lg">
             {pc.caseName}
           </span>
-          <span className="text-[#30d158] bg-[#121317]/90 px-3 py-1 rounded-md backdrop-blur-md border border-[#30d158]/30 font-bold flex items-center gap-1 shadow-lg">
+          <span className="text-[#30d158] bg-[#121317]/90 px-3 py-1 rounded-md backdrop-blur-md font-bold flex items-center gap-1 shadow-lg">
             <span className="w-1.5 h-1.5 rounded-full bg-[#30d158] animate-pulse" />
             IN STOCK
           </span>
@@ -89,7 +89,7 @@ function RigCard({ pc }: RigCardProps) {
           </div>
 
           {/* Detailed Hardware Spec Table */}
-          <div className="bg-[#16171d] rounded-xl p-3.5 border border-[#292a2e] space-y-2.5 font-sans text-xs">
+          <div className="bg-[#16171d] rounded-xl p-3.5 space-y-2.5 font-sans text-xs">
             <div className="flex items-center justify-between gap-2">
               <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
                 <Icon name="memory" size={15} className="text-[#007aff]" /> CPU
@@ -152,7 +152,7 @@ export function GamingPCSection({ pcs }: GamingPCSectionProps) {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#007aff]/10 rounded-full blur-[140px] pointer-events-none" />
 
       {/* Section Header */}
-      <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6 pb-6 border-b border-[#292a2e]">
+      <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
         <div className="max-w-[650px]">
           <div className="flex items-center gap-2 mb-2">
             <span className="font-mono text-xs text-[#007aff] bg-[#007aff]/15 px-3 py-1 rounded-md border border-[#007aff]/30 font-bold uppercase tracking-widest">

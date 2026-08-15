@@ -438,7 +438,7 @@ export function CategoryNavigation({ openMegaMenu, setOpenMegaMenu }: CategoryNa
   }, [])
 
   return (
-    <nav className="hidden md:flex items-center justify-between gap-6 py-2.5 font-mono text-xs tracking-wider border-t border-[#1e1f23]">
+    <nav className="hidden md:flex items-center justify-between gap-6 py-3 font-mono text-xs tracking-wider">
       <div className="flex items-center gap-6 xl:gap-8 flex-wrap">
         {PRIMARY_NAV.map((cat) => {
           const isActive =
@@ -546,7 +546,7 @@ export function Header() {
   return (
     <header
       ref={headerRef}
-      className="sticky top-0 z-50 bg-[#121317] border-b border-[#292a2e] select-none shadow-xl"
+      className="sticky top-0 z-50 bg-[#121317] select-none shadow-lg"
       onMouseLeave={() => setOpenMegaMenu(null)}
     >
       <div className="container-max px-4 md:px-8">

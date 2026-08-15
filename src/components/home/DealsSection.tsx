@@ -17,7 +17,7 @@ function DealCard({ product, onAddToCart, onToggleWishlist, isWishlisted = false
   const comparing = isInCompare(product.id)
 
   return (
-    <article className="group flex flex-col bg-[#1a1b1f] border border-[#292a2e] rounded hover:border-[#007aff] transition-all duration-200 overflow-hidden">
+    <article className="group flex flex-col bg-[#1a1b1f] rounded-2xl transition-all duration-200 overflow-hidden shadow-md hover:shadow-xl hover:-translate-y-1">
       {/* Image Container */}
       <Link to={`/products/${product.slug}`} className="relative bg-[#16171d] overflow-hidden block" style={{ aspectRatio: '4/3' }}>
         {!imageError ? (
@@ -49,10 +49,10 @@ function DealCard({ product, onAddToCart, onToggleWishlist, isWishlisted = false
               onToggleWishlist(product.id)
             }}
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            className={`w-7 h-7 flex items-center justify-center rounded border transition-all duration-200 ${
+            className={`w-7 h-7 flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 ${
               isWishlisted
-                ? 'bg-[#ff453a20] border-[#ff453a] text-[#ff453a]'
-                : 'bg-[#12131790] border-[#414755] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#ff453a] hover:text-[#ff453a]'
+                ? 'bg-[#ff453a20] text-[#ff453a]'
+                : 'bg-[#12131790] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-[#ff453a]'
             }`}
           >
             <Icon name="favorite" size={14} filled={isWishlisted} />
@@ -65,10 +65,10 @@ function DealCard({ product, onAddToCart, onToggleWishlist, isWishlisted = false
               toggleCompare(product.id)
             }}
             aria-label={comparing ? 'Remove from comparison' : 'Add to comparison'}
-            className={`w-7 h-7 flex items-center justify-center rounded border transition-all duration-200 ${
+            className={`w-7 h-7 flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 ${
               comparing
-                ? 'bg-[#007aff20] border-[#007aff] text-[#007aff]'
-                : 'bg-[#12131790] border-[#414755] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#007aff] hover:text-[#007aff]'
+                ? 'bg-[#007aff20] text-[#007aff]'
+                : 'bg-[#12131790] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-[#007aff]'
             }`}
           >
             <Icon name="balance" size={14} />
@@ -132,7 +132,7 @@ export function DealsSection({ products, onAddToCart, onToggleWishlist, wishlist
   return (
     <section>
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-5 gap-3 pb-3 border-b border-[#292a2e]">
+      <div className="flex items-end justify-between mb-6 pb-3">
         <div>
           <div className="flex items-center gap-2.5">
             <span className="w-2.5 h-2.5 rounded-full bg-[#ff5c00] animate-pulse inline-block" />

@@ -115,11 +115,11 @@ export function Footer() {
   ]
 
   return (
-    <footer className="bg-[#121317] border-t border-[#292a2e] mt-auto text-[#e3e2e7] select-none">
-      {/* ─── Top Newsletter Banner ─── */}
-      <div className="border-b border-[#292a2e] bg-[#16171d]">
+    <footer className="bg-[#121317] mt-auto text-[#e3e2e7] select-none">
+      {/* ─── VIP Hardware Newsletter Top Banner ─── */}
+      <div className="bg-[#16171d]">
         <div className="container-max px-4 md:px-6 py-8 md:py-10">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-[#121317] border border-[#292a2e] rounded-2xl p-6 md:p-8 shadow-xl">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-[#121317] rounded-2xl p-6 md:p-8 shadow-xl">
             <div className="max-w-[550px]">
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-2 h-2 rounded-full bg-[#007aff] animate-pulse" />

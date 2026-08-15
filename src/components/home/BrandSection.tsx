@@ -147,9 +147,9 @@ function BrandCardItem({ config }: { config: BrandPartnerConfig }) {
   return (
     <Link
       to={config.href}
-      className="group relative flex flex-col items-center justify-between p-4 bg-[#121317] border border-[#292a2e] hover:border-[#007aff] rounded-2xl transition-all duration-300 w-[190px] sm:w-[210px] md:w-[220px] h-[135px] md:h-[145px] shrink-0 overflow-hidden text-center hover:shadow-2xl hover:-translate-y-1 select-none"
+      className="group relative flex flex-col items-center justify-between p-4 bg-[#121317] rounded-2xl transition-all duration-300 w-[190px] sm:w-[210px] md:w-[220px] h-[135px] md:h-[145px] shrink-0 overflow-hidden text-center shadow-md hover:shadow-2xl hover:-translate-y-1 select-none"
     >
-      {/* Dedicated Logo Container Area (height: 60px, width: 100%, flex centered) */}
+      {/* Dedicated Logo Container Area */}
       <div className="w-full h-[60px] md:h-[68px] flex items-center justify-center p-1 transition-transform duration-300 group-hover:scale-105 shrink-0 overflow-hidden">
         {!hasError ? (
           config.renderSvg()
@@ -161,7 +161,7 @@ function BrandCardItem({ config }: { config: BrandPartnerConfig }) {
       </div>
 
       {/* Category Description Underneath */}
-      <div className="w-full pt-2 border-t border-[#292a2e] group-hover:border-[#007aff]/40 transition-colors">
+      <div className="w-full pt-2">
         <span className="font-mono text-[10px] md:text-[11px] text-[#8b90a0] group-hover:text-[#c1c6d7] transition-colors truncate block font-medium">
           {config.description}
         </span>
@@ -181,9 +181,9 @@ export function BrandSection({}: BrandSectionProps) {
   const duplicateList = [...BRAND_PARTNERS_CONFIG, ...BRAND_PARTNERS_CONFIG]
 
   return (
-    <section className="relative overflow-hidden bg-[#16171d] border border-[#292a2e] rounded-2xl p-6 md:p-8 shadow-2xl">
+    <section className="relative overflow-hidden bg-[#16171d] rounded-2xl p-6 md:p-8 shadow-2xl">
       {/* Section Header */}
-      <div className="flex items-center justify-between mb-6 pb-4 border-b border-[#292a2e]">
+      <div className="flex items-center justify-between mb-6 pb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="w-2.5 h-2.5 rounded-full bg-[#007aff] animate-pulse inline-block" />
@@ -207,6 +207,8 @@ export function BrandSection({}: BrandSectionProps) {
           <Icon name="arrow_forward" size={14} />
         </Link>
       </div>
+
+      {/* Brand Viewport Container (overflow: hidden clipping boundary) */}
 
       {/* Brand Viewport Container (overflow: hidden clipping boundary) */}
       <div className="relative w-full overflow-hidden py-2">

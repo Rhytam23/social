@@ -24,7 +24,7 @@ export function ProductCard({
   const comparing = isInCompare(product.id)
 
   return (
-    <article className="product-card-container group relative flex flex-col justify-between bg-[#17191E] border border-[#2A2D34] hover:border-[#007aff] rounded-2xl transition-all duration-250 overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 h-full select-none">
+    <article className="product-card-container group relative flex flex-col justify-between bg-[#17191E] rounded-2xl transition-all duration-250 overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 h-full select-none">
       {/* ── Top Header Section (Brand + Stock) ── */}
       <div className="p-4 sm:p-5 pb-0">
         {/* Brand & Stock Row */}
@@ -51,7 +51,7 @@ export function ProductCard({
       {/* ── Main Product Image Area (180–220px Height, Contain Fit, Soft Radial Glow) ── */}
       <Link
         to={`/products/${product.slug}`}
-        className="product-card-img-area relative w-full h-[190px] md:h-[210px] bg-[#121317] flex items-center justify-center p-3 overflow-hidden border-y border-[#2A2D34] group/img shrink-0"
+        className="product-card-img-area relative w-full h-[190px] md:h-[210px] bg-[#121317] flex items-center justify-center p-3 overflow-hidden group/img shrink-0"
       >
         {/* Subtle Ambient Radial Glow */}
         <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/10 via-transparent to-transparent pointer-events-none z-0" />
@@ -86,10 +86,10 @@ export function ProductCard({
               onToggleWishlist(product.id)
             }}
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-md transition-all duration-200 shadow-md ${
+            className={`w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 shadow-md ${
               isWishlisted
-                ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]'
-                : 'bg-[#121317]/80 border-[#2A2D34] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#ff453a] hover:text-[#ff453a]'
+                ? 'bg-[#ff453a]/20 text-[#ff453a]'
+                : 'bg-[#121317]/80 text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-[#ff453a]'
             }`}
           >
             <Icon name="favorite" size={16} filled={isWishlisted} />
@@ -103,10 +103,10 @@ export function ProductCard({
               toggleCompare(product.id)
             }}
             aria-label={comparing ? 'Remove from comparison' : 'Add to comparison'}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-md transition-all duration-200 shadow-md ${
+            className={`w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 shadow-md ${
               comparing
-                ? 'bg-[#007aff]/20 border-[#007aff] text-[#007aff]'
-                : 'bg-[#121317]/80 border-[#2A2D34] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#007aff] hover:text-[#007aff]'
+                ? 'bg-[#007aff]/20 text-[#007aff]'
+                : 'bg-[#121317]/80 text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-[#007aff]'
             }`}
           >
             <Icon name="balance" size={16} />
@@ -116,7 +116,7 @@ export function ProductCard({
 
       {/* ── Key Specifications Panel ── */}
       <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-        <div className="product-spec-panel mb-4 bg-[#1B1E24] border border-[#2A2D34] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-sans">
+        <div className="product-spec-panel mb-4 bg-[#1B1E24] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-sans">
           {product.specifications.slice(0, 2).map((spec) => (
             <div key={spec.label} className="flex flex-col">
               <span className="product-spec-label font-mono text-[9px] sm:text-[10px] text-[#8b90a0] uppercase tracking-wider font-semibold">
@@ -130,7 +130,7 @@ export function ProductCard({
         </div>
 
         {/* ── Price & Add to Cart Action Area ── */}
-        <div className="pt-3 border-t border-[#2A2D34] product-card-footer flex flex-col gap-3">
+        <div className="pt-2 product-card-footer flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <Price
               price={product.price}
