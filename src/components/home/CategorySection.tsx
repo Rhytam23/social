@@ -31,8 +31,8 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
       to={category.href}
       className={`group relative flex flex-col overflow-hidden rounded-2xl transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 ${
         featured
-          ? 'col-span-1 sm:col-span-2 row-span-1 min-h-[240px] sm:min-h-[270px]'
-          : 'col-span-1 min-h-[190px] sm:min-h-[220px]'
+          ? 'col-span-1 sm:col-span-2 row-span-1 min-h-60 sm:min-h-67.5'
+          : 'col-span-1 min-h-47.5 sm:min-h-55'
       } ${
         !imgError
           ? 'bg-[#16171d]'
@@ -52,12 +52,12 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
           />
 
           {/* Controlled Dark Gradient Overlay for Maximum Text Contrast */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent z-[1] pointer-events-none" />
-          <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-[1] pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-t from-black/95 via-black/55 to-transparent z-1 pointer-events-none" />
+          <div className="absolute inset-0 bg-linear-to-tr from-accent-blue/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-1 pointer-events-none" />
 
           {/* Item Count Badge */}
           <div className="relative z-10 p-4 flex justify-between items-start">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/75 backdrop-blur-md rounded-md font-mono text-[10px] sm:text-xs text-[#007aff] font-bold tracking-wider shadow-md">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/75 backdrop-blur-md rounded-md font-mono text-[10px] sm:text-xs text-accent-blue font-bold tracking-wider shadow-md">
               <Icon name={iconName} size={14} />
               {category.itemCount} ITEMS
             </span>
@@ -66,7 +66,7 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
           {/* Bottom Headline & Price */}
           <div className="relative z-10 mt-auto p-5">
             <h3
-              className={`text-white font-bold tracking-tight font-sans drop-shadow-md transition-colors group-hover:text-[#007aff] ${
+              className={`text-white font-bold tracking-tight font-sans drop-shadow-md transition-colors group-hover:text-accent-blue ${
                 featured ? 'text-xl sm:text-2xl lg:text-3xl' : 'text-lg sm:text-xl'
               }`}
             >
@@ -79,7 +79,7 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
               </span>
 
               {/* Circular CTA Button */}
-              <span className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-[#007aff] hover:bg-[#0066d6] text-white flex items-center justify-center transition-transform duration-300 group-hover:translate-x-1.5 shadow-lg shrink-0">
+              <span className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-accent-blue hover:bg-[#0066d6] text-white flex items-center justify-center transition-transform duration-300 group-hover:translate-x-1.5 shadow-lg shrink-0">
                 <Icon name="arrow_forward" size={16} />
               </span>
             </div>
@@ -89,23 +89,23 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
         /* ── Non-Image Fallback Card Layout ── */
         <div className="relative z-10 flex flex-col justify-between h-full p-5 sm:p-6">
           <div className="flex justify-between items-start">
-            <div className="w-12 h-12 rounded-xl bg-[#007aff]/10 flex items-center justify-center text-[#007aff]">
+            <div className="w-12 h-12 rounded-xl bg-accent-blue/10 flex items-center justify-center text-accent-blue">
               <Icon name={iconName} size={24} />
             </div>
-            <span className="font-mono text-[10px] text-[#007aff] font-bold bg-[#007aff]/10 px-2.5 py-1 rounded-md">
+            <span className="font-mono text-[10px] text-accent-blue font-bold bg-accent-blue/10 px-2.5 py-1 rounded-md">
               {category.itemCount} ITEMS
             </span>
           </div>
 
           <div className="mt-auto">
-            <h3 className="category-non-img-title font-bold text-lg sm:text-xl text-white tracking-tight group-hover:text-[#007aff] transition-colors">
+            <h3 className="category-non-img-title font-bold text-lg sm:text-xl text-white tracking-tight group-hover:text-accent-blue transition-colors">
               {category.title}
             </h3>
             <div className="flex items-center justify-between mt-1.5">
-              <span className="category-non-img-price font-mono text-xs text-[#8b90a0]">
+              <span className="category-non-img-price font-mono text-xs text-outline">
                 {category.startingPrice ? `Starting at $${category.startingPrice}` : 'Explore Lineup'}
               </span>
-              <span className="w-9 h-9 rounded-full bg-[#007aff] text-white flex items-center justify-center transition-transform group-hover:translate-x-1 shrink-0">
+              <span className="w-9 h-9 rounded-full bg-accent-blue text-white flex items-center justify-center transition-transform group-hover:translate-x-1 shrink-0">
                 <Icon name="arrow_forward" size={14} />
               </span>
             </div>
@@ -125,8 +125,8 @@ export function CategorySection({ categories }: CategorySectionProps) {
       <div className="flex items-end justify-between mb-6 pb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#007aff] animate-pulse" />
-            <span className="font-mono text-xs text-[#007aff] font-bold tracking-widest uppercase">
+            <span className="w-2.5 h-2.5 rounded-full bg-accent-blue animate-pulse" />
+            <span className="font-mono text-xs text-accent-blue font-bold tracking-widest uppercase">
               HARDWARE SECTIONS
             </span>
           </div>
@@ -136,7 +136,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
         </div>
         <Link
           to="/categories"
-          className="font-mono text-xs tracking-wider text-[#007aff] hover:text-[#adc6ff] transition-colors flex items-center gap-1.5 font-bold shrink-0"
+          className="font-mono text-xs tracking-wider text-accent-blue hover:text-[#adc6ff] transition-colors flex items-center gap-1.5 font-bold shrink-0"
         >
           <span>ALL CATEGORIES</span>
           <Icon name="arrow_forward" size={14} />
