@@ -37,6 +37,8 @@ interface ShopContextType {
   builderTotal: number
   builderWattage: number
   toasts: Toast[]
+  theme: 'dark' | 'light'
+  toggleTheme: () => void
   showToast: (message: string, type?: 'cart' | 'wishlist' | 'info') => void
 }
 
@@ -103,6 +105,29 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       return []
     }
   })
+
+  // ── Theme State (Dark / Light) ──
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    try {
+      return (localStorage.getItem('premium_pc_theme') as 'dark' | 'light') || 'dark'
+    } catch {
+      return 'dark'
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('premium_pc_theme', theme)
+    } catch {}
+    document.documentElement.setAttribute('data-theme', theme)
+    if (theme === 'light') {
+      document.documentElement.classList.add('light-mode')
+    } else {
+      document.documentElement.classList.remove('light-mode')
+    }
+  }, [theme])
+
+  const toggleTheme = () => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))
 
   // ── Toast State ──
   const [toasts, setToasts] = useState<Toast[]>([])
@@ -274,6 +299,8 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         builderTotal,
         builderWattage,
         toasts,
+        theme,
+        toggleTheme,
         showToast,
       }}
     >

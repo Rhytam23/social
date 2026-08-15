@@ -517,7 +517,7 @@ export function CategoryNavigation({ openMegaMenu, setOpenMegaMenu }: CategoryNa
 // ─── Header Component ─────────────────────────────────────────────────────────
 
 export function Header() {
-  const { cartCount, wishlistCount, compareCount } = useShop()
+  const { cartCount, wishlistCount, compareCount, theme, toggleTheme } = useShop()
   const [openMegaMenu, setOpenMegaMenu] = useState<string | null>(null)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
@@ -611,6 +611,21 @@ export function Header() {
             <div className="hidden sm:block">
               <AccountMenu />
             </div>
+
+            {/* Theme Mode Toggle (Dark / Light) */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+              className="flex items-center justify-center p-2 text-[#c1c6d7] hover:text-[#007aff] transition-colors rounded hover:bg-[#1a1b1f] border border-transparent hover:border-[#292a2e]"
+            >
+              <Icon
+                name={theme === 'dark' ? 'light_mode' : 'dark_mode'}
+                size={20}
+                className={theme === 'dark' ? 'text-[#ffd60a]' : 'text-[#007aff]'}
+              />
+            </button>
 
             {/* Wishlist */}
             <Link

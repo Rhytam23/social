@@ -215,3 +215,49 @@ body {
   }
 }
 
+/* ─── Light Mode Styles ─── */
+html.light-mode, html[data-theme="light"] {
+  --color-background: #f4f5f8;
+  --color-surface: #ffffff;
+  --color-surface-container: #f9fafb;
+  --color-surface-container-low: #ffffff;
+  --color-surface-container-high: #eaecee;
+  --color-on-surface: #111318;
+  --color-on-surface-variant: #4b5563;
+  --color-outline: #d1d5db;
+  --color-outline-variant: #e5e7eb;
+}
+
+html.light-mode body {
+  background-color: #f4f5f8;
+  color: #111318;
+}
+
+html.light-mode header,
+html.light-mode footer,
+html.light-mode nav,
+html.light-mode .bg-\[\#121317\],
+html.light-mode .bg-\[\#16171d\],
+html.light-mode .bg-\[\#1a1b1f\] {
+  background-color: #ffffff !important;
+  color: #111318;
+}
+
+html.light-mode .border-\[\#292a2e\],
+html.light-mode .border-\[\#414755\] {
+  border-color: #e5e7eb !important;
+}
+
+html.light-mode .text-white {
+  color: #111318 !important;
+}
+
+html.light-mode .text-\[\#8b90a0\],
+html.light-mode .text-\[\#c1c6d7\] {
+  color: #4b5563 !important;
+}
+
+html.light-mode .bg-\[\#0d0e12\] {
+  background-color: #f4f5f8 !important;
+}
+
