@@ -17,6 +17,7 @@ export function ProductDetailsPage() {
   }, [slug, id])
 
   const [selectedImage, setSelectedImage] = useState<string>(product?.image || '')
+  const [mainImgError, setMainImgError] = useState(false)
   const [quantity, setQuantity] = useState(1)
   const [activeTab, setActiveTab] = useState<'specs' | 'overview' | 'reviews' | 'questions'>('specs')
 
@@ -100,13 +101,21 @@ export function ProductDetailsPage() {
             )}
 
             {/* Main Image Display */}
-            <div className="flex-1 relative bg-[#1a1b1f] border border-[#414755] rounded overflow-hidden flex items-center justify-center p-6 min-h-[340px] sm:min-h-[440px]">
-              <img
-                src={selectedImage || product.image}
-                alt={product.name}
-                className="max-h-[400px] w-auto object-contain hover:scale-105 transition-transform duration-300"
-              />
-              <div className="absolute top-4 left-4 flex flex-col gap-1.5">
+            <div className="flex-1 relative bg-[#16171d] border border-[#292a2e] rounded-lg overflow-hidden flex items-center justify-center p-6 min-h-[340px] sm:min-h-[440px] shadow-xl">
+              {!mainImgError ? (
+                <img
+                  src={selectedImage || product.image}
+                  alt={product.name}
+                  className="max-h-[400px] w-auto object-contain hover:scale-105 transition-transform duration-300"
+                  onError={() => setMainImgError(true)}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-[#414755] py-12">
+                  <Icon name="memory" size={64} className="text-[#007aff60] mb-3" />
+                  <span className="font-mono text-xs text-[#8b90a0]">HARDWARE SHOWCASE</span>
+                </div>
+              )}
+              <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
                 {product.isNew && <Badge variant="primary">NEW ARRIVAL</Badge>}
                 {product.discount && <Badge variant="orange">SAVE {product.discount}%</Badge>}
               </div>
