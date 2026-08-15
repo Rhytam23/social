@@ -24,37 +24,60 @@ export function ProductCard({
   const comparing = isInCompare(product.id)
 
   return (
-    <article className="group relative flex flex-col bg-[#16171d] border border-[#292a2e] hover:border-[#007aff]/60 rounded-xl transition-all duration-300 overflow-hidden hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)] hover:-translate-y-1">
-      {/* Image Container with Radial Glow */}
+    <article className="product-card-container group relative flex flex-col justify-between bg-[#17191E] border border-[#2A2D34] hover:border-[#007aff] rounded-2xl transition-all duration-250 overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 h-full select-none">
+      {/* ── Top Header Section (Brand + Stock) ── */}
+      <div className="p-4 sm:p-5 pb-0">
+        {/* Brand & Stock Row */}
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <span className="font-mono text-[11px] sm:text-xs tracking-wider text-[#007aff] uppercase font-bold">
+            {product.brand}
+          </span>
+          <StockBadge status={product.stockStatus} />
+        </div>
+
+        {/* Product Title (18–20px desktop, font-weight 700, 1.25 line-height) */}
+        <Link to={`/products/${product.slug}`} className="group/link block mb-2">
+          <h3 className="product-card-title text-[#FFFFFF] text-base md:text-[18px] leading-[1.25] font-bold group-hover/link:text-[#007aff] transition-colors line-clamp-2 min-h-[46px]">
+            {product.name}
+          </h3>
+        </Link>
+
+        {/* Star Rating & Reviews */}
+        <div className="mb-3">
+          <StarRating rating={product.rating} count={product.reviewCount} />
+        </div>
+      </div>
+
+      {/* ── Main Product Image Area (180–220px Height, Contain Fit, Soft Radial Glow) ── */}
       <Link
         to={`/products/${product.slug}`}
-        className="relative bg-[#121317] overflow-hidden block group/img"
-        style={{ aspectRatio: '4/3' }}
+        className="product-card-img-area relative w-full h-[190px] md:h-[210px] bg-[#121317] flex items-center justify-center p-3 overflow-hidden border-y border-[#2A2D34] group/img shrink-0"
       >
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/5 via-transparent to-transparent pointer-events-none z-0" />
-        
+        {/* Subtle Ambient Radial Glow */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/10 via-transparent to-transparent pointer-events-none z-0" />
+
         {!imageError ? (
           <img
             src={product.image}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out relative z-1"
+            className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300 ease-out relative z-10"
             onError={() => setImageError(true)}
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[#121317] relative z-1">
-            <Icon name="memory" size={44} className="text-[#414755]" />
+          <div className="w-full h-full flex items-center justify-center bg-[#121317] relative z-10 text-[#414755]">
+            <Icon name="memory" size={48} className="text-[#007aff]" />
           </div>
         )}
 
         {/* Badges Overlay */}
-        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-10 pointer-events-none">
-          {product.isNew && <Badge variant="primary">NEW ARRIVAL</Badge>}
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-20 pointer-events-none">
+          {product.isNew && <Badge variant="primary">NEW</Badge>}
           {product.discount && <Badge variant="orange">-{product.discount}% OFF</Badge>}
         </div>
 
-        {/* Floating Action Buttons */}
-        <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5 z-10">
+        {/* Floating Action Buttons (Wishlist & Compare) */}
+        <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-20">
           <button
             type="button"
             onClick={(e) => {
@@ -65,8 +88,8 @@ export function ProductCard({
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-md transition-all duration-200 shadow-md ${
               isWishlisted
-                ? 'bg-[#ff453a20] border-[#ff453a] text-[#ff453a]'
-                : 'bg-[#121317]/80 border-[#292a2e] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#ff453a] hover:text-[#ff453a]'
+                ? 'bg-[#ff453a]/20 border-[#ff453a] text-[#ff453a]'
+                : 'bg-[#121317]/80 border-[#2A2D34] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#ff453a] hover:text-[#ff453a]'
             }`}
           >
             <Icon name="favorite" size={16} filled={isWishlisted} />
@@ -82,8 +105,8 @@ export function ProductCard({
             aria-label={comparing ? 'Remove from comparison' : 'Add to comparison'}
             className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-md transition-all duration-200 shadow-md ${
               comparing
-                ? 'bg-[#007aff20] border-[#007aff] text-[#007aff]'
-                : 'bg-[#121317]/80 border-[#292a2e] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#007aff] hover:text-[#007aff]'
+                ? 'bg-[#007aff]/20 border-[#007aff] text-[#007aff]'
+                : 'bg-[#121317]/80 border-[#2A2D34] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#007aff] hover:text-[#007aff]'
             }`}
           >
             <Icon name="balance" size={16} />
@@ -91,57 +114,41 @@ export function ProductCard({
         </div>
       </Link>
 
-      {/* Card Content Body */}
-      <div className="flex flex-col flex-1 p-4 sm:p-5">
-        {/* Brand & Stock Header */}
-        <div className="flex items-center justify-between gap-2 mb-2">
-          <span className="font-mono text-[10px] tracking-wider text-[#007aff] uppercase font-bold">
-            {product.brand}
-          </span>
-          <StockBadge status={product.stockStatus} />
-        </div>
-
-        {/* Product Name */}
-        <Link to={`/products/${product.slug}`} className="group/link mb-2.5">
-          <h3 className="text-white text-sm sm:text-base leading-snug font-bold group-hover/link:text-[#007aff] transition-colors line-clamp-2 min-h-[44px]">
-            {product.name}
-          </h3>
-        </Link>
-
-        {/* Star Rating */}
-        <div className="mb-3">
-          <StarRating rating={product.rating} count={product.reviewCount} />
-        </div>
-
-        {/* Key Specifications Preview */}
-        <div className="mb-4 flex flex-col gap-1.5 border-t border-[#292a2e] pt-3 bg-[#121317]/50 rounded-lg p-2.5">
+      {/* ── Key Specifications Panel ── */}
+      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+        <div className="product-spec-panel mb-4 bg-[#1B1E24] border border-[#2A2D34] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-sans">
           {product.specifications.slice(0, 2).map((spec) => (
-            <div key={spec.label} className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[10px] uppercase tracking-wider">{spec.label}</span>
-              <span className="text-[#c1c6d7] font-mono text-[11px] font-semibold truncate max-w-[130px] text-right">
+            <div key={spec.label} className="flex flex-col">
+              <span className="product-spec-label font-mono text-[9px] sm:text-[10px] text-[#8b90a0] uppercase tracking-wider font-semibold">
+                {spec.label}
+              </span>
+              <span className="product-spec-value font-mono text-xs text-white font-bold truncate">
                 {spec.value}
               </span>
             </div>
           ))}
         </div>
 
-        {/* Price & Add to Cart Footer */}
-        <div className="flex items-center justify-between gap-2 mt-auto pt-3 border-t border-[#292a2e]">
-          <Price
-            price={product.price}
-            previousPrice={product.previousPrice}
-            discount={product.discount}
-            size="sm"
-          />
+        {/* ── Price & Add to Cart Action Area ── */}
+        <div className="pt-3 border-t border-[#2A2D34] product-card-footer flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <Price
+              price={product.price}
+              previousPrice={product.previousPrice}
+              discount={product.discount}
+              size="md"
+            />
+          </div>
+
           <button
             type="button"
             onClick={() => onAddToCart(product)}
             disabled={product.stockStatus === 'out-of-stock'}
             aria-label={`Add ${product.name} to cart`}
-            className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-[#007aff] text-white font-mono text-xs tracking-wider rounded-lg hover:bg-[#0066d6] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold shadow-md shadow-[#007aff]/20"
+            className="w-full h-11 md:h-12 bg-[#007aff] hover:bg-[#0066d6] active:scale-[0.98] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md shadow-[#007aff]/20"
           >
-            <Icon name="add_shopping_cart" size={15} />
-            ADD
+            <Icon name="add_shopping_cart" size={18} />
+            <span>ADD TO CART</span>
           </button>
         </div>
       </div>
@@ -173,7 +180,7 @@ export function ProductGrid({
   }
 
   return (
-    <div className={`grid gap-5 ${colClasses[columns]}`}>
+    <div className={`grid gap-5 md:gap-6 ${colClasses[columns]}`}>
       {products.map((product) => (
         <ProductCard
           key={product.id}
