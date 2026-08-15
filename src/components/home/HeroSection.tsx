@@ -15,8 +15,8 @@ export function HeroSection() {
       <div className="cinematic-hero-card relative w-full rounded-2xl bg-[#121317] border border-[#292a2e] overflow-hidden min-h-[580px] md:min-h-[640px] lg:min-h-[680px] flex flex-col justify-between p-6 sm:p-10 lg:p-16 shadow-2xl">
         {/* Background Cinematic Glows & Lighting */}
         <div className="absolute top-1/2 -right-10 -translate-y-1/2 w-[500px] sm:w-[650px] lg:w-[850px] h-[500px] sm:h-[650px] lg:h-[850px] bg-[#007aff]/15 rounded-full blur-[140px] pointer-events-none z-0" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#121317] via-[#121317]/95 to-transparent z-[1] pointer-events-none hidden lg:block" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#121317] via-[#121317]/70 to-transparent z-[1] pointer-events-none lg:hidden" />
+        <div className="hero-bg-gradient absolute inset-0 bg-gradient-to-r from-[#121317] via-[#121317]/95 to-transparent z-[1] pointer-events-none hidden lg:block" />
+        <div className="hero-bg-gradient-mobile absolute inset-0 bg-gradient-to-t from-[#121317] via-[#121317]/70 to-transparent z-[1] pointer-events-none lg:hidden" />
 
         {/* Desktop 40/60 Layout Container */}
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center h-full my-auto">
@@ -30,11 +30,11 @@ export function HeroSection() {
 
             {/* Headline */}
             <h1 className="font-black tracking-tighter leading-[0.92] text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl mb-6">
-              <span className="hero-white-text text-white block">NVIDIA RTX 5090</span>
+              <span className="hero-headline-primary text-white block">NVIDIA RTX 5090</span>
               <span className="text-[#007aff] block mt-1">FOUNDERS EDITION</span>
             </h1>
 
-            {/* GPU Visual - Mobile Only (Rendered between Headline and Description on Mobile) */}
+            {/* GPU Visual - Mobile Only */}
             <div className="block lg:hidden my-4 relative w-full aspect-[16/10] max-h-[280px] mx-auto order-2">
               {!gpuImgError ? (
                 <img
@@ -52,7 +52,7 @@ export function HeroSection() {
             </div>
 
             {/* Description */}
-            <p className="text-[#8b90a0] text-sm sm:text-base lg:text-lg max-w-[450px] leading-relaxed mb-8 order-3 font-normal">
+            <p className="hero-subtext text-[#8b90a0] text-sm sm:text-base lg:text-lg max-w-[450px] leading-relaxed mb-8 order-3 font-normal">
               Uncompromising performance for next-generation gaming.
             </p>
 
@@ -68,7 +68,7 @@ export function HeroSection() {
 
               <Link
                 to="/builder"
-                className="h-12 md:h-14 px-7 md:px-8 bg-[#16171d]/90 border border-[#292a2e] hover:border-[#007aff] hover:bg-[#1a1b22] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-lg flex items-center justify-center gap-2 transition-all"
+                className="hero-sec-btn h-12 md:h-14 px-7 md:px-8 bg-[#16171d]/90 border border-[#292a2e] hover:border-[#007aff] hover:bg-[#1a1b22] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-lg flex items-center justify-center gap-2 transition-all"
               >
                 <span>BUILD YOUR PC</span>
                 <Icon name="memory" size={16} className="text-[#007aff]" />

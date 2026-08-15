@@ -363,20 +363,38 @@ html.light-mode td {
   border-color: #E2E5EA !important;
 }
 
-/* Hero card maintains dark cinematic backdrop & brilliant white text */
+/* ─── Hero Theme System Rules ─── */
 html.light-mode .cinematic-hero-card {
-  background-color: #121317 !important;
-  color: #ffffff !important;
-  border-color: #292a2e !important;
+  background-color: #ffffff !important;
+  color: #111318 !important;
+  border-color: #e2e5ea !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05) !important;
 }
 
-html.light-mode .cinematic-hero-card .hero-white-text,
-html.light-mode .cinematic-hero-card .text-white {
-  color: #ffffff !important;
+html.light-mode .cinematic-hero-card .hero-headline-primary {
+  color: #111318 !important;
 }
 
-html.light-mode .cinematic-hero-card p {
-  color: #8b90a0 !important;
+html.light-mode .cinematic-hero-card .hero-subtext {
+  color: #4b5563 !important;
+}
+
+html.light-mode .cinematic-hero-card .hero-sec-btn {
+  background-color: #f0f2f5 !important;
+  color: #111318 !important;
+  border-color: #e2e5ea !important;
+}
+
+html.light-mode .cinematic-hero-card .hero-sec-btn:hover {
+  border-color: #007aff !important;
+}
+
+html.light-mode .cinematic-hero-card .hero-bg-gradient {
+  background: linear-gradient(to right, #ffffff 0%, rgba(255, 255, 255, 0.95) 55%, transparent 100%) !important;
+}
+
+html.light-mode .cinematic-hero-card .hero-bg-gradient-mobile {
+  background: linear-gradient(to top, #ffffff 0%, rgba(255, 255, 255, 0.8) 60%, transparent 100%) !important;
 }
 
 /* Admin Dashboard & Recharts in Light Mode */
