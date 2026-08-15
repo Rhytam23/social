@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Brand } from '../../types'
 import { Icon } from '../ui'
@@ -20,9 +21,18 @@ const BRAND_DESCRIPTIONS: Record<string, string> = {
 // ─── Official Brand Vector Logos (Pixel-Perfect ViewBox & Theme Compatible) ──
 
 function OfficialBrandLogo({ name }: { name: string }) {
+  const [imgError, setImgError] = useState(false)
+
   switch (name) {
     case 'NVIDIA':
-      return (
+      return !imgError ? (
+        <img
+          src="/logos/nvidia.png"
+          alt="NVIDIA"
+          className="h-7 md:h-8 w-auto max-w-[130px] max-h-[38px] object-contain select-none shrink-0"
+          onError={() => setImgError(true)}
+        />
+      ) : (
         <svg viewBox="0 0 140 36" className="h-7 md:h-8 w-auto max-w-[120px] max-h-[36px] object-contain select-none shrink-0">
           <path
             fill="#76B900"
@@ -54,7 +64,15 @@ function OfficialBrandLogo({ name }: { name: string }) {
       )
 
     case 'ASUS ROG':
-      return (
+    case 'ASUS':
+      return !imgError ? (
+        <img
+          src="/logos/asus.png"
+          alt="ASUS"
+          className="h-7 md:h-8 w-auto max-w-[125px] max-h-[38px] object-contain select-none shrink-0"
+          onError={() => setImgError(true)}
+        />
+      ) : (
         <svg viewBox="0 0 160 36" className="h-7 md:h-8 w-auto max-w-[130px] max-h-[36px] object-contain select-none shrink-0">
           <path fill="#FF4655" d="M10 2C22 1 38 6 42 13c-8 0-18 4-23 11zM42 10c7-4 18-9 23-11-7 12-25 16-31 8z" />
           <text x="0" y="30" fill="#FF4655" fontFamily="system-ui, sans-serif" fontSize="12" fontWeight="900" letterSpacing="1.2px">
@@ -94,7 +112,14 @@ function OfficialBrandLogo({ name }: { name: string }) {
       )
 
     case 'Samsung':
-      return (
+      return !imgError ? (
+        <img
+          src="/logos/samsung.png"
+          alt="SAMSUNG"
+          className="h-7 md:h-8 w-auto max-w-[130px] max-h-[38px] object-contain select-none shrink-0"
+          onError={() => setImgError(true)}
+        />
+      ) : (
         <svg viewBox="0 0 140 36" className="h-7 md:h-8 w-auto max-w-[125px] max-h-[36px] object-contain select-none shrink-0">
           <ellipse cx="70" cy="18" rx="66" ry="16" fill="#1428A0" />
           <text x="22" y="23" fill="#FFFFFF" fontFamily="system-ui, sans-serif" fontSize="15" fontWeight="900" letterSpacing="1.8px">
