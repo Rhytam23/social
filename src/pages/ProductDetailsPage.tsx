@@ -27,6 +27,20 @@ export function ProductDetailsPage() {
   const [newReviewRating, setNewReviewRating] = useState(5)
   const [reviewSubmitted, setReviewSubmitted] = useState(false)
 
+  const relatedProducts = useMemo(() => {
+    if (!product) return []
+    return products
+      .filter((p) => p.id !== product.id && p.category === product.category)
+      .slice(0, 4)
+  }, [products, product])
+
+  const fbtItems = useMemo(() => {
+    if (!product) return []
+    return products
+      .filter((p) => p.id !== product.id && p.category !== product.category && p.category !== 'Gaming PCs')
+      .slice(0, 2)
+  }, [products, product])
+
   if (!product) {
     return (
       <main className="flex-1 container-max px-4 py-16 text-center">
@@ -43,17 +57,6 @@ export function ProductDetailsPage() {
   const gallery = product.gallery || [product.image]
   const isWishlisted = isInWishlist(product.id)
   const comparing = isInCompare(product.id)
-  const relatedProducts = useMemo(() => {
-    return products
-      .filter((p) => p.id !== product.id && p.category === product.category)
-      .slice(0, 4)
-  }, [products, product])
-
-  const fbtItems = useMemo(() => {
-    return products
-      .filter((p) => p.id !== product.id && p.category !== product.category && p.category !== 'Gaming PCs')
-      .slice(0, 2)
-  }, [products, product])
 
   const fbtBundle = [product, ...fbtItems]
   const fbtTotal = fbtBundle.reduce((s, p) => s + p.price, 0)

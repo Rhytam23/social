@@ -176,7 +176,7 @@ interface BrandSectionProps {
   brands?: Brand[]
 }
 
-export function BrandSection({}: BrandSectionProps) {
+export function BrandSection({ brands: _brands }: BrandSectionProps = {}) {
   // Build exact duplicate array for seamless -50% translateX marquee loop
   const duplicateList = [...BRAND_PARTNERS_CONFIG, ...BRAND_PARTNERS_CONFIG]
 
