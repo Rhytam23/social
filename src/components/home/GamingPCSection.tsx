@@ -18,17 +18,22 @@ function RigCard({ pc }: RigCardProps) {
   const wishlisted = isInWishlist(pc.id)
 
   return (
-    <article className="bg-[#121317] border border-[#292a2e] rounded-lg hover:border-[#007aff] transition-all duration-300 flex flex-col justify-between overflow-hidden group shadow-xl h-full">
-      {/* Card Header Bar */}
-      <div className="p-3.5 bg-[#16171d] border-b border-[#292a2e] flex items-center justify-between">
-        <span className="font-mono text-[10px] text-[#007aff] bg-[#007aff15] px-2.5 py-0.5 rounded border border-[#007aff30] font-bold uppercase tracking-wider">
-          {pc.performanceTier}
-        </span>
+    <article className="group relative flex flex-col bg-[#121317] border border-[#292a2e] hover:border-[#007aff]/60 rounded-2xl transition-all duration-300 overflow-hidden shadow-2xl hover:shadow-[0_16px_50px_rgba(0,122,255,0.15)] hover:-translate-y-1.5 h-full">
+      {/* Top Header Badge Bar */}
+      <div className="px-5 py-3.5 bg-[#16171d] border-b border-[#292a2e] flex items-center justify-between z-10">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] text-[#007aff] bg-[#007aff]/15 px-3 py-1 rounded-md border border-[#007aff]/30 font-bold uppercase tracking-widest shadow-[0_0_10px_rgba(0,122,255,0.15)]">
+            {pc.performanceTier}
+          </span>
+        </div>
+
         <button
           type="button"
           onClick={() => toggleWishlist(pc.id)}
-          className={`p-1.5 transition-colors rounded hover:bg-[#1a1b1f] ${
-            wishlisted ? 'text-[#ff453a]' : 'text-[#8b90a0] hover:text-[#ff453a]'
+          className={`p-2 transition-all rounded-lg backdrop-blur-md border border-transparent ${
+            wishlisted
+              ? 'text-[#ff453a] bg-[#ff453a]/15 border-[#ff453a]/30'
+              : 'text-[#8b90a0] hover:text-[#ff453a] hover:bg-[#1a1b1f] hover:border-[#292a2e]'
           }`}
           aria-label={wishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
         >
@@ -36,96 +41,102 @@ function RigCard({ pc }: RigCardProps) {
         </button>
       </div>
 
-      {/* Image Container with Aspect Ratio */}
-      <Link to={`/gaming-pc/${pc.id}`} className="relative bg-[#0d0e12] overflow-hidden block aspect-[16/10]">
+      {/* Large 16:10 Hardware Photography Container */}
+      <Link to={`/gaming-pc/${pc.id}`} className="relative bg-[#0d0e12] overflow-hidden block aspect-[16/10] group/img">
+        <div className="absolute inset-0 bg-gradient-to-t from-[#121317] via-transparent to-transparent z-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10" />
+
         {!imageError ? (
           <img
             src={pc.image}
             alt={pc.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
             onError={() => setImageError(true)}
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[#16171d] to-[#0d0e12] text-[#414755]">
-            <Icon name="desktop_windows" size={48} className="text-[#007aff60] mb-2" />
-            <span className="font-mono text-[10px] text-[#8b90a0] uppercase tracking-wider">PRELOADED RIG SHOWCASE</span>
+          <div className="w-full h-full flex flex-col items-center justify-center bg-[#0d0e12] text-[#414755]">
+            <Icon name="desktop_windows" size={48} className="text-[#007aff]/60 mb-2" />
+            <span className="font-mono text-[10px] text-[#8b90a0] uppercase tracking-widest font-bold">FLAGSHIP GAMING RIG</span>
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#121317] via-transparent to-transparent" />
-        <div className="absolute bottom-2.5 left-3 right-3 flex items-center justify-between text-[11px] font-mono">
-          <span className="bg-[#121317d0] text-[#c1c6d7] px-2 py-0.5 rounded backdrop-blur-sm border border-[#292a2e] truncate max-w-[55%]">
+
+        {/* Floating Chassis Label & Stock Status */}
+        <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between z-20 font-mono text-[11px]">
+          <span className="bg-[#121317]/90 text-[#c1c6d7] px-3 py-1 rounded-md backdrop-blur-md border border-[#292a2e] truncate max-w-[60%] shadow-lg">
             {pc.caseName}
           </span>
-          <span className="text-[#30d158] bg-[#121317d0] px-2 py-0.5 rounded backdrop-blur-sm border border-[#30d15830] font-bold">
-            READY TO SHIP
+          <span className="text-[#30d158] bg-[#121317]/90 px-3 py-1 rounded-md backdrop-blur-md border border-[#30d158]/30 font-bold flex items-center gap-1 shadow-lg">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#30d158] animate-pulse" />
+            IN STOCK
           </span>
         </div>
       </Link>
 
       {/* Content Body */}
-      <div className="p-5 flex-1 flex flex-col justify-between">
+      <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between">
         <div>
-          {/* Title */}
+          {/* Rig Title */}
           <Link to={`/gaming-pc/${pc.id}`}>
-            <h3 className="text-white font-bold text-base leading-snug group-hover:text-[#adc6ff] transition-colors mb-2 line-clamp-1">
+            <h3 className="text-white font-black text-lg sm:text-xl leading-snug group-hover:text-[#007aff] transition-colors mb-2 line-clamp-1">
               {pc.name}
             </h3>
           </Link>
 
-          {/* Rating */}
+          {/* Star Rating */}
           <div className="mb-4">
             <StarRating rating={pc.rating} count={pc.reviewCount} />
           </div>
 
-          {/* Two-Column Specification Panel */}
-          <div className="bg-[#16171d] rounded-md p-3 border border-[#292a2e] space-y-2 font-sans text-xs">
+          {/* Detailed Hardware Spec Table */}
+          <div className="bg-[#16171d] rounded-xl p-3.5 border border-[#292a2e] space-y-2.5 font-sans text-xs">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-1.5 shrink-0">
-                <Icon name="memory" size={14} className="text-[#007aff]" /> CPU
+              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
+                <Icon name="memory" size={15} className="text-[#007aff]" /> CPU
               </span>
-              <span className="text-[#e3e2e7] font-semibold truncate text-right">{pc.cpu}</span>
+              <span className="text-white font-mono text-xs font-bold truncate text-right">{pc.cpu}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-1.5 shrink-0">
-                <Icon name="videogame_asset" size={14} className="text-[#ff5c00]" /> GPU
+              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
+                <Icon name="videogame_asset" size={15} className="text-[#ff5c00]" /> GPU
               </span>
-              <span className="text-[#e3e2e7] font-semibold truncate text-right">{pc.gpu}</span>
+              <span className="text-white font-mono text-xs font-bold truncate text-right">{pc.gpu}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-1.5 shrink-0">
-                <Icon name="storage" size={14} className="text-[#30d158]" /> RAM
+              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
+                <Icon name="storage" size={15} className="text-[#30d158]" /> RAM
               </span>
-              <span className="text-[#e3e2e7] font-semibold truncate text-right">{pc.ram}</span>
+              <span className="text-[#c1c6d7] font-mono text-xs font-semibold truncate text-right">{pc.ram}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-1.5 shrink-0">
-                <Icon name="hard_drive" size={14} className="text-[#ffd60a]" /> SSD
+              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
+                <Icon name="hard_drive" size={15} className="text-[#ffd60a]" /> SSD
               </span>
-              <span className="text-[#e3e2e7] font-semibold truncate text-right">{pc.storage}</span>
+              <span className="text-[#c1c6d7] font-mono text-xs font-semibold truncate text-right">{pc.storage}</span>
             </div>
           </div>
         </div>
 
-        {/* Price & Action Bar */}
-        <div className="mt-5 pt-4 border-t border-[#292a2e] flex items-center justify-between gap-3">
+        {/* Price & Action CTA */}
+        <div className="mt-6 pt-4 border-t border-[#292a2e] flex items-center justify-between gap-3">
           <div>
-            <span className="text-[10px] font-mono text-[#8b90a0] block uppercase font-semibold">RETAIL PRICE</span>
+            <span className="text-[10px] font-mono text-[#8b90a0] block uppercase font-bold tracking-wider">SYSTEM PRICE</span>
             <Price price={pc.price} previousPrice={pc.previousPrice} discount={pc.discount} size="md" />
           </div>
+
           <div className="flex items-center gap-2">
             <Link
               to={`/gaming-pc/${pc.id}`}
-              className="px-3 py-2 border border-[#292a2e] hover:border-white text-white text-xs font-mono rounded font-bold transition-colors"
+              className="px-3.5 py-2.5 border border-[#292a2e] hover:border-white text-white text-xs font-mono rounded-lg font-bold transition-all hover:bg-white/10"
             >
               SPECS
             </Link>
             <button
               type="button"
               onClick={() => addToCart(pc, 1)}
-              className="px-3.5 py-2 bg-[#007aff] hover:bg-[#0066d6] text-white text-xs font-mono font-bold rounded flex items-center gap-1.5 transition-colors shadow-md"
+              className="px-4 py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white text-xs font-mono font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-md shadow-[#007aff]/20 active:scale-95"
             >
-              <Icon name="shopping_cart" size={14} /> ORDER RIG
+              <Icon name="shopping_cart" size={15} /> ORDER
             </button>
           </div>
         </div>
@@ -136,43 +147,48 @@ function RigCard({ pc }: RigCardProps) {
 
 export function GamingPCSection({ pcs }: GamingPCSectionProps) {
   return (
-    <section className="bg-[#16171d] border border-[#292a2e] rounded-lg p-5 md:p-8 shadow-2xl">
+    <section className="relative overflow-hidden bg-[#16171d] border border-[#292a2e] rounded-2xl p-6 sm:p-8 md:p-10 shadow-2xl">
+      {/* Background Subtle Accent Glow */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#007aff]/10 rounded-full blur-[140px] pointer-events-none" />
+
       {/* Section Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4 pb-6 border-b border-[#292a2e]">
-        <div className="max-w-[620px]">
-          <div className="flex items-center gap-2 mb-1.5">
-            <span className="font-mono text-[10px] tracking-wider text-[#007aff] bg-[#007aff15] px-2.5 py-0.5 rounded border border-[#007aff30] font-bold">
-              SYSTEM INTEGRATION
+      <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6 pb-6 border-b border-[#292a2e]">
+        <div className="max-w-[650px]">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="font-mono text-xs text-[#007aff] bg-[#007aff]/15 px-3 py-1 rounded-md border border-[#007aff]/30 font-bold uppercase tracking-widest">
+              PRE-TESTED SYSTEMS
             </span>
-            <span className="font-mono text-[10px] text-[#30d158] flex items-center gap-1 font-semibold">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#30d158] inline-block animate-pulse" /> 72H STRESS TESTED
+            <span className="font-mono text-xs text-[#30d158] flex items-center gap-1.5 font-bold">
+              <span className="w-2 h-2 rounded-full bg-[#30d158] animate-pulse" /> 72H STRESS TESTED
             </span>
           </div>
-          <h2 className="text-white font-black text-xl md:text-2xl tracking-tight">Apex Series Prebuilt Gaming Rigs</h2>
-          <p className="text-[#8b90a0] text-sm mt-1.5 leading-relaxed">
-            Custom-built, hand-tuned, and thermal-benchmarked with genuine retail components. Zero proprietary parts.
+          <h2 className="text-white font-black text-2xl sm:text-3xl md:text-4xl tracking-tight leading-tight">
+            Apex Flagship Prebuilt Rigs
+          </h2>
+          <p className="text-[#8b90a0] text-sm sm:text-base mt-2 leading-relaxed">
+            Custom-crafted, hand-tuned, and thermal-benchmarked using 100% genuine retail componentry. No proprietary bloatware.
           </p>
         </div>
 
-        <div className="flex items-center gap-3 shrink-0 self-start md:self-auto flex-wrap">
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
           <Link
             to="/builder"
-            className="px-4 py-2.5 bg-transparent border border-[#007aff] text-[#007aff] hover:bg-[#007aff15] font-mono text-xs tracking-wider rounded font-bold transition-colors flex items-center gap-1.5"
+            className="px-4 py-2.5 bg-transparent border border-[#007aff] text-[#007aff] hover:bg-[#007aff]/15 font-mono text-xs tracking-wider rounded-lg font-bold transition-all flex items-center gap-2"
           >
-            <Icon name="build" size={14} /> CUSTOM RIG CONFIGURATOR
+            <Icon name="build" size={15} /> CUSTOM BUILDER
           </Link>
           <Link
             to="/gaming-pcs"
-            className="px-4 py-2.5 bg-[#007aff] text-white hover:bg-[#0066d6] font-mono text-xs tracking-wider rounded font-bold transition-colors flex items-center gap-1.5"
+            className="px-5 py-2.5 bg-[#007aff] text-white hover:bg-[#0066d6] font-mono text-xs tracking-wider rounded-lg font-bold transition-all flex items-center gap-2 shadow-lg shadow-[#007aff]/20"
           >
             <span>VIEW ALL RIGS</span>
-            <Icon name="arrow_forward" size={14} />
+            <Icon name="arrow_forward" size={15} />
           </Link>
         </div>
       </div>
 
-      {/* Product Grid: 3 columns desktop, 2 tablet, 1 mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Rigs Grid */}
+      <div className="relative z-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {pcs.map((pc) => (
           <RigCard key={pc.id} pc={pc} />
         ))}

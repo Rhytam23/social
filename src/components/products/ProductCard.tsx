@@ -13,37 +13,48 @@ interface ProductCardProps {
   isWishlisted?: boolean
 }
 
-export function ProductCard({ product, onAddToCart, onToggleWishlist, isWishlisted = false }: ProductCardProps) {
+export function ProductCard({
+  product,
+  onAddToCart,
+  onToggleWishlist,
+  isWishlisted = false,
+}: ProductCardProps) {
   const [imageError, setImageError] = useState(false)
   const { toggleCompare, isInCompare } = useShop()
   const comparing = isInCompare(product.id)
 
   return (
-    <article className="group flex flex-col bg-[#1a1b1f] border border-[#414755] rounded hover:border-[#8b90a0] transition-all duration-200 overflow-hidden">
-      {/* Image Container */}
-      <Link to={`/products/${product.slug}`} className="relative bg-[#1e1f23] overflow-hidden block" style={{ aspectRatio: '4/3' }}>
+    <article className="group relative flex flex-col bg-[#16171d] border border-[#292a2e] hover:border-[#007aff]/60 rounded-xl transition-all duration-300 overflow-hidden hover:shadow-[0_12px_40px_rgba(0,0,0,0.4)] hover:-translate-y-1">
+      {/* Image Container with Radial Glow */}
+      <Link
+        to={`/products/${product.slug}`}
+        className="relative bg-[#121317] overflow-hidden block group/img"
+        style={{ aspectRatio: '4/3' }}
+      >
+        <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/5 via-transparent to-transparent pointer-events-none z-0" />
+        
         {!imageError ? (
           <img
             src={product.image}
             alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out relative z-1"
             onError={() => setImageError(true)}
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[#1e1f23]">
-            <Icon name="memory" size={40} className="text-[#414755]" />
+          <div className="w-full h-full flex items-center justify-center bg-[#121317] relative z-1">
+            <Icon name="memory" size={44} className="text-[#414755]" />
           </div>
         )}
 
-        {/* Badges overlay */}
-        <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-          {product.isNew && <Badge variant="primary">NEW</Badge>}
-          {product.discount && <Badge variant="orange">-{product.discount}%</Badge>}
+        {/* Badges Overlay */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-10 pointer-events-none">
+          {product.isNew && <Badge variant="primary">NEW ARRIVAL</Badge>}
+          {product.discount && <Badge variant="orange">-{product.discount}% OFF</Badge>}
         </div>
 
-        {/* Action buttons */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-10">
+        {/* Floating Action Buttons */}
+        <div className="absolute top-2.5 right-2.5 flex flex-col gap-1.5 z-10">
           <button
             type="button"
             onClick={(e) => {
@@ -52,14 +63,15 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist, isWishlist
               onToggleWishlist(product.id)
             }}
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            className={`w-8 h-8 flex items-center justify-center rounded border transition-all duration-200
-              ${isWishlisted
+            className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-md transition-all duration-200 shadow-md ${
+              isWishlisted
                 ? 'bg-[#ff453a20] border-[#ff453a] text-[#ff453a]'
-                : 'bg-[#12131790] border-[#414755] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#ff453a] hover:text-[#ff453a]'
-              }`}
+                : 'bg-[#121317]/80 border-[#292a2e] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#ff453a] hover:text-[#ff453a]'
+            }`}
           >
             <Icon name="favorite" size={16} filled={isWishlisted} />
           </button>
+
           <button
             type="button"
             onClick={(e) => {
@@ -68,56 +80,67 @@ export function ProductCard({ product, onAddToCart, onToggleWishlist, isWishlist
               toggleCompare(product.id)
             }}
             aria-label={comparing ? 'Remove from comparison' : 'Add to comparison'}
-            className={`w-8 h-8 flex items-center justify-center rounded border transition-all duration-200
-              ${comparing
+            className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-md transition-all duration-200 shadow-md ${
+              comparing
                 ? 'bg-[#007aff20] border-[#007aff] text-[#007aff]'
-                : 'bg-[#12131790] border-[#414755] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#007aff] hover:text-[#007aff]'
-              }`}
+                : 'bg-[#121317]/80 border-[#292a2e] text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:border-[#007aff] hover:text-[#007aff]'
+            }`}
           >
             <Icon name="balance" size={16} />
           </button>
         </div>
       </Link>
 
-      {/* Content */}
-      <div className="flex flex-col flex-1 p-4">
-        {/* Brand + Stock */}
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className="font-mono text-[10px] tracking-[0.08em] text-[#8b90a0] uppercase font-semibold">{product.brand}</span>
+      {/* Card Content Body */}
+      <div className="flex flex-col flex-1 p-4 sm:p-5">
+        {/* Brand & Stock Header */}
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <span className="font-mono text-[10px] tracking-wider text-[#007aff] uppercase font-bold">
+            {product.brand}
+          </span>
           <StockBadge status={product.stockStatus} />
         </div>
 
         {/* Product Name */}
-        <Link to={`/products/${product.slug}`} className="group/link mb-2">
-          <h3 className="text-[#e3e2e7] text-sm leading-snug font-medium group-hover/link:text-[#adc6ff] transition-colors line-clamp-2 min-h-[38px]">
+        <Link to={`/products/${product.slug}`} className="group/link mb-2.5">
+          <h3 className="text-white text-sm sm:text-base leading-snug font-bold group-hover/link:text-[#007aff] transition-colors line-clamp-2 min-h-[44px]">
             {product.name}
           </h3>
         </Link>
 
-        {/* Rating */}
-        <StarRating rating={product.rating} count={product.reviewCount} />
+        {/* Star Rating */}
+        <div className="mb-3">
+          <StarRating rating={product.rating} count={product.reviewCount} />
+        </div>
 
-        {/* Specs Preview */}
-        <div className="mt-3 mb-3 flex flex-col gap-1 border-t border-[#292a2e] pt-3">
+        {/* Key Specifications Preview */}
+        <div className="mb-4 flex flex-col gap-1.5 border-t border-[#292a2e] pt-3 bg-[#121317]/50 rounded-lg p-2.5">
           {product.specifications.slice(0, 2).map((spec) => (
-            <div key={spec.label} className="flex items-center justify-between">
-              <span className="text-[#8b90a0] font-mono text-[10px]">{spec.label}</span>
-              <span className="text-[#e3e2e7] font-mono text-[10px] truncate max-w-[140px] text-right">{spec.value}</span>
+            <div key={spec.label} className="flex items-center justify-between gap-2">
+              <span className="text-[#8b90a0] font-mono text-[10px] uppercase tracking-wider">{spec.label}</span>
+              <span className="text-[#c1c6d7] font-mono text-[11px] font-semibold truncate max-w-[130px] text-right">
+                {spec.value}
+              </span>
             </div>
           ))}
         </div>
 
-        {/* Price + Add to Cart */}
-        <div className="flex items-end justify-between gap-2 mt-auto pt-2 border-t border-[#292a2e]">
-          <Price price={product.price} previousPrice={product.previousPrice} discount={product.discount} size="sm" />
+        {/* Price & Add to Cart Footer */}
+        <div className="flex items-center justify-between gap-2 mt-auto pt-3 border-t border-[#292a2e]">
+          <Price
+            price={product.price}
+            previousPrice={product.previousPrice}
+            discount={product.discount}
+            size="sm"
+          />
           <button
             type="button"
             onClick={() => onAddToCart(product)}
             disabled={product.stockStatus === 'out-of-stock'}
             aria-label={`Add ${product.name} to cart`}
-            className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-[#007aff] text-white font-mono text-[10px] tracking-[0.05em] rounded hover:bg-[#0066d6] active:bg-[#004fc2] disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-bold"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 bg-[#007aff] text-white font-mono text-xs tracking-wider rounded-lg hover:bg-[#0066d6] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed transition-all font-bold shadow-md shadow-[#007aff]/20"
           >
-            <Icon name="add_shopping_cart" size={14} />
+            <Icon name="add_shopping_cart" size={15} />
             ADD
           </button>
         </div>
@@ -136,7 +159,13 @@ interface ProductGridProps {
   columns?: 2 | 3 | 4
 }
 
-export function ProductGrid({ products, onAddToCart, onToggleWishlist, wishlistedIds, columns = 4 }: ProductGridProps) {
+export function ProductGrid({
+  products,
+  onAddToCart,
+  onToggleWishlist,
+  wishlistedIds,
+  columns = 4,
+}: ProductGridProps) {
   const colClasses = {
     2: 'grid-cols-1 sm:grid-cols-2',
     3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
@@ -144,7 +173,7 @@ export function ProductGrid({ products, onAddToCart, onToggleWishlist, wishliste
   }
 
   return (
-    <div className={`grid gap-4 ${colClasses[columns]}`}>
+    <div className={`grid gap-5 ${colClasses[columns]}`}>
       {products.map((product) => (
         <ProductCard
           key={product.id}
