@@ -249,7 +249,7 @@ export function EmptyState({ icon = 'inbox', title, message, action, className =
     <div className={`bg-[#1a1b1f] border border-[#414755] rounded p-12 text-center flex flex-col items-center ${className}`}>
       <Icon name={icon} size={48} className="text-[#414755] mb-3" />
       <h3 className="text-white font-bold text-lg mb-1">{title}</h3>
-      {message && <p className="text-[#8b90a0] text-xs max-w-sm mx-auto mb-4">{message}</p>}
+      {message && <p className="text-[#8b90a0] text-xs md:text-sm max-w-[460px] w-full mx-auto leading-relaxed mb-4">{message}</p>}
       {action}
     </div>
   )

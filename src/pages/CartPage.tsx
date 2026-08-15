@@ -33,25 +33,25 @@ export function CartPage() {
 
   if (cart.length === 0) {
     return (
-      <main className="flex-1 w-full py-16">
-        <div className="container-max px-4 text-center">
-          <div className="w-20 h-20 bg-[#1a1b1f] border border-[#414755] rounded-full flex items-center justify-center mx-auto mb-4 text-[#8b90a0]">
+      <main className="flex-1 w-full py-16 flex items-center justify-center">
+        <div className="container-max px-4 text-center flex flex-col items-center justify-center max-w-[600px] w-full mx-auto">
+          <div className="w-20 h-20 bg-[#16171d] border border-[#292a2e] rounded-full flex items-center justify-center mb-4 text-[#007aff] shadow-lg">
             <Icon name="shopping_cart" size={36} />
           </div>
-          <h1 className="text-white font-bold text-2xl tracking-tight mb-2">Your Hardware Cart is Empty</h1>
-          <p className="text-[#8b90a0] text-sm max-w-sm mx-auto mb-6">
+          <h1 className="text-white font-bold text-2xl md:text-3xl tracking-tight mb-2">Your Hardware Cart is Empty</h1>
+          <p className="text-[#8b90a0] text-sm md:text-base max-w-[480px] w-full mx-auto leading-relaxed mb-6">
             You don't have any hardware components or gaming systems added to your bag yet.
           </p>
-          <div className="flex justify-center gap-3">
+          <div className="flex flex-wrap justify-center gap-3 w-full">
             <Link
               to="/products"
-              className="px-6 py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors"
+              className="px-6 py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors shadow-md"
             >
               SHOP PRODUCTS
             </Link>
             <Link
               to="/builder"
-              className="px-6 py-2.5 bg-[#1a1b1f] border border-[#414755] hover:border-white text-white font-mono text-xs font-bold rounded transition-colors"
+              className="px-6 py-3 bg-[#16171d] border border-[#292a2e] hover:border-[#007aff] text-white font-mono text-xs font-bold rounded transition-colors"
             >
               START A CUSTOM BUILD
             </Link>
