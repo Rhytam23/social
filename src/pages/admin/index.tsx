@@ -9,6 +9,8 @@ import { AdminInventory } from './AdminInventory'
 import { AdminCategories } from './AdminCategories'
 import { AdminPromotions } from './AdminPromotions'
 import { AdminAnalytics } from './AdminAnalytics'
+import { AdminMedia } from './AdminMedia'
+import { AdminSettings } from './AdminSettings'
 import { NotFoundPage } from '../NotFoundPage'
 
 export default function AdminApp() {
@@ -25,6 +27,8 @@ export default function AdminApp() {
         <Route path="categories" element={<AdminCategories />} />
         <Route path="promotions" element={<AdminPromotions />} />
         <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="media" element={<AdminMedia />} />
+        <Route path="settings" element={<AdminSettings />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

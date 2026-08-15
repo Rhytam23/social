@@ -1,44 +1,142 @@
+import { useState } from 'react'
 import { Icon } from '../../components/ui'
 import { AdminPageHeader, StatCard, Pill } from './AdminLayout'
 import { coupons } from '../../data'
-
-const CAMPAIGNS = [
-  { id: 'cmp1', name: 'RTX 50 Launch Event', type: 'Flash Sale', reach: '48.2k', status: 'Active', accent: '#007aff' },
-  { id: 'cmp2', name: 'Back to School Build', type: 'Bundle Deal', reach: '31.5k', status: 'Active', accent: '#30d158' },
-  { id: 'cmp3', name: 'Black Friday 2026', type: 'Sitewide', reach: '—', status: 'Scheduled', accent: '#bf5af2' },
-]
-
-const BANNERS = [
-  { id: 'b1', title: 'Homepage Hero — RTX 5090', placement: 'Homepage Top', active: true },
-  { id: 'b2', title: 'Deals Page — Flash Banner', placement: 'Deals Header', active: true },
-  { id: 'b3', title: 'Category — GPU Promo', placement: 'GPU Category', active: false },
-]
+import { useShop } from '../../context/ShopContext'
 
 export function AdminPromotions() {
+  const { heroCampaign, updateHeroCampaign } = useShop()
+
+  const [badge, setBadge] = useState(heroCampaign.badge)
+  const [headlinePrimary, setHeadlinePrimary] = useState(heroCampaign.headlinePrimary)
+  const [headlineAccent, setHeadlineAccent] = useState(heroCampaign.headlineAccent)
+  const [description, setDescription] = useState(heroCampaign.description)
+  const [image, setImage] = useState(heroCampaign.image)
+  const [primaryCtaLabel, setPrimaryCtaLabel] = useState(heroCampaign.primaryCtaLabel)
+  const [primaryCtaHref, setPrimaryCtaHref] = useState(heroCampaign.primaryCtaHref)
+  const [secondaryCtaLabel, setSecondaryCtaLabel] = useState(heroCampaign.secondaryCtaLabel)
+  const [secondaryCtaHref, setSecondaryCtaHref] = useState(heroCampaign.secondaryCtaHref)
+
+  const [savedHero, setSavedHero] = useState(false)
+
+  const handleHeroSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    updateHeroCampaign({
+      badge,
+      headlinePrimary,
+      headlineAccent,
+      description,
+      image,
+      primaryCtaLabel,
+      primaryCtaHref,
+      secondaryCtaLabel,
+      secondaryCtaHref,
+    })
+    setSavedHero(true)
+    setTimeout(() => setSavedHero(false), 2500)
+  }
+
   const activeCoupons = coupons.filter((c) => c.status === 'Active').length
+  const fieldClass = 'w-full bg-[#121317] border border-[#414755] rounded p-2.5 text-xs text-white focus:outline-none focus:border-[#007aff] placeholder:text-[#8b90a0]'
+  const labelClass = 'text-[11px] font-mono text-[#8b90a0] block mb-1 uppercase font-bold tracking-wider'
 
   return (
-    <div>
+    <div className="space-y-6">
       <AdminPageHeader
-        title="Promotions"
-        subtitle="Coupons, campaigns, banners & flash sales"
-        action={
-          <button className="px-4 py-2 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors">
-            <Icon name="add" size={15} /> CREATE PROMOTION
-          </button>
-        }
+        title="Promotions & Homepage Hero CMS"
+        subtitle="Manage flash deals, homepage hero campaigns, and coupon codes"
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      {/* Stats Summary */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="Active Coupons" value={String(activeCoupons)} icon="sell" color="#007aff" />
         <StatCard label="Total Redemptions" value="7.2k" delta="14%" deltaUp icon="redeem" color="#30d158" />
-        <StatCard label="Active Campaigns" value="2" icon="campaign" color="#ff5c00" />
+        <StatCard label="Hero Campaigns" value="1 Active" icon="campaign" color="#ff5c00" />
         <StatCard label="Discount Given" value="$89k" icon="percent" color="#ffd60a" />
       </div>
 
+      {/* ── Homepage Hero Campaign Management ── */}
+      <section className="bg-[#1a1b1f] border border-[#414755] rounded p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#292a2e]">
+          <div>
+            <h2 className="text-white font-bold text-base flex items-center gap-2">
+              <Icon name="campaign" size={20} className="text-[#007aff]" />
+              <span>Live Homepage Hero Campaign Manager</span>
+            </h2>
+            <p className="text-[#8b90a0] text-xs mt-0.5">
+              Changes saved here instantly update the flagship campaign hero on the live storefront.
+            </p>
+          </div>
+          {savedHero && (
+            <span className="font-mono text-xs text-[#30d158] font-bold flex items-center gap-1">
+              <Icon name="check_circle" size={16} /> SAVED LIVE
+            </span>
+          )}
+        </div>
+
+        <form onSubmit={handleHeroSubmit} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass}>Hero Badge Text</label>
+              <input className={fieldClass} value={badge} onChange={(e) => setBadge(e.target.value)} required />
+            </div>
+            <div>
+              <label className={labelClass}>Headline Primary</label>
+              <input className={fieldClass} value={headlinePrimary} onChange={(e) => setHeadlinePrimary(e.target.value)} required />
+            </div>
+            <div>
+              <label className={labelClass}>Headline Accent (Blue)</label>
+              <input className={fieldClass} value={headlineAccent} onChange={(e) => setHeadlineAccent(e.target.value)} required />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass}>Description Copy</label>
+            <textarea
+              className={`${fieldClass} h-20 resize-none`}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              required
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Hero Photography / Graphics Image URL</label>
+            <input className={fieldClass} value={image} onChange={(e) => setImage(e.target.value)} required />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className={labelClass}>Primary CTA Label</label>
+              <input className={fieldClass} value={primaryCtaLabel} onChange={(e) => setPrimaryCtaLabel(e.target.value)} required />
+            </div>
+            <div>
+              <label className={labelClass}>Primary CTA Href</label>
+              <input className={fieldClass} value={primaryCtaHref} onChange={(e) => setPrimaryCtaHref(e.target.value)} required />
+            </div>
+            <div>
+              <label className={labelClass}>Secondary CTA Label</label>
+              <input className={fieldClass} value={secondaryCtaLabel} onChange={(e) => setSecondaryCtaLabel(e.target.value)} required />
+            </div>
+            <div>
+              <label className={labelClass}>Secondary CTA Href</label>
+              <input className={fieldClass} value={secondaryCtaHref} onChange={(e) => setSecondaryCtaHref(e.target.value)} required />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="px-6 py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded-lg transition-colors flex items-center gap-2 shadow-md"
+          >
+            <Icon name="save" size={16} />
+            <span>SAVE HERO CAMPAIGN TO STOREFRONT</span>
+          </button>
+        </form>
+      </section>
+
       {/* Coupons */}
-      <section className="mb-6">
-        <h2 className="text-white font-bold text-sm mb-3">Coupon Codes</h2>
+      <section>
+        <h2 className="text-white font-bold text-sm mb-3">Active Coupon Codes</h2>
         <div className="bg-[#1a1b1f] border border-[#414755] rounded overflow-x-auto">
           <table className="w-full text-xs min-w-[720px]">
             <thead>
@@ -49,30 +147,33 @@ export function AdminPromotions() {
                 <th className="text-left p-3 font-semibold">Usage</th>
                 <th className="text-left p-3 font-semibold">Expires</th>
                 <th className="text-center p-3 font-semibold">Status</th>
-                <th className="text-right p-3 font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#292a2e]">
               {coupons.map((c) => (
                 <tr key={c.id} className="hover:bg-[#1e1f23]">
-                  <td className="p-3"><span className="font-mono text-[#007aff] font-bold bg-[#007aff10] border border-[#007aff30] px-2 py-0.5 rounded">{c.code}</span></td>
+                  <td className="p-3">
+                    <span className="font-mono text-[#007aff] font-bold bg-[#007aff10] border border-[#007aff30] px-2 py-0.5 rounded">
+                      {c.code}
+                    </span>
+                  </td>
                   <td className="p-3 text-[#c1c6d7]">{c.description}</td>
-                  <td className="p-3 text-center font-mono text-white font-bold">{c.type === 'percent' ? `${c.value}%` : `$${c.value}`}</td>
+                  <td className="p-3 text-center font-mono text-white font-bold">
+                    {c.type === 'percent' ? `${c.value}%` : `$${c.value}`}
+                  </td>
                   <td className="p-3">
                     <div className="flex items-center gap-2">
                       <div className="w-16 h-1.5 bg-[#121317] rounded overflow-hidden">
                         <div className="h-full bg-[#007aff]" style={{ width: `${Math.min(100, (c.uses / c.maxUses) * 100)}%` }} />
                       </div>
-                      <span className="font-mono text-[10px] text-[#8b90a0]">{c.uses.toLocaleString()}/{c.maxUses.toLocaleString()}</span>
+                      <span className="font-mono text-[10px] text-[#8b90a0]">
+                        {c.uses.toLocaleString()}/{c.maxUses.toLocaleString()}
+                      </span>
                     </div>
                   </td>
                   <td className="p-3 font-mono text-[#8b90a0]">{c.expires}</td>
-                  <td className="p-3 text-center"><Pill status={c.status} /></td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-end gap-1">
-                      <button className="p-1.5 text-[#8b90a0] hover:text-[#007aff] transition-colors" aria-label="Edit"><Icon name="edit" size={16} /></button>
-                      <button className="p-1.5 text-[#8b90a0] hover:text-[#ff453a] transition-colors" aria-label="Delete"><Icon name="delete" size={16} /></button>
-                    </div>
+                  <td className="p-3 text-center">
+                    <Pill status={c.status} />
                   </td>
                 </tr>
               ))}
@@ -80,42 +181,6 @@ export function AdminPromotions() {
           </table>
         </div>
       </section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Campaigns */}
-        <section>
-          <h2 className="text-white font-bold text-sm mb-3">Campaigns</h2>
-          <div className="space-y-2">
-            {CAMPAIGNS.map((c) => (
-              <div key={c.id} className="bg-[#1a1b1f] border border-[#414755] rounded p-4 flex items-center gap-3">
-                <span className="w-9 h-9 rounded flex items-center justify-center shrink-0" style={{ background: `${c.accent}20`, color: c.accent }}><Icon name="campaign" size={18} /></span>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-white font-semibold text-sm truncate">{c.name}</h3>
-                  <span className="font-mono text-[10px] text-[#8b90a0]">{c.type} · Reach {c.reach}</span>
-                </div>
-                <Pill status={c.status} />
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* Banners */}
-        <section>
-          <h2 className="text-white font-bold text-sm mb-3">Banners</h2>
-          <div className="space-y-2">
-            {BANNERS.map((b) => (
-              <div key={b.id} className="bg-[#1a1b1f] border border-[#414755] rounded p-4 flex items-center gap-3">
-                <span className="w-9 h-9 rounded bg-[#007aff20] text-[#007aff] flex items-center justify-center shrink-0"><Icon name="ad_units" size={18} /></span>
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-white font-semibold text-sm truncate">{b.title}</h3>
-                  <span className="font-mono text-[10px] text-[#8b90a0]">{b.placement}</span>
-                </div>
-                <Pill status={b.active ? 'Active' : 'Inactive'} />
-              </div>
-            ))}
-          </div>
-        </section>
-      </div>
     </div>
   )
 }

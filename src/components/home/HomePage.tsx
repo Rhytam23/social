@@ -7,14 +7,6 @@ import { DealsSection } from './DealsSection'
 import { GamingPCSection } from './GamingPCSection'
 import { BrandSection } from './BrandSection'
 import { PromotionalCard } from './HeroSection'
-import {
-  featuredProducts,
-  featuredCategories,
-  dealProducts,
-  gamingPCsData,
-  featuredBrands,
-  allProducts,
-} from '../../data'
 import { useShop } from '../../context/ShopContext'
 
 // ─── Gaming PCs Promo Banner ───────────────────────────────────────────────────
@@ -100,27 +92,28 @@ function HardwareTicker() {
 // ─── HomePage ─────────────────────────────────────────────────────────────────
 
 export function HomePage() {
-  const { addToCart, toggleWishlist, wishlist } = useShop()
+  const { products, categories, brands, gamingPCs, addToCart, toggleWishlist, wishlist } = useShop()
 
-  const gpuProducts = allProducts.filter((p) => p.category === 'Graphics Cards')
-  const cpuProducts = allProducts.filter((p) => p.category === 'CPUs')
-  const monitorProducts = allProducts.filter((p) => p.category === 'Monitors')
+  const featuredProducts = products.filter((p) => p.isFeatured).slice(0, 4)
+  const dealProducts = products.filter((p) => (p.discount || 0) > 0).slice(0, 4)
+  const gpuProducts = products.filter((p) => p.category === 'Graphics Cards').slice(0, 4)
+  const cpuProducts = products.filter((p) => p.category === 'CPUs').slice(0, 4)
+  const monitorProducts = products.filter((p) => p.category === 'Monitors').slice(0, 4)
 
   return (
-    <main className="flex-1 w-full pb-16">
-      <div className="container-max px-4 md:px-6 py-6 flex flex-col gap-10">
-
-        {/* ① Hero Section */}
+    <main className="flex-1 pb-16 pt-4 sm:pt-6">
+      <div className="container-max px-4 sm:px-6 lg:px-8 space-y-12 sm:space-y-16">
+        {/* ① Hero Flagship Showcase */}
         <HeroSection />
 
-        {/* ② Live Stock Ticker */}
+        {/* ② Hardware Ticker */}
         <HardwareTicker />
 
         {/* ③ Feature Bar */}
         <FeatureBar />
 
         {/* ④ Featured Categories */}
-        <CategorySection categories={featuredCategories} />
+        <CategorySection categories={categories} />
 
         {/* ⑤ Deals Section */}
         <DealsSection
@@ -131,7 +124,7 @@ export function HomePage() {
         />
 
         {/* ⑥ Dedicated Gaming PC Showcase */}
-        <GamingPCSection pcs={gamingPCsData} />
+        <GamingPCSection pcs={gamingPCs} />
 
         {/* ⑦ Featured Flagship Hardware */}
         <section>
@@ -205,7 +198,7 @@ export function HomePage() {
         </section>
 
         {/* ⑫ Authorized Brand Partners */}
-        <BrandSection brands={featuredBrands} />
+        <BrandSection brands={brands} />
       </div>
     </main>
   )

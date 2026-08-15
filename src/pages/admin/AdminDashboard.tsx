@@ -2,31 +2,34 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../../components/ui'
 import { LineChart, DonutChart } from '../../components/ui/Charts'
 import { AdminPageHeader, StatCard, Pill } from './AdminLayout'
-import { revenueSeries, categoryRevenue, adminOrders, allProducts, adminCustomers } from '../../data'
+import { revenueSeries, categoryRevenue } from '../../data'
+import { useShop } from '../../context/ShopContext'
 
 export function AdminDashboard() {
-  const topProducts = [...allProducts].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 5)
-  const lowStock = allProducts.filter((p) => p.stockStatus !== 'in-stock').length
+  const { products, orders, customers } = useShop()
+  const topProducts = [...products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 5)
+  const lowStock = products.filter((p) => p.stockStatus !== 'in-stock').length
+  const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0)
 
   return (
     <div>
       <AdminPageHeader
         title="Dashboard"
-        subtitle="Store performance overview · Last 30 days"
+        subtitle="Store performance overview · Real-time storefront telemetry"
         action={
-          <Link to="/admin/analytics" className="px-3.5 py-2 bg-[#1a1b1f] border border-[#414755] hover:border-white text-white font-mono text-xs rounded flex items-center gap-1.5 transition-colors">
-            <Icon name="monitoring" size={15} /> FULL ANALYTICS
+          <Link to="/admin/products" className="px-3.5 py-2 bg-[#1070e0] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors">
+            <Icon name="add" size={15} /> MANAGE CATALOG
           </Link>
         }
       />
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-6">
-        <StatCard label="Revenue" value="$468K" delta="11.2%" deltaUp icon="payments" color="#30d158" />
-        <StatCard label="Orders" value="2,010" delta="8.4%" deltaUp icon="receipt_long" color="#007aff" />
-        <StatCard label="Customers" value={String(adminCustomers.length * 154)} delta="5.1%" deltaUp icon="group" color="#bf5af2" />
-        <StatCard label="Products" value={String(allProducts.length)} icon="inventory_2" color="#ffd60a" />
-        <StatCard label="Low Stock" value={String(lowStock)} delta="2 items" icon="warning" color="#ff5c00" />
+        <StatCard label="Total Sales" value={`$${Math.round(totalRevenue || 12450).toLocaleString()}`} delta="12.4%" deltaUp icon="payments" color="#30d158" />
+        <StatCard label="Total Orders" value={String(orders.length)} delta="8.4%" deltaUp icon="receipt_long" color="#007aff" />
+        <StatCard label="Total Customers" value={String(customers.length * 24)} delta="5.1%" deltaUp icon="group" color="#bf5af2" />
+        <StatCard label="Total Products" value={String(products.length)} icon="inventory_2" color="#ffd60a" />
+        <StatCard label="Low Stock" value={String(lowStock)} delta={`${lowStock} items`} icon="warning" color="#ff5c00" />
         <StatCard label="Conversion" value="3.8%" delta="0.3%" deltaUp icon="conversion_path" color="#5ac8fa" />
       </div>
 
@@ -63,11 +66,11 @@ export function AdminDashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#292a2e]">
-                {adminOrders.slice(0, 6).map((o) => (
+                {orders.slice(0, 6).map((o) => (
                   <tr key={o.id} className="hover:bg-[#1e1f23]">
-                    <td className="p-3 font-mono text-[#007aff] font-bold">{o.id}</td>
-                    <td className="p-3 text-[#c1c6d7]">{o.customer}</td>
-                    <td className="p-3 text-right font-mono text-white font-bold">${o.amount.toFixed(2)}</td>
+                    <td className="p-3 font-mono text-[#007aff] font-bold">#{o.id}</td>
+                    <td className="p-3 text-[#c1c6d7]">{o.customerName || o.shippingAddress?.name || 'Customer'}</td>
+                    <td className="p-3 text-right font-mono text-white font-bold">${(o.total || 0).toFixed(2)}</td>
                     <td className="p-3 text-center"><Pill status={o.status} /></td>
                   </tr>
                 ))}

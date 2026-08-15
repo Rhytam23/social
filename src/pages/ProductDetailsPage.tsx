@@ -2,19 +2,18 @@ import { useState, useMemo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { Icon, Badge, StockBadge, StarRating, Price } from '../components/ui'
 import { ProductGrid } from '../components/products/ProductCard'
-import { allProducts, getProductBySlug, getProductById, getRelatedProducts } from '../data'
 import { useShop } from '../context/ShopContext'
 
 export function ProductDetailsPage() {
   const { slug, id } = useParams()
   const navigate = useNavigate()
-  const { addToCart, toggleWishlist, isInWishlist, wishlist, toggleCompare, isInCompare } = useShop()
+  const { products, addToCart, toggleWishlist, isInWishlist, wishlist, toggleCompare, isInCompare } = useShop()
 
   const product = useMemo(() => {
-    if (slug) return getProductBySlug(slug)
-    if (id) return getProductById(id)
+    if (slug) return products.find((p) => p.slug === slug)
+    if (id) return products.find((p) => p.id === id)
     return undefined
-  }, [slug, id])
+  }, [slug, id, products])
 
   const [selectedImage, setSelectedImage] = useState<string>(product?.image || '')
   const [mainImgError, setMainImgError] = useState(false)
@@ -44,10 +43,18 @@ export function ProductDetailsPage() {
   const gallery = product.gallery || [product.image]
   const isWishlisted = isInWishlist(product.id)
   const comparing = isInCompare(product.id)
-  const relatedProducts = getRelatedProducts(product, 4)
-  const fbtItems = allProducts
-    .filter((p) => p.id !== product.id && p.category !== product.category && p.category !== 'Gaming PCs')
-    .slice(0, 2)
+  const relatedProducts = useMemo(() => {
+    return products
+      .filter((p) => p.id !== product.id && p.category === product.category)
+      .slice(0, 4)
+  }, [products, product])
+
+  const fbtItems = useMemo(() => {
+    return products
+      .filter((p) => p.id !== product.id && p.category !== product.category && p.category !== 'Gaming PCs')
+      .slice(0, 2)
+  }, [products, product])
+
   const fbtBundle = [product, ...fbtItems]
   const fbtTotal = fbtBundle.reduce((s, p) => s + p.price, 0)
 

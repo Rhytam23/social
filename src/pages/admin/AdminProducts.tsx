@@ -2,31 +2,29 @@ import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon, EmptyState } from '../../components/ui'
 import { AdminPageHeader, Pill } from './AdminLayout'
-import { allProducts } from '../../data'
+import { useShop } from '../../context/ShopContext'
 
 const CATEGORIES = ['All', 'Graphics Cards', 'CPUs', 'Motherboards', 'RAM', 'Storage', 'Cooling', 'Cases', 'Power Supplies', 'Monitors', 'Peripherals', 'Streaming']
 const STATUSES = ['All', 'in-stock', 'low-stock', 'out-of-stock']
 
 export function AdminProducts() {
-  const [rows, setRows] = useState(allProducts)
+  const { products, deleteProduct, duplicateProduct } = useShop()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('All')
   const [status, setStatus] = useState('All')
 
-  const filtered = useMemo(() => rows.filter((p) => {
+  const filtered = useMemo(() => products.filter((p) => {
     if (category !== 'All' && p.category !== category) return false
     if (status !== 'All' && p.stockStatus !== status) return false
     if (query && !(`${p.name} ${p.brand} ${p.sku}`.toLowerCase().includes(query.toLowerCase()))) return false
     return true
-  }), [rows, query, category, status])
-
-  const remove = (id: string) => setRows((r) => r.filter((p) => p.id !== id))
+  }), [products, query, category, status])
 
   return (
     <div>
       <AdminPageHeader
         title="Products"
-        subtitle={`${rows.length} products in catalog`}
+        subtitle={`${products.length} products in catalog`}
         action={
           <Link to="/admin/products/new" className="px-4 py-2 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors">
             <Icon name="add" size={15} /> ADD PRODUCT
@@ -59,7 +57,7 @@ export function AdminProducts() {
                 <th className="text-left p-3 font-semibold">Category</th>
                 <th className="text-right p-3 font-semibold">Price</th>
                 <th className="text-right p-3 font-semibold">Stock</th>
-                <th className="text-center p-3 font-semibold">Status</th>
+                <th className="text-center p-3 font-[#8b90a0]">Status</th>
                 <th className="text-right p-3 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -82,8 +80,9 @@ export function AdminProducts() {
                   <td className="p-3 text-center"><Pill status={p.stockStatus} /></td>
                   <td className="p-3">
                     <div className="flex items-center justify-end gap-1">
-                      <Link to={`/admin/products/${p.id}`} className="p-1.5 text-[#8b90a0] hover:text-[#007aff] transition-colors" aria-label="Edit"><Icon name="edit" size={16} /></Link>
-                      <button onClick={() => remove(p.id)} className="p-1.5 text-[#8b90a0] hover:text-[#ff453a] transition-colors" aria-label="Delete"><Icon name="delete" size={16} /></button>
+                      <Link to={`/admin/products/${p.id}`} className="p-1.5 text-[#8b90a0] hover:text-[#007aff] transition-colors" title="Edit"><Icon name="edit" size={16} /></Link>
+                      <button onClick={() => duplicateProduct(p.id)} className="p-1.5 text-[#8b90a0] hover:text-[#30d158] transition-colors" title="Duplicate"><Icon name="content_copy" size={16} /></button>
+                      <button onClick={() => deleteProduct(p.id)} className="p-1.5 text-[#8b90a0] hover:text-[#ff453a] transition-colors" title="Delete"><Icon name="delete" size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -95,7 +94,7 @@ export function AdminProducts() {
         <EmptyState icon="search_off" title="No products match" message="Try adjusting your search or filters." />
       )}
 
-      <p className="font-mono text-[10px] text-[#8b90a0] mt-3">Showing {filtered.length} of {rows.length} products</p>
+      <p className="font-mono text-[10px] text-[#8b90a0] mt-3">Showing {filtered.length} of {products.length} products</p>
     </div>
   )
 }

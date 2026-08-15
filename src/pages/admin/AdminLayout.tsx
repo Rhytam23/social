@@ -5,12 +5,12 @@ import { Icon } from '../../components/ui'
 const NAV = [
   { to: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
   { to: '/admin/products', label: 'Products', icon: 'inventory_2', end: false },
+  { to: '/admin/categories', label: 'Categories', icon: 'category', end: false },
+  { to: '/admin/promotions', label: 'Deals & Hero', icon: 'sell', end: false },
   { to: '/admin/orders', label: 'Orders', icon: 'receipt_long', end: false },
   { to: '/admin/customers', label: 'Customers', icon: 'group', end: false },
-  { to: '/admin/inventory', label: 'Inventory', icon: 'warehouse', end: false },
-  { to: '/admin/categories', label: 'Categories', icon: 'category', end: false },
-  { to: '/admin/promotions', label: 'Promotions', icon: 'sell', end: false },
-  { to: '/admin/analytics', label: 'Analytics', icon: 'monitoring', end: false },
+  { to: '/admin/media', label: 'Media Library', icon: 'perm_media', end: false },
+  { to: '/admin/settings', label: 'Store Settings', icon: 'settings', end: false },
 ]
 
 export function AdminLayout() {

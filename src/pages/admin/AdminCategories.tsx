@@ -1,70 +1,102 @@
 import { useState } from 'react'
 import { Icon } from '../../components/ui'
 import { AdminPageHeader } from './AdminLayout'
-import { categoryDetails } from '../../data'
-import type { CategoryNode } from '../../types'
+import { useShop } from '../../context/ShopContext'
+import type { CategoryCard } from '../../types'
 
 export function AdminCategories() {
-  const [rows, setRows] = useState<CategoryNode[]>(categoryDetails)
+  const { categories, updateCategory } = useShop()
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editCount, setEditCount] = useState(0)
+  const [editPrice, setEditPrice] = useState(0)
+  const [editImage, setEditImage] = useState('')
 
-  const move = (index: number, dir: -1 | 1) => {
-    setRows((r) => {
-      const next = [...r]
-      const target = index + dir
-      if (target < 0 || target >= next.length) return r
-      ;[next[index], next[target]] = [next[target], next[index]]
-      return next
-    })
+  const startEditing = (cat: CategoryCard) => {
+    setEditingId(cat.id)
+    setEditTitle(cat.title)
+    setEditCount(cat.itemCount)
+    setEditPrice(cat.startingPrice || 0)
+    setEditImage(cat.image)
   }
 
-  const toggleVisible = (id: string) => setRows((r) => r.map((c) => (c.id === id ? { ...c, visible: !c.visible } : c)))
-  const remove = (id: string) => setRows((r) => r.filter((c) => c.id !== id))
+  const saveEdit = (cat: CategoryCard) => {
+    updateCategory({
+      ...cat,
+      title: editTitle,
+      itemCount: Number(editCount),
+      startingPrice: Number(editPrice),
+      image: editImage,
+    })
+    setEditingId(null)
+  }
+
+  const fieldClass = 'bg-[#121317] border border-[#414755] rounded p-2 text-xs text-white focus:outline-none focus:border-[#007aff]'
+  const labelClass = 'text-[10px] font-mono text-[#8b90a0] block mb-1 uppercase font-bold'
 
   return (
-    <div>
+    <div className="space-y-6">
       <AdminPageHeader
-        title="Categories"
-        subtitle={`${rows.length} top-level categories · drag order & visibility`}
-        action={
-          <button className="px-4 py-2 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors">
-            <Icon name="add" size={15} /> NEW CATEGORY
-          </button>
-        }
+        title="Category Manager"
+        subtitle={`${categories.length} category tiles featured on storefront bento showcase`}
       />
 
-      <div className="space-y-2">
-        {rows.map((c, i) => (
-          <div key={c.id} className="bg-[#1a1b1f] border border-[#414755] rounded p-4 flex items-center gap-4">
-            {/* Reorder */}
-            <div className="flex flex-col">
-              <button onClick={() => move(i, -1)} disabled={i === 0} className="text-[#8b90a0] hover:text-white disabled:opacity-30" aria-label="Move up"><Icon name="keyboard_arrow_up" size={18} /></button>
-              <button onClick={() => move(i, 1)} disabled={i === rows.length - 1} className="text-[#8b90a0] hover:text-white disabled:opacity-30" aria-label="Move down"><Icon name="keyboard_arrow_down" size={18} /></button>
-            </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {categories.map((c) => {
+          const isEditing = editingId === c.id
 
-            <img src={c.image} alt="" className="w-14 h-14 object-cover rounded bg-[#0d0e12] shrink-0" />
-
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="text-white font-bold text-sm">{c.name}</h3>
-                <span className="font-mono text-[10px] text-[#8b90a0]">{c.productCount} products</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {c.subcategories.slice(0, 4).map((s) => (
-                  <span key={s} className="font-mono text-[9px] text-[#c1c6d7] bg-[#121317] border border-[#292a2e] px-2 py-0.5 rounded">{s}</span>
-                ))}
-                {c.subcategories.length > 4 && <span className="font-mono text-[9px] text-[#8b90a0]">+{c.subcategories.length - 4} more</span>}
-              </div>
+          return (
+            <div key={c.id} className="bg-[#1a1b1f] border border-[#414755] rounded p-5 flex flex-col justify-between shadow-md">
+              {isEditing ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className={labelClass}>Category Title</label>
+                    <input className={fieldClass + ' w-full'} value={editTitle} onChange={(e) => setEditTitle(e.target.value)} required />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className={labelClass}>Item Count</label>
+                      <input type="number" className={fieldClass + ' w-full'} value={editCount} onChange={(e) => setEditCount(Number(e.target.value))} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Start Price ($)</label>
+                      <input type="number" className={fieldClass + ' w-full'} value={editPrice} onChange={(e) => setEditPrice(Number(e.target.value))} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Image URL</label>
+                    <input className={fieldClass + ' w-full'} value={editImage} onChange={(e) => setEditImage(e.target.value)} />
+                  </div>
+                  <div className="flex items-center gap-2 pt-2">
+                    <button onClick={() => saveEdit(c)} className="px-3 py-1.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center gap-1">
+                      <Icon name="check" size={14} /> SAVE
+                    </button>
+                    <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-[#121317] border border-[#414755] text-white font-mono text-xs rounded">
+                      CANCEL
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="relative aspect-[16/9] rounded overflow-hidden mb-3 bg-[#121317]">
+                    <img src={c.image} alt={c.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3">
+                      <span className="font-mono text-xs text-[#007aff] font-bold">FROM ${c.startingPrice?.toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <h3 className="text-white font-bold text-base">{c.title}</h3>
+                  <p className="font-mono text-xs text-[#8b90a0] mt-0.5">{c.itemCount} items available</p>
+                  <div className="mt-4 pt-3 border-t border-[#292a2e] flex items-center justify-between">
+                    <span className="font-mono text-[10px] text-[#007aff] font-bold">{c.href}</span>
+                    <button onClick={() => startEditing(c)} className="px-3 py-1 bg-[#007aff]/15 hover:bg-[#007aff] text-[#007aff] hover:text-white font-mono text-xs font-bold rounded transition-colors flex items-center gap-1">
+                      <Icon name="edit" size={14} /> EDIT TILE
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-
-            <div className="flex items-center gap-2 shrink-0">
-              <button onClick={() => toggleVisible(c.id)} className={`font-mono text-[10px] px-2.5 py-1.5 rounded border transition-colors ${c.visible ? 'bg-[#30d15815] text-[#30d158] border-[#30d15840]' : 'bg-[#8b90a015] text-[#8b90a0] border-[#8b90a040]'}`}>
-                {c.visible ? 'VISIBLE' : 'HIDDEN'}
-              </button>
-              <button className="p-1.5 text-[#8b90a0] hover:text-[#007aff] transition-colors" aria-label="Edit"><Icon name="edit" size={16} /></button>
-              <button onClick={() => remove(c.id)} className="p-1.5 text-[#8b90a0] hover:text-[#ff453a] transition-colors" aria-label="Delete"><Icon name="delete" size={16} /></button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </div>
     </div>
   )

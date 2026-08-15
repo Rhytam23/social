@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui'
+import { useShop } from '../../context/ShopContext'
 
 // ─── HeroSection (Cinematic Flagship Hardware Hero) ─────────────────────────
 
 export function HeroSection() {
+  const { heroCampaign } = useShop()
   const [gpuImgError, setGpuImgError] = useState(false)
   const [intelImgError, setIntelImgError] = useState(false)
   const [apexImgError, setApexImgError] = useState(false)
@@ -25,21 +27,21 @@ export function HeroSection() {
             {/* Label */}
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#007aff]/10 rounded text-[#007aff] font-mono text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] w-fit mb-5 shadow-[0_0_15px_rgba(0,122,255,0.15)]">
               <span className="w-1.5 h-1.5 rounded-full bg-[#007aff] animate-pulse" />
-              NEW ARRIVAL
+              {heroCampaign.badge}
             </div>
 
             {/* Headline */}
             <h1 className="font-black tracking-tighter leading-[0.92] text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl mb-6">
-              <span className="hero-headline-primary text-white block">NVIDIA RTX 5090</span>
-              <span className="text-[#007aff] block mt-1">FOUNDERS EDITION</span>
+              <span className="hero-headline-primary text-white block">{heroCampaign.headlinePrimary}</span>
+              <span className="text-[#007aff] block mt-1">{heroCampaign.headlineAccent}</span>
             </h1>
 
             {/* GPU Visual - Mobile Only */}
             <div className="block lg:hidden my-4 relative w-full aspect-[16/10] max-h-[280px] mx-auto order-2">
               {!gpuImgError ? (
                 <img
-                  src="https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&q=90"
-                  alt="NVIDIA GeForce RTX 5090 Founders Edition"
+                  src={heroCampaign.image}
+                  alt={heroCampaign.headlinePrimary}
                   className="w-full h-full object-contain filter drop-shadow-[0_20px_35px_rgba(0,122,255,0.35)]"
                   onError={() => setGpuImgError(true)}
                 />
@@ -53,24 +55,24 @@ export function HeroSection() {
 
             {/* Description */}
             <p className="hero-subtext text-[#8b90a0] text-sm sm:text-base lg:text-lg max-w-[450px] leading-relaxed mb-8 order-3 font-normal">
-              Uncompromising performance for next-generation gaming.
+              {heroCampaign.description}
             </p>
 
             {/* CTAs */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 order-4">
               <Link
-                to="/gaming-pcs"
+                to={heroCampaign.primaryCtaHref}
                 className="h-12 md:h-14 px-7 md:px-8 bg-[#007aff] hover:bg-[#0066d6] active:scale-[0.98] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(0,122,255,0.4)] transition-all"
               >
-                <span>SHOP GAMING PCS</span>
+                <span>{heroCampaign.primaryCtaLabel}</span>
                 <Icon name="arrow_forward" size={16} />
               </Link>
 
               <Link
-                to="/builder"
+                to={heroCampaign.secondaryCtaHref}
                 className="hero-sec-btn h-12 md:h-14 px-7 md:px-8 bg-[#16171d]/90 hover:bg-[#1a1b22] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
               >
-                <span>BUILD YOUR PC</span>
+                <span>{heroCampaign.secondaryCtaLabel}</span>
                 <Icon name="memory" size={16} className="text-[#007aff]" />
               </Link>
             </div>
@@ -84,15 +86,15 @@ export function HeroSection() {
 
               {!gpuImgError ? (
                 <img
-                  src="https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1600&q=90"
-                  alt="NVIDIA GeForce RTX 5090 Founders Edition"
+                  src={heroCampaign.image}
+                  alt={heroCampaign.headlinePrimary}
                   className="w-full h-full object-contain filter drop-shadow-[0_25px_50px_rgba(0,122,255,0.4)] hover:scale-[1.02] transition-transform duration-700 select-none z-10"
                   onError={() => setGpuImgError(true)}
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-xl p-8 z-10">
                   <Icon name="videogame_asset" size={96} className="text-[#007aff]" />
-                  <span className="font-mono text-sm text-[#8b90a0] mt-3">NVIDIA RTX 5090 FOUNDERS EDITION</span>
+                  <span className="font-mono text-sm text-[#8b90a0] mt-3">{heroCampaign.headlinePrimary}</span>
                 </div>
               )}
             </div>

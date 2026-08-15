@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams, useLocation, Link } from 'react-router-dom'
 import { Icon } from '../components/ui'
 import { ProductGrid } from '../components/products/ProductCard'
-import { allProducts } from '../data'
 import { useShop } from '../context/ShopContext'
 
 
@@ -27,7 +26,7 @@ const CATEGORY_NAMES = [
 export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
-  const { addToCart, toggleWishlist, wishlist } = useShop()
+  const { products, addToCart, toggleWishlist, wishlist } = useShop()
 
   // Determine active category from path or query params
   const activeCategoryFromUrl = useMemo(() => {
@@ -73,13 +72,13 @@ export function ProductsPage() {
   // Extract all unique brands
   const brands = useMemo(() => {
     const bSet = new Set<string>()
-    allProducts.forEach((p) => bSet.add(p.brand))
+    products.forEach((p) => bSet.add(p.brand))
     return ['All', ...Array.from(bSet)]
-  }, [])
+  }, [products])
 
   // Filtered & Sorted Products
   const filteredProducts = useMemo(() => {
-    let list = [...allProducts]
+    let list = [...products]
 
     // Category filter
     if (selectedCategory && selectedCategory !== 'All') {
@@ -180,7 +179,7 @@ export function ProductsPage() {
     }
 
     return list
-  }, [selectedCategory, selectedBrand, selectedGpu, selectedCpu, selectedRam, selectedStorage, selectedFormFactor, selectedPerformance, onlyInStock, priceMax, minRating, sortBy])
+  }, [products, selectedCategory, selectedBrand, selectedGpu, selectedCpu, selectedRam, selectedStorage, selectedFormFactor, selectedPerformance, onlyInStock, priceMax, minRating, sortBy])
 
   const clearAllFilters = () => {
     setSelectedCategory('All')
