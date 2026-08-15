@@ -11,6 +11,8 @@ import { AdminPromotions } from './AdminPromotions'
 import { AdminAnalytics } from './AdminAnalytics'
 import { AdminMedia } from './AdminMedia'
 import { AdminSettings } from './AdminSettings'
+import { AdminBrands } from './AdminBrands'
+import { AdminGamingPCs } from './AdminGamingPCs'
 import { NotFoundPage } from '../NotFoundPage'
 
 export default function AdminApp() {
@@ -25,7 +27,10 @@ export default function AdminApp() {
         <Route path="customers" element={<AdminCustomers />} />
         <Route path="inventory" element={<AdminInventory />} />
         <Route path="categories" element={<AdminCategories />} />
+        <Route path="brands" element={<AdminBrands />} />
+        <Route path="gaming-pcs" element={<AdminGamingPCs />} />
         <Route path="promotions" element={<AdminPromotions />} />
+        <Route path="hero" element={<AdminPromotions />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="media" element={<AdminMedia />} />
         <Route path="settings" element={<AdminSettings />} />
