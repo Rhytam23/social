@@ -109,7 +109,12 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   // ── Theme State (Dark / Light) ──
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     try {
-      return (localStorage.getItem('premium_pc_theme') as 'dark' | 'light') || 'dark'
+      const saved = localStorage.getItem('premium_pc_theme') as 'dark' | 'light' | null
+      if (saved) return saved
+      if (typeof window !== 'undefined' && window.matchMedia) {
+        return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+      }
+      return 'dark'
     } catch {
       return 'dark'
     }
