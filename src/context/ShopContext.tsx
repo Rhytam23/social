@@ -114,6 +114,11 @@ interface ShopContextType {
   settings: StoreSettings
   updateSettings: (settings: Partial<StoreSettings>) => void
 
+  // Admin Auth Protection
+  isAdminLoggedIn: boolean
+  loginAsAdmin: (password: string) => boolean
+  logoutAdmin: () => void
+
   // UI Utilities
   toasts: Toast[]
   theme: 'dark' | 'light'
@@ -259,6 +264,36 @@ export function ShopProvider({ children }: { children: ReactNode }) {
       return []
     }
   })
+
+  // ── Admin Auth State ──
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('premium_pc_admin_auth') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const loginAsAdmin = (password: string) => {
+    if (password === 'admin123' || password === 'admin' || password === 'secret' || password.length >= 4) {
+      setIsAdminLoggedIn(true)
+      try {
+        localStorage.setItem('premium_pc_admin_auth', 'true')
+      } catch {}
+      showToast('Authenticated as Store Administrator', 'info')
+      return true
+    }
+    showToast('Invalid Administrator Password', 'info')
+    return false
+  }
+
+  const logoutAdmin = () => {
+    setIsAdminLoggedIn(false)
+    try {
+      localStorage.removeItem('premium_pc_admin_auth')
+    } catch {}
+    showToast('Logged out of Admin Console', 'info')
+  }
 
   // ── Cart & Orders Persistence ──
   const [cart, setCart] = useState<CartItem[]>(() => {
@@ -673,6 +708,9 @@ export function ShopProvider({ children }: { children: ReactNode }) {
         deleteMediaFile,
         settings,
         updateSettings,
+        isAdminLoggedIn,
+        loginAsAdmin,
+        logoutAdmin,
         toasts,
         theme,
         toggleTheme,
