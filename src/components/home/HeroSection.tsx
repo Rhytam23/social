@@ -202,7 +202,7 @@ export function PromotionalCard({
   accentColor = '#007aff',
 }: PromotionalCardProps) {
   return (
-    <div className="relative rounded-xl overflow-hidden border border-[#292a2e] hover:border-[#007aff]/50 bg-[#16171d] flex flex-col justify-end group min-h-[260px] sm:min-h-[280px] p-6 shadow-xl transition-all duration-300">
+    <div className="relative rounded-2xl overflow-hidden bg-[#16171d] flex flex-col justify-end group min-h-[260px] sm:min-h-[280px] p-6 shadow-xl hover:shadow-2xl transition-all duration-300">
       <div
         className="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-700"
         style={{ backgroundImage: `url('${image}')` }}

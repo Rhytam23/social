@@ -65,9 +65,9 @@ function FeatureBar() {
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
       {features.map((f) => (
-        <div key={f.label} className="flex items-center gap-3 p-3.5 bg-[#1a1b1f] border border-[#414755] rounded">
+        <div key={f.label} className="flex items-center gap-3 p-4 bg-[#16171d] rounded-2xl shadow-sm">
           <Icon name={f.icon} size={22} className="text-[#007aff] shrink-0" />
           <div className="min-w-0">
             <div className="font-mono text-[10px] font-bold tracking-[0.06em] text-[#e3e2e7] truncate">{f.label}</div>
@@ -83,14 +83,15 @@ function FeatureBar() {
 
 function HardwareTicker() {
   return (
-    <div className="bg-[#16171d] border border-[#292a2e] rounded px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono">
-      <div className="flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-[#30d158] inline-block" />
-        <span className="text-[#c1c6d7] font-semibold">LIVE STOCK UPDATE:</span>
+    <div className="bg-[#16171d] rounded-2xl px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono shadow-sm">
+      <div className="flex items-center gap-2.5">
+        <span className="w-2 h-2 rounded-full bg-[#30d158] inline-block animate-pulse" />
+        <span className="text-[#c1c6d7] font-bold">LIVE INVENTORY UPDATE:</span>
         <span className="text-[#8b90a0]">RTX 5090 FE & Ryzen 7 7800X3D units in stock for immediate dispatch.</span>
       </div>
-      <Link to="/builder" className="text-[#007aff] hover:underline flex items-center gap-1 font-bold">
-        Launch Configurator <Icon name="chevron_right" size={14} />
+      <Link to="/builder" className="text-[#007aff] hover:text-[#adc6ff] flex items-center gap-1 font-bold transition-colors">
+        <span>Launch Configurator</span>
+        <Icon name="arrow_forward" size={14} />
       </Link>
     </div>
   )
