@@ -397,6 +397,20 @@ html.light-mode .cinematic-hero-card .hero-bg-gradient-mobile {
   background: linear-gradient(to top, #ffffff 0%, rgba(255, 255, 255, 0.8) 60%, transparent 100%) !important;
 }
 
+/* Non-image category card in Light Mode */
+html.light-mode .light-mode-non-img-card {
+  background-color: #ffffff !important;
+  border-color: #e2e5ea !important;
+}
+
+html.light-mode .category-non-img-title {
+  color: #111318 !important;
+}
+
+html.light-mode .category-non-img-price {
+  color: #4b5563 !important;
+}
+
 /* Admin Dashboard & Recharts in Light Mode */
 html.light-mode .recharts-cartesian-grid line {
   stroke: #E2E5EA !important;

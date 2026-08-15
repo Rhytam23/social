@@ -29,54 +29,89 @@ function CategoryTile({ category, featured = false }: { category: CategoryCard; 
   return (
     <Link
       to={category.href}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl border border-[#292a2e] bg-[#16171d] hover:border-[#007aff] transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 ${
-        featured ? 'col-span-1 sm:col-span-2 row-span-1 min-h-[220px] sm:min-h-[260px]' : 'col-span-1 min-h-[180px] sm:min-h-[210px]'
+      className={`group relative flex flex-col overflow-hidden rounded-2xl border transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 ${
+        featured
+          ? 'col-span-1 sm:col-span-2 row-span-1 min-h-[240px] sm:min-h-[270px]'
+          : 'col-span-1 min-h-[190px] sm:min-h-[220px]'
+      } ${
+        !imgError
+          ? 'border-[#292a2e] bg-[#16171d] hover:border-[#007aff]'
+          : 'bg-[#16171d] light-mode-non-img-card border-[#292a2e] hover:border-[#007aff]'
       }`}
     >
-      {/* Background Hardware Photo */}
+      {/* ── Image-based Card Layout ── */}
       {!imgError ? (
-        <img
-          src={category.image}
-          alt={category.title}
-          className="absolute inset-0 w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
-          onError={() => setImgError(true)}
-          loading="lazy"
-        />
+        <>
+          {/* Hardware Photography */}
+          <img
+            src={category.image}
+            alt={category.title}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out z-0"
+            onError={() => setImgError(true)}
+            loading="lazy"
+          />
+
+          {/* Controlled Dark Gradient Overlay for Maximum Text Contrast */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/55 to-transparent z-[1] pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/25 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-[1] pointer-events-none" />
+
+          {/* Item Count Badge */}
+          <div className="relative z-10 p-4 flex justify-between items-start">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/75 backdrop-blur-md border border-white/20 rounded-md font-mono text-[10px] sm:text-xs text-[#007aff] font-bold tracking-wider shadow-md">
+              <Icon name={iconName} size={14} />
+              {category.itemCount} ITEMS
+            </span>
+          </div>
+
+          {/* Bottom Headline & Price */}
+          <div className="relative z-10 mt-auto p-5">
+            <h3
+              className={`text-white font-bold tracking-tight font-sans drop-shadow-md transition-colors group-hover:text-[#007aff] ${
+                featured ? 'text-xl sm:text-2xl lg:text-3xl' : 'text-lg sm:text-xl'
+              }`}
+            >
+              {category.title}
+            </h3>
+
+            <div className="flex items-center justify-between mt-2">
+              <span className="font-mono text-xs sm:text-sm text-[#e2e8f0] font-semibold drop-shadow">
+                {category.startingPrice ? `Starting at $${category.startingPrice}` : 'Explore Lineup'}
+              </span>
+
+              {/* Circular CTA Button */}
+              <span className="w-10 h-10 md:w-11 md:h-11 rounded-full bg-[#007aff] hover:bg-[#0066d6] text-white flex items-center justify-center transition-transform duration-300 group-hover:translate-x-1.5 shadow-lg shrink-0">
+                <Icon name="arrow_forward" size={16} />
+              </span>
+            </div>
+          </div>
+        </>
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-[#16171d] via-[#121317] to-[#0d0e12] flex items-center justify-center p-4">
-          <div className="w-14 h-14 rounded-2xl bg-[#007aff]/15 border border-[#007aff]/30 flex items-center justify-center text-[#007aff]">
-            <Icon name={iconName} size={28} />
+        /* ── Non-Image Fallback Card Layout ── */
+        <div className="relative z-10 flex flex-col justify-between h-full p-5 sm:p-6">
+          <div className="flex justify-between items-start">
+            <div className="w-12 h-12 rounded-xl bg-[#007aff]/10 border border-[#007aff]/20 flex items-center justify-center text-[#007aff]">
+              <Icon name={iconName} size={24} />
+            </div>
+            <span className="font-mono text-[10px] text-[#007aff] font-bold bg-[#007aff]/10 px-2.5 py-1 rounded-md border border-[#007aff]/20">
+              {category.itemCount} ITEMS
+            </span>
+          </div>
+
+          <div className="mt-auto">
+            <h3 className="category-non-img-title font-bold text-lg sm:text-xl text-white tracking-tight group-hover:text-[#007aff] transition-colors">
+              {category.title}
+            </h3>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="category-non-img-price font-mono text-xs text-[#8b90a0]">
+                {category.startingPrice ? `Starting at $${category.startingPrice}` : 'Explore Lineup'}
+              </span>
+              <span className="w-9 h-9 rounded-full bg-[#007aff] text-white flex items-center justify-center transition-transform group-hover:translate-x-1 shrink-0">
+                <Icon name="arrow_forward" size={14} />
+              </span>
+            </div>
           </div>
         </div>
       )}
-
-      {/* Cinematic Dark Gradient Overlays */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#0d0e12] via-[#0d0e12]/60 to-transparent pointer-events-none" />
-      <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
-
-      {/* Top Floating Badge */}
-      <div className="relative z-10 p-4 flex justify-between items-start">
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#121317]/80 backdrop-blur-md border border-[#292a2e] rounded-md font-mono text-[10px] text-[#007aff] font-bold tracking-wider">
-          <Icon name={iconName} size={14} />
-          {category.itemCount} ITEMS
-        </span>
-      </div>
-
-      {/* Bottom Content Body */}
-      <div className="relative z-10 mt-auto p-4 sm:p-5">
-        <h3 className={`text-white font-bold tracking-tight group-hover:text-[#007aff] transition-colors ${featured ? 'text-xl sm:text-2xl' : 'text-base sm:text-lg'}`}>
-          {category.title}
-        </h3>
-        
-        <div className="flex items-center justify-between mt-1.5">
-          <span className="font-mono text-xs text-[#8b90a0]">
-            {category.startingPrice ? `Starting at $${category.startingPrice}` : 'Explore Lineup'}
-          </span>
-          <span className="w-8 h-8 rounded-full bg-[#121317]/80 backdrop-blur-md border border-[#292a2e] group-hover:border-[#007aff] group-hover:bg-[#007aff] text-white flex items-center justify-center transition-all duration-300 group-hover:translate-x-1 shrink-0">
-            <Icon name="arrow_forward" size={14} />
-          </span>
-        </div>
-      </div>
     </Link>
   )
 }
@@ -86,12 +121,14 @@ export function CategorySection({ categories }: CategorySectionProps) {
 
   return (
     <section className="w-full">
-      {/* Header */}
+      {/* Section Header */}
       <div className="flex items-end justify-between mb-6 pb-3 border-b border-[#292a2e]">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2 h-2 rounded-full bg-[#007aff] animate-pulse" />
-            <span className="font-mono text-xs text-[#007aff] font-bold tracking-widest uppercase">HARDWARE SECTIONS</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-[#007aff] animate-pulse" />
+            <span className="font-mono text-xs text-[#007aff] font-bold tracking-widest uppercase">
+              HARDWARE SECTIONS
+            </span>
           </div>
           <h2 className="text-white font-black text-2xl md:text-3xl tracking-tight">
             Explore Hardware Categories
@@ -99,7 +136,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
         </div>
         <Link
           to="/categories"
-          className="font-mono text-xs tracking-wider text-[#007aff] hover:text-[#adc6ff] transition-colors flex items-center gap-1 font-bold shrink-0"
+          className="font-mono text-xs tracking-wider text-[#007aff] hover:text-[#adc6ff] transition-colors flex items-center gap-1.5 font-bold shrink-0"
         >
           <span>ALL CATEGORIES</span>
           <Icon name="arrow_forward" size={14} />
@@ -107,7 +144,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
       </div>
 
       {/* Bento Grid Composition */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-5">
         {categories.map((cat) => (
           <CategoryTile key={cat.id} category={cat} featured={featuredIds.includes(cat.id)} />
         ))}
