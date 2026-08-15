@@ -29,7 +29,7 @@ export function ProductCard({
       <div className="p-4 sm:p-5 pb-0">
         {/* Brand & Stock Row */}
         <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className="font-mono text-[11px] sm:text-xs tracking-wider text-[#007aff] uppercase font-bold">
+          <span className="font-mono text-[11px] sm:text-xs tracking-wider text-accent-blue uppercase font-bold">
             {product.brand}
           </span>
           <StockBadge status={product.stockStatus} />
@@ -37,7 +37,7 @@ export function ProductCard({
 
         {/* Product Title (18–20px desktop, font-weight 700, 1.25 line-height) */}
         <Link to={`/products/${product.slug}`} className="group/link block mb-2">
-          <h3 className="product-card-title text-[#FFFFFF] text-base md:text-[18px] leading-[1.25] font-bold group-hover/link:text-[#007aff] transition-colors line-clamp-2 min-h-[46px]">
+          <h3 className="product-card-title text-[#FFFFFF] text-base md:text-[18px] leading-tight font-bold group-hover/link:text-accent-blue transition-colors line-clamp-2 min-h-11.5">
             {product.name}
           </h3>
         </Link>
@@ -51,10 +51,10 @@ export function ProductCard({
       {/* ── Main Product Image Area (180–220px Height, Contain Fit, Soft Radial Glow) ── */}
       <Link
         to={`/products/${product.slug}`}
-        className="product-card-img-area relative w-full h-[190px] md:h-[210px] bg-[#121317] flex items-center justify-center p-3 overflow-hidden group/img shrink-0"
+        className="product-card-img-area relative w-full h-47.5 md:h-52.5 bg-[#121317] flex items-center justify-center p-3 overflow-hidden group/img shrink-0"
       >
         {/* Subtle Ambient Radial Glow */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#007aff]/10 via-transparent to-transparent pointer-events-none z-0" />
+        <div className="absolute inset-0 bg-linear-to-tr from-accent-blue/10 via-transparent to-transparent pointer-events-none z-0" />
 
         {!imageError ? (
           <img
@@ -66,7 +66,7 @@ export function ProductCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-[#121317] relative z-10 text-[#414755]">
-            <Icon name="memory" size={48} className="text-[#007aff]" />
+            <Icon name="memory" size={48} className="text-accent-blue" />
           </div>
         )}
 
@@ -88,8 +88,8 @@ export function ProductCard({
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             className={`w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 shadow-md ${
               isWishlisted
-                ? 'bg-[#ff453a]/20 text-[#ff453a]'
-                : 'bg-[#121317]/80 text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-[#ff453a]'
+                ? 'bg-stock-red/20 text-stock-red'
+                : 'bg-[#121317]/80 text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-stock-red'
             }`}
           >
             <Icon name="favorite" size={16} filled={isWishlisted} />
@@ -105,8 +105,8 @@ export function ProductCard({
             aria-label={comparing ? 'Remove from comparison' : 'Add to comparison'}
             className={`w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 shadow-md ${
               comparing
-                ? 'bg-[#007aff]/20 text-[#007aff]'
-                : 'bg-[#121317]/80 text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-[#007aff]'
+                ? 'bg-accent-blue/20 text-accent-blue'
+                : 'bg-[#121317]/80 text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-accent-blue'
             }`}
           >
             <Icon name="balance" size={16} />
@@ -145,7 +145,7 @@ export function ProductCard({
             onClick={() => onAddToCart(product)}
             disabled={product.stockStatus === 'out-of-stock'}
             aria-label={`Add ${product.name} to cart`}
-            className="w-full h-11 md:h-12 bg-[#007aff] hover:bg-[#0066d6] active:scale-[0.98] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md shadow-[#007aff]/20"
+            className="w-full h-11 md:h-12 bg-accent-blue hover:bg-[#0066d6] active:scale-[0.98] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md shadow-accent-blue/20"
           >
             <Icon name="add_shopping_cart" size={18} />
             <span>ADD TO CART</span>

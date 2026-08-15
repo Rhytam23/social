@@ -47,16 +47,16 @@ function ToastContainer() {
   if (!toasts.length) return null
 
   return (
-    <div className="fixed bottom-6 right-6 z-[200] flex flex-col gap-2 pointer-events-none">
+    <div className="fixed bottom-6 right-6 z-200 flex flex-col gap-2 pointer-events-none">
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="flex items-center gap-2.5 px-4 py-3 bg-[#1e1f23] border border-[#007aff] rounded text-[#e3e2e7] text-xs font-mono shadow-2xl pointer-events-auto animate-fadeIn"
+          className="flex items-center gap-2.5 px-4 py-3 bg-surface-container border border-accent-blue rounded text-[#e3e2e7] text-xs font-mono shadow-2xl pointer-events-auto animate-fadeIn"
         >
           <Icon
             name={toast.type === 'cart' ? 'check_circle' : toast.type === 'wishlist' ? 'favorite' : 'info'}
             size={18}
-            className={toast.type === 'wishlist' ? 'text-[#ff453a]' : 'text-[#007aff]'}
+            className={toast.type === 'wishlist' ? 'text-stock-red' : 'text-accent-blue'}
             filled={toast.type === 'wishlist'}
           />
           <span>{toast.message}</span>
@@ -70,8 +70,8 @@ function ToastContainer() {
 
 function PageFallback() {
   return (
-    <div className="flex-1 flex items-center justify-center py-32 text-[#8b90a0] font-mono text-xs">
-      <span className="w-4 h-4 border-2 border-[#414755] border-t-[#007aff] rounded-full animate-spin mr-2" /> Loading…
+    <div className="flex-1 flex items-center justify-center py-32 text-outline font-mono text-xs">
+      <span className="w-4 h-4 border-2 border-outline-variant border-t-accent-blue rounded-full animate-spin mr-2" /> Loading…
     </div>
   )
 }
@@ -99,7 +99,7 @@ function AppContent() {
         <Route
           path="/admin/*"
           element={
-            <Suspense fallback={<div className="min-h-screen bg-[#121317] flex items-center justify-center text-[#8b90a0] font-mono text-xs">Loading admin console…</div>}>
+            <Suspense fallback={<div className="min-h-screen bg-[#121317] flex items-center justify-center text-outline font-mono text-xs">Loading admin console…</div>}>
               <AdminApp />
             </Suspense>
           }

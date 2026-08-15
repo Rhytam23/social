@@ -186,22 +186,22 @@ export function BrandSection({ brands: _brands }: BrandSectionProps = {}) {
       <div className="flex items-center justify-between mb-6 pb-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#007aff] animate-pulse inline-block" />
-            <span className="font-mono text-xs text-[#007aff] font-bold tracking-widest uppercase">
+            <span className="w-2.5 h-2.5 rounded-full bg-accent-blue animate-pulse inline-block" />
+            <span className="font-mono text-xs text-accent-blue font-bold tracking-widest uppercase">
               OFFICIAL PARTNERSHIPS
             </span>
           </div>
           <h2 className="text-white font-black text-xl md:text-2xl tracking-tight">
             Authorized Brand Partners
           </h2>
-          <p className="text-[#8b90a0] text-xs mt-1">
+          <p className="text-outline text-xs mt-1">
             Direct retail partner with complete official manufacturer warranty support
           </p>
         </div>
 
         <Link
           to="/products"
-          className="text-[#007aff] hover:text-[#adc6ff] font-mono text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
+          className="text-accent-blue hover:text-[#adc6ff] font-mono text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
         >
           <span>ALL BRANDS</span>
           <Icon name="arrow_forward" size={14} />
@@ -209,12 +209,10 @@ export function BrandSection({ brands: _brands }: BrandSectionProps = {}) {
       </div>
 
       {/* Brand Viewport Container (overflow: hidden clipping boundary) */}
-
-      {/* Brand Viewport Container (overflow: hidden clipping boundary) */}
       <div className="relative w-full overflow-hidden py-2">
         {/* Left & Right Edge Fading Overlays */}
-        <div className="absolute top-0 bottom-0 left-0 w-12 md:w-20 bg-gradient-to-r from-[var(--bg-surface,#16171d)] to-transparent z-10 pointer-events-none" />
-        <div className="absolute top-0 bottom-0 right-0 w-12 md:w-20 bg-gradient-to-l from-[var(--bg-surface,#16171d)] to-transparent z-10 pointer-events-none" />
+        <div className="absolute top-0 bottom-0 left-0 w-12 md:w-20 bg-linear-to-r from-[#16171d] to-transparent z-10 pointer-events-none" />
+        <div className="absolute top-0 bottom-0 right-0 w-12 md:w-20 bg-linear-to-l from-[#16171d] to-transparent z-10 pointer-events-none" />
 
         {/* Moving Marquee Track (-50% keyframe translation) */}
         <div className="animate-marquee flex items-center gap-5 hover:[animation-play-state:paused] touch-pan-x">
