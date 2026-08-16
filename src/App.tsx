@@ -29,6 +29,12 @@ const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ defa
 const BrandPage = lazy(() => import('./pages/BrandPage').then((m) => ({ default: m.BrandPage })))
 const BrandsPage = lazy(() => import('./pages/BrandPage').then((m) => ({ default: m.BrandsPage })))
 const AuthPage = lazy(() => import('./pages/AuthPage').then((m) => ({ default: m.AuthPage })))
+const PrivacyPolicyPage = lazy(() => import('./pages/policies/PrivacyPolicyPage').then((m) => ({ default: m.PrivacyPolicyPage })))
+const TermsPage = lazy(() => import('./pages/policies/TermsPage').then((m) => ({ default: m.TermsPage })))
+const ShippingPolicyPage = lazy(() => import('./pages/policies/ShippingPolicyPage').then((m) => ({ default: m.ShippingPolicyPage })))
+const ReturnPolicyPage = lazy(() => import('./pages/policies/ReturnPolicyPage').then((m) => ({ default: m.ReturnPolicyPage })))
+const AboutPage = lazy(() => import('./pages/policies/AboutPage').then((m) => ({ default: m.AboutPage })))
+import { PageSkeleton } from './components/ui/SkeletonLoader'
 
 // ─── Scroll to top on route navigation ────────────────────────────────────────
 
@@ -69,11 +75,7 @@ function ToastContainer() {
 // ─── Storefront Layout (Header + Footer) ──────────────────────────────────────
 
 function PageFallback() {
-  return (
-    <div className="flex-1 flex items-center justify-center py-32 text-outline font-mono text-xs">
-      <span className="w-4 h-4 border-2 border-outline-variant border-t-accent-blue rounded-full animate-spin mr-2" /> Loading…
-    </div>
-  )
+  return <PageSkeleton />
 }
 
 function StorefrontLayout() {
@@ -165,9 +167,11 @@ function AppContent() {
           <Route path="/support" element={<SupportPage />} />
           <Route path="/warranty" element={<SupportPage />} />
           <Route path="/b2b" element={<SupportPage />} />
-          <Route path="/about" element={<SupportPage />} />
-          <Route path="/terms" element={<SupportPage />} />
-          <Route path="/privacy" element={<SupportPage />} />
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/terms" element={<TermsPage />} />
+          <Route path="/privacy" element={<PrivacyPolicyPage />} />
+          <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
+          <Route path="/return-policy" element={<ReturnPolicyPage />} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

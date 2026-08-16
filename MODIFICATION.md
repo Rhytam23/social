@@ -27,9 +27,11 @@ Purpose: Permanent change tracking, pending items, bug reports, and architectura
 
 # PENDING REMOVALS
 
-- [x] Removed decorative borders across entire UI (Global Border Removal Pass)
-- [x] Removed arbitrary hex colors in favor of Tailwind CSS v4 design tokens
-- [ ] Temporary mock product data (`src/data/products.ts` to be replaced with DB queries in production)
+- [x] Removed decorative radial blur shapes & neon glow shadows
+- [x] Removed decorative `animate-pulse` dots from static text headers
+- [x] Removed misplaced monospace font from CTA buttons and retail titles
+- [x] Removed nested sub-cards inside product cards (`bg-[#1B1E24] rounded-xl p-3`)
+- [ ] Temporary mock product data (`src/data/index.ts` to be replaced with DB queries in production)
 
 ---
 
@@ -57,22 +59,32 @@ Purpose: Permanent change tracking, pending items, bug reports, and architectura
   - Expected: Password barrier authentication gate required.
   - Current: Resolved. Implemented `AdminAuthGate` with password prompt (`admin123`) and localStorage session tracking.
 
+- [x] BUG: Hidden Wishlist & Compare action buttons on mobile touch viewports
+  - Priority: High
+  - Location: `src/components/products/ProductCard.tsx`
+  - Expected: Action buttons permanently accessible on mobile/touch screens.
+  - Current: Resolved. Removed desktop-only `opacity-0 group-hover:opacity-100` hover dependency.
+
+- [x] BUG: Missing dedicated policy pages (Privacy, Terms, Shipping, Return, About)
+  - Priority: Critical
+  - Location: `src/App.tsx`, `src/pages/policies/*`
+  - Expected: Dedicated, structured policy pages.
+  - Current: Resolved. Built 5 structural policy pages with explicit `[CLIENT CONFIRMATION REQUIRED]` placeholders.
+
 ---
 
 # UI/UX IMPROVEMENTS
 
-- [x] Typography: Standardized on Inter (Sans) & JetBrains Mono (Mono) fonts with strict hierarchy.
-- [x] Spacing: Applied technical precision spacing and padding across cards & section containers.
-- [x] Colors: Curated dark palette (`#121317`, `#16171d`, `#1a1b1f`) with accent blue (`#007aff`), orange (`#ff5c00`), and stock status colors.
-- [x] Layout: Implemented 40/60 cinematic hero layout, bento category grid, and 4-column product grid.
-- [x] Animations: Micro-interactions, continuous brand marquee loop, image hover scaling, and smooth modal fade-ins.
-- [x] Responsive behavior: Custom mobile drawers, responsive grid breakpoints (320px to 3440px), and hidden scrollbars.
-- [x] Accessibility: Keyboard focus outlines, high contrast text, touch targets, and `aria-label` tags.
-- [x] Visual hierarchy: Brand → Product Name → Rating → Product Image → Specs → Price → Add to Cart.
+- [x] Typography: Strict role separation. Inter (Sans) for headlines, body copy, and CTA buttons (`Add to Cart`); JetBrains Mono (Mono) strictly reserved for numerical specs, SKUs, clock speeds, wattage, and prices.
+- [x] Visual Cleanliness: Eliminated 140px background blur circles, neon drop-shadows, and pulsing dots on static section labels.
+- [x] Surface Tokens: Clean background contrast (`#121317`, `#16171d`), structural borders (`#292a2e`), and soft natural drop-shadows.
+- [x] Mobile Usability: Permanently visible touch actions, responsive drawers, and accessible touch targets (min 44px).
+- [x] Skeleton Loaders: Created `<PageSkeleton />` and `<ProductCardSkeleton />` in `src/components/ui/SkeletonLoader.tsx` to replace raw text spinners during route navigation.
+- [x] Legal & Compliance: Integrated 5 structural policy pages with client confirmation placeholders.
 
 ---
 
-# CLIENT REQUESTS
+# CLIENT REQUESTS LOG
 
 ### Request 1: Product Card Polish
 - Date: 2026-08-15
@@ -98,94 +110,8 @@ Purpose: Permanent change tracking, pending items, bug reports, and architectura
 - Priority: Critical
 - Status: Completed
 
-### Request 5: Admin Panel Completeness & Storefront Reactivity
-- Date: 2026-08-15
-- Request: Audit and finish Admin Panel. Every admin action must immediately update the storefront.
-- Priority: High
-- Status: Completed
-
-### Request 6: Tailwind CSS v4 Class Optimization
+### Request 5: E-Commerce UI/UX Refinement & Legal Structural Integration
 - Date: 2026-08-16
-- Request: Fix/refactor bracketed arbitrary Tailwind classes to standard v4 tokens.
-- Priority: Medium
+- Request: Comprehensive UI/UX humanization, mobile accessibility fix, skeleton loader fallback, and structural policy page routing.
+- Priority: Critical
 - Status: Completed
-
----
-
-# TEMPORARY ITEMS
-
-- [D] Mock product dataset in `src/data/products.ts`
-- [D] Mock customer login & registration state in `ShopContext.tsx`
-- [D] Mock credit card checkout modal in `CheckoutPage.tsx`
-- [D] Mock order ID generation in `OrderConfirmationPage.tsx`
-- [D] Client-side admin auth password (`admin123`) in `AdminLayout.tsx`
-
----
-
-# PRODUCTION TODO
-
-- [P] Production Database (PostgreSQL / Supabase / Prisma schema & migrations)
-- [P] Payment Provider Integration (Stripe Elements / PayPal SDK & Webhooks)
-- [P] Email Engine (Resend / SendGrid transactional email service)
-- [P] Real-Time Shipping Carrier API (UPS / FedEx / EasyPost API)
-- [P] Web Analytics (Google Analytics 4 / Plausible)
-- [P] Server-Side Authentication & Role-Based Access Control (JWT / OAuth / Supabase Auth)
-- [P] Application Monitoring (Sentry error logging & performance tracing)
-- [P] Cloud Storage Service (AWS S3 / Cloudinary for CMS asset uploads)
-- [P] Production Database Automated Daily Backups
-
----
-
-# COMPLETED MODIFICATIONS
-
-### 2026-08-16
-
-- Created `PRELAUNCH_CHECKLIST.md`, `CHECKLIST.md`, and `MODIFICATION.md` documentation artifacts.
-- Standardized Tailwind CSS v4 utility classes (`z-200`, `bg-surface-container`, `border-accent-blue`, `text-stock-red`, `bg-linear-to-r`, `aspect-16/10`).
-- Fixed CSS compatibility for `line-clamp` properties in `src/index.css`.
-- Pushed clean production build commits to GitHub repository `https://github.com/Rhytam23/clint-version`.
-
-### 2026-08-15
-
-- Implemented `AdminAuthGate` security wrapper protecting all `/admin/*` routes with password verification (`admin123`).
-- Created `AdminBrands.tsx` CMS module for adding/editing authorized brand partner logos and URLs.
-- Created `AdminGamingPCs.tsx` CMS module for managing prebuilt gaming rigs.
-- Linked Admin CMS state updates directly to `ShopContext` to ensure live storefront reactivity.
-- Fixed React Rules-of-Hooks ordering in `ProductDetailsPage.tsx`.
-- Performed Global Border Removal Pass to eliminate boxed-in decorative lines.
-- Redesigned Product Card hierarchy (Brand → Name → Rating → Image → Specs → Price → Cart).
-
----
-
-# DECISIONS
-
-### Header
-- Decision: Use a clean two-row navigation bar with integrated search, mega menu hover dropdowns, currency selector, and cart/wishlist quick counters.
-- Reason: Maximizes ecommerce usability and eliminates visual clutter.
-
-### Brand Section
-- Decision: Use a continuous marquee animation loop containing official partner logos (NVIDIA, AMD, Intel, ROG, MSI, Corsair, NZXT, Samsung).
-- Reason: Establishes immediate retailer authority and brand authenticity.
-
-### Theme System
-- Decision: Support both Light and Dark themes via CSS custom variables (`src/index.css`) and `html.light-mode`.
-- Reason: Enhances accessibility and user choice without sacrificing dark gaming aesthetics.
-
-### Admin Security Architecture
-- Decision: Implement an in-app `AdminAuthGate` modal overlay backed by `localStorage` persistence.
-- Reason: Instantly blocks unauthorized public access to CMS tools while maintaining frontend SPA simplicity.
-
-### Tailwind CSS v4 Standard
-- Decision: Adopt native Tailwind CSS v4 `@theme` configuration and standard named tokens over arbitrary bracket syntax.
-- Reason: Improves build performance, reduces bundle CSS size, and ensures full IDE linter compliance.
-
----
-
-# DO NOT CHANGE
-
-- Do NOT restore decorative border lines around product cards, category tiles, or headers.
-- Do NOT remove Light/Dark mode toggling or CSS variable theme structure.
-- Do NOT revert `AdminAuthGate` route protection on `/admin/*`.
-- Do NOT break live storefront reactivity from Admin CMS state updates.
-- Do NOT use generic placeholder text or broken image URLs.
-- Do NOT move React hooks below conditional return statements.

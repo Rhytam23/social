@@ -200,10 +200,10 @@ export function ProductDetailsPage() {
                   type="button"
                   onClick={() => addToCart(product, quantity)}
                   disabled={product.stockStatus === 'out-of-stock'}
-                  className="flex-1 py-3 px-6 bg-[#007aff] hover:bg-[#0066d6] active:bg-[#004fc2] disabled:opacity-40 text-white font-mono text-xs font-bold rounded flex items-center justify-center gap-2 transition-colors shadow-lg"
+                  className="flex-1 py-3 px-6 bg-[#007aff] hover:bg-[#0066d6] active:bg-[#004fc2] disabled:opacity-40 text-white font-sans text-xs md:text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm"
                 >
                   <Icon name="add_shopping_cart" size={18} />
-                  ADD TO CART
+                  Add to Cart
                 </button>
 
                 {/* Wishlist Button */}
@@ -211,7 +211,7 @@ export function ProductDetailsPage() {
                   type="button"
                   onClick={() => toggleWishlist(product.id)}
                   aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-                  className={`p-3 rounded border transition-colors flex items-center justify-center shrink-0 ${
+                  className={`p-3 rounded-xl border transition-colors flex items-center justify-center shrink-0 ${
                     isWishlisted ? 'bg-[#ff453a20] border-[#ff453a] text-[#ff453a]' : 'border-[#414755] bg-[#1a1b1f] text-[#8b90a0] hover:text-[#ff453a]'
                   }`}
                 >
@@ -227,33 +227,33 @@ export function ProductDetailsPage() {
                     addToCart(product, quantity)
                     navigate('/checkout')
                   }}
-                  className="flex-1 py-2.5 bg-transparent border border-[#343539] hover:border-white text-white font-mono text-xs font-semibold rounded transition-colors text-center"
+                  className="flex-1 py-2.5 bg-transparent border border-[#343539] hover:border-white text-white font-sans text-xs font-semibold rounded-xl transition-colors text-center"
                 >
-                  BUY NOW WITH 1-CLICK
+                  Buy Now
                 </button>
                 <button
                   type="button"
                   onClick={() => toggleCompare(product.id)}
-                  className={`px-4 py-2.5 font-mono text-xs font-semibold rounded transition-colors flex items-center gap-1.5 shrink-0 ${
+                  className={`px-4 py-2.5 font-sans text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shrink-0 ${
                     comparing ? 'bg-[#007aff20] border border-[#007aff] text-[#007aff]' : 'bg-transparent border border-[#343539] text-[#8b90a0] hover:text-white hover:border-white'
                   }`}
                 >
-                  <Icon name="balance" size={16} /> {comparing ? 'COMPARING' : 'COMPARE'}
+                  <Icon name="balance" size={16} /> {comparing ? 'Comparing' : 'Compare'}
                 </button>
               </div>
             </div>
 
             {/* Guarantee / Delivery Checklist */}
-            <div className="pt-4 border-t border-[#292a2e] space-y-2 text-xs font-mono text-[#8b90a0]">
-              <div className="flex items-center gap-2 text-[#c1c6d7]">
-                <Icon name="local_shipping" size={16} className="text-[#007aff]" /> Free 2-Day Express Shipping on orders over $99
-              </div>
-              <div className="flex items-center gap-2 text-[#c1c6d7]">
-                <Icon name="verified" size={16} className="text-[#30d158]" /> 3-Year Official Manufacturer Warranty
-              </div>
-              <div className="flex items-center gap-2 text-[#c1c6d7]">
-                <Icon name="history" size={16} className="text-[#ffd60a]" /> 30-Day No-Hassle Return Policy
-              </div>
+            <div className="pt-4 border-t border-[#292a2e] space-y-2 text-xs font-sans text-[#8b90a0]">
+              <Link to="/shipping-policy" className="flex items-center gap-2 text-[#c1c6d7] hover:text-white transition-colors">
+                <Icon name="local_shipping" size={16} className="text-[#007aff]" /> Express Shipping & Dispatch Details
+              </Link>
+              <Link to="/terms" className="flex items-center gap-2 text-[#c1c6d7] hover:text-white transition-colors">
+                <Icon name="verified" size={16} className="text-[#30d158]" /> Official Manufacturer Warranty Terms
+              </Link>
+              <Link to="/return-policy" className="flex items-center gap-2 text-[#c1c6d7] hover:text-white transition-colors">
+                <Icon name="history" size={16} className="text-[#ffd60a]" /> Store Return & RMA Guidelines
+              </Link>
             </div>
           </div>
         </div>

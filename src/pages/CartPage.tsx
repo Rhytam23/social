@@ -234,21 +234,21 @@ export function CartPage() {
               </div>
 
               {/* Promo Code Box */}
-              <form onSubmit={handleApplyPromo} className="pt-2">
-                <label className="text-[11px] font-mono text-[#8b90a0] block mb-1.5">PROMO CODE / COUPON</label>
+              <form onSubmit={handleApplyPromo} className="pt-2 font-sans">
+                <label className="text-[11px] font-mono text-[#8b90a0] block mb-1.5 uppercase font-semibold">Promo Code / Coupon</label>
                 <div className="flex gap-2">
                   <input
                     type="text"
                     value={promoCode}
                     onChange={(e) => setPromoCode(e.target.value)}
                     placeholder="e.g. HARDWARE10"
-                    className="flex-1 bg-[#121317] border border-[#414755] rounded px-3 py-2 text-xs text-white font-mono uppercase focus:outline-none focus:border-[#007aff]"
+                    className="flex-1 bg-[#121317] border border-[#414755] rounded-xl px-3 py-2 text-xs text-white font-mono uppercase focus:outline-none focus:border-[#007aff]"
                   />
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-[#292a2e] hover:bg-[#343539] text-white font-mono text-xs rounded transition-colors"
+                    className="px-4 py-2 bg-[#292a2e] hover:bg-[#343539] text-white font-sans text-xs font-semibold rounded-xl transition-colors"
                   >
-                    APPLY
+                    Apply
                   </button>
                 </div>
                 {promoError && <p className="text-[#ff453a] text-[10px] font-mono mt-1">{promoError}</p>}
@@ -259,9 +259,9 @@ export function CartPage() {
               <button
                 type="button"
                 onClick={() => navigate('/checkout')}
-                className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] active:bg-[#004fc2] text-white font-mono text-xs font-bold rounded flex items-center justify-center gap-2 transition-colors shadow-lg mt-4"
+                className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] active:bg-[#004fc2] text-white font-sans text-xs md:text-sm font-bold rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm mt-4"
               >
-                PROCEED TO CHECKOUT
+                Proceed to Checkout
                 <Icon name="arrow_forward" size={16} />
               </button>
 

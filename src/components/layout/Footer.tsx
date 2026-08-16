@@ -49,13 +49,12 @@ export function Footer() {
   const customerServiceLinks = [
     { label: 'Contact Support', href: '/support' },
     { label: 'Track Your Order', href: '/account/orders' },
-    { label: 'Shipping & Delivery', href: '/support#shipping' },
-    { label: 'Returns & Replacements', href: '/support#returns' },
-    { label: 'Warranty & RMA', href: '/support#warranty' },
-    { label: 'FAQs & Help Center', href: '/support#faqs' },
-    { label: 'Payment Methods', href: '/support#payments' },
-    { label: 'Delivery Information', href: '/support#delivery' },
-    { label: 'Order Support', href: '/support#orders' },
+    { label: 'Shipping & Delivery', href: '/shipping-policy' },
+    { label: 'Returns & Replacements', href: '/return-policy' },
+    { label: 'Warranty & RMA', href: '/return-policy' },
+    { label: 'FAQs & Help Center', href: '/support' },
+    { label: 'Delivery Information', href: '/shipping-policy' },
+    { label: 'Order Support', href: '/support' },
   ]
 
   const hardwareBuildsLinks = [
@@ -122,7 +121,7 @@ export function Footer() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-[#121317] rounded-2xl p-6 md:p-8 shadow-xl">
             <div className="max-w-[550px]">
               <div className="flex items-center gap-2 mb-2">
-                <span className="w-2 h-2 rounded-full bg-[#007aff] animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-[#007aff]" />
                 <span className="font-mono text-xs text-[#007aff] font-bold tracking-widest uppercase">
                   VIP HARDWARE ALERTS
                 </span>

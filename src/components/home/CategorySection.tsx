@@ -125,7 +125,7 @@ export function CategorySection({ categories }: CategorySectionProps) {
       <div className="flex items-end justify-between mb-6 pb-3">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-accent-blue animate-pulse" />
+            <span className="w-2 h-2 rounded-full bg-accent-blue" />
             <span className="font-mono text-xs text-accent-blue font-bold tracking-widest uppercase">
               HARDWARE SECTIONS
             </span>

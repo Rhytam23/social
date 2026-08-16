@@ -13,56 +13,54 @@ export function HeroSection() {
 
   return (
     <section className="w-full max-w-container mx-auto">
-      {/* ─── MAIN RTX 5090 CAMPAIGN HERO (620–720px Height Desktop) ─── */}
-      <div className="cinematic-hero-card relative w-full rounded-2xl bg-[#121317] overflow-hidden min-h-145 md:min-h-160 lg:min-h-170 flex flex-col justify-between p-6 sm:p-10 lg:p-16 shadow-2xl">
-        {/* Background Cinematic Glows & Lighting */}
-        <div className="absolute top-1/2 -right-10 -translate-y-1/2 w-125 sm:w-162.5 lg:w-212.5 h-125 sm:h-162.5 lg:h-212.5 bg-accent-blue/15 rounded-full blur-[140px] pointer-events-none z-0" />
-        <div className="hero-bg-gradient absolute inset-0 bg-linear-to-r from-[#121317] via-[#121317]/95 to-transparent z-1 pointer-events-none hidden lg:block" />
-        <div className="hero-bg-gradient-mobile absolute inset-0 bg-linear-to-t from-[#121317] via-[#121317]/70 to-transparent z-1 pointer-events-none lg:hidden" />
+      {/* ─── MAIN HARDWARE HERO SHOWCASE ─── */}
+      <div className="cinematic-hero-card relative w-full rounded-2xl bg-[#121317] border border-[#292a2e] overflow-hidden min-h-135 md:min-h-145 flex flex-col justify-between p-6 sm:p-10 lg:p-14 shadow-xl">
+        {/* Background Gradients & Contrast Overlay */}
+        <div className="hero-bg-gradient absolute inset-0 bg-linear-to-r from-[#121317] via-[#121317]/90 to-transparent z-1 pointer-events-none hidden lg:block" />
+        <div className="hero-bg-gradient-mobile absolute inset-0 bg-linear-to-t from-[#121317] via-[#121317]/80 to-transparent z-1 pointer-events-none lg:hidden" />
 
-        {/* Desktop 40/60 Layout Container */}
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center h-full my-auto">
-          {/* Left Column: 40% Width Typography & CTAs */}
-          <div className="lg:col-span-5 xl:col-span-5 flex flex-col justify-center order-1 lg:order-1">
-            {/* Label */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent-blue/10 rounded text-accent-blue font-mono text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] w-fit mb-5 shadow-[0_0_15px_rgba(0,122,255,0.15)]">
-              <span className="w-1.5 h-1.5 rounded-full bg-accent-blue animate-pulse" />
+        {/* Desktop 45/55 Layout Container */}
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center h-full my-auto">
+          {/* Left Column: Typography & CTAs */}
+          <div className="lg:col-span-6 xl:col-span-5 flex flex-col justify-center order-1 lg:order-1">
+            {/* Label Badge */}
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent-blue/10 border border-accent-blue/20 rounded-md text-accent-blue font-mono text-xs font-semibold uppercase tracking-wider w-fit mb-4">
               {heroCampaign.badge}
             </div>
 
             {/* Headline */}
-            <h1 className="font-black tracking-tighter leading-[0.92] text-3xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl mb-6">
+            <h1 className="font-sans font-black tracking-tight leading-[1.02] text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-4">
               <span className="hero-headline-primary text-white block">{heroCampaign.headlinePrimary}</span>
               <span className="text-accent-blue block mt-1">{heroCampaign.headlineAccent}</span>
             </h1>
 
             {/* GPU Visual - Mobile Only */}
-            <div className="block lg:hidden my-4 relative w-full aspect-16/10 max-h-70 mx-auto order-2">
+            <div className="block lg:hidden my-4 relative w-full aspect-16/10 max-h-60 mx-auto order-2">
               {!gpuImgError ? (
                 <img
                   src={heroCampaign.image}
                   alt={heroCampaign.headlinePrimary}
-                  className="w-full h-full object-contain filter drop-shadow-[0_20px_35px_rgba(0,122,255,0.35)]"
+                  className="w-full h-full object-contain drop-shadow-lg"
                   onError={() => setGpuImgError(true)}
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-lg">
-                  <Icon name="videogame_asset" size={56} className="text-accent-blue" />
+                  <Icon name="videogame_asset" size={48} className="text-accent-blue" />
                   <span className="font-mono text-xs text-outline mt-2">RTX 5090 FE</span>
                 </div>
               )}
             </div>
 
             {/* Description */}
-            <p className="hero-subtext text-outline text-sm sm:text-base lg:text-lg max-w-112.5 leading-relaxed mb-8 order-3 font-normal">
+            <p className="hero-subtext text-[#8b90a0] text-sm sm:text-base max-w-lg leading-relaxed mb-6 order-3 font-normal font-sans">
               {heroCampaign.description}
             </p>
 
             {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 order-4">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 order-4 font-sans">
               <Link
                 to={heroCampaign.primaryCtaHref}
-                className="h-12 md:h-14 px-7 md:px-8 bg-accent-blue hover:bg-[#0066d6] active:scale-[0.98] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl flex items-center justify-center gap-2 shadow-[0_0_25px_rgba(0,122,255,0.4)] transition-all"
+                className="h-11 md:h-12 px-6 md:px-7 bg-accent-blue hover:bg-[#0066d6] active:scale-[0.99] text-white text-xs md:text-sm font-bold tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
               >
                 <span>{heroCampaign.primaryCtaLabel}</span>
                 <Icon name="arrow_forward" size={16} />
@@ -70,7 +68,7 @@ export function HeroSection() {
 
               <Link
                 to={heroCampaign.secondaryCtaHref}
-                className="hero-sec-btn h-12 md:h-14 px-7 md:px-8 bg-[#16171d]/90 hover:bg-[#1a1b22] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
+                className="hero-sec-btn h-11 md:h-12 px-6 md:px-7 bg-[#1a1b1f] hover:bg-[#23242a] text-white border border-[#292a2e] text-xs md:text-sm font-semibold tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all"
               >
                 <span>{heroCampaign.secondaryCtaLabel}</span>
                 <Icon name="memory" size={16} className="text-accent-blue" />
@@ -78,22 +76,19 @@ export function HeroSection() {
             </div>
           </div>
 
-          {/* Right Column: 60% Width Hardware Visual (Desktop Only) */}
-          <div className="hidden lg:flex lg:col-span-7 xl:col-span-7 relative items-center justify-center order-2 h-full">
-            <div className="relative w-full max-w-185 aspect-16/10 flex items-center justify-center">
-              {/* Outer Rim Ambient Glow */}
-              <div className="absolute inset-0 bg-linear-to-tr from-accent-blue/25 via-transparent to-accent-blue/15 rounded-3xl blur-3xl pointer-events-none" />
-
+          {/* Right Column: Hardware Visual (Desktop Only) */}
+          <div className="hidden lg:flex lg:col-span-6 xl:col-span-7 relative items-center justify-center order-2 h-full">
+            <div className="relative w-full max-w-160 aspect-16/10 flex items-center justify-center">
               {!gpuImgError ? (
                 <img
                   src={heroCampaign.image}
                   alt={heroCampaign.headlinePrimary}
-                  className="w-full h-full object-contain filter drop-shadow-[0_25px_50px_rgba(0,122,255,0.4)] hover:scale-[1.02] transition-transform duration-700 select-none z-10"
+                  className="w-full h-full object-contain drop-shadow-xl hover:scale-[1.01] transition-transform duration-500 select-none z-10"
                   onError={() => setGpuImgError(true)}
                 />
               ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-xl p-8 z-10">
-                  <Icon name="videogame_asset" size={96} className="text-accent-blue" />
+                <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-xl p-8 z-10 border border-[#292a2e]">
+                  <Icon name="videogame_asset" size={80} className="text-accent-blue" />
                   <span className="font-mono text-sm text-outline mt-3">{heroCampaign.headlinePrimary}</span>
                 </div>
               )}

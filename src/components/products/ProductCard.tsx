@@ -48,14 +48,11 @@ export function ProductCard({
         </div>
       </div>
 
-      {/* ── Main Product Image Area (180–220px Height, Contain Fit, Soft Radial Glow) ── */}
+      {/* ── Main Product Image Area (Contain Fit, Clean Surface) ── */}
       <Link
         to={`/products/${product.slug}`}
-        className="product-card-img-area relative w-full h-47.5 md:h-52.5 bg-[#121317] flex items-center justify-center p-3 overflow-hidden group/img shrink-0"
+        className="product-card-img-area relative w-full h-48 md:h-52 bg-[#121317] border-y border-[#292a2e]/60 flex items-center justify-center p-4 overflow-hidden group/img shrink-0"
       >
-        {/* Subtle Ambient Radial Glow */}
-        <div className="absolute inset-0 bg-linear-to-tr from-accent-blue/10 via-transparent to-transparent pointer-events-none z-0" />
-
         {!imageError ? (
           <img
             src={product.image}
@@ -76,7 +73,7 @@ export function ProductCard({
           {product.discount && <Badge variant="orange">-{product.discount}% OFF</Badge>}
         </div>
 
-        {/* Floating Action Buttons (Wishlist & Compare) */}
+        {/* Action Buttons (Wishlist & Compare - Always visible on mobile/touch, subtle hover on desktop) */}
         <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-20">
           <button
             type="button"
@@ -86,13 +83,13 @@ export function ProductCard({
               onToggleWishlist(product.id)
             }}
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 shadow-md ${
+            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all duration-200 shadow-sm ${
               isWishlisted
-                ? 'bg-stock-red/20 text-stock-red'
-                : 'bg-[#121317]/80 text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-stock-red'
+                ? 'bg-[#121317] border-stock-red/50 text-stock-red'
+                : 'bg-[#121317]/90 border-[#292a2e] text-[#8b90a0] hover:text-stock-red hover:border-stock-red/40'
             }`}
           >
-            <Icon name="favorite" size={16} filled={isWishlisted} />
+            <Icon name="favorite" size={15} filled={isWishlisted} />
           </button>
 
           <button
@@ -103,26 +100,26 @@ export function ProductCard({
               toggleCompare(product.id)
             }}
             aria-label={comparing ? 'Remove from comparison' : 'Add to comparison'}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg backdrop-blur-md transition-all duration-200 shadow-md ${
+            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all duration-200 shadow-sm ${
               comparing
-                ? 'bg-accent-blue/20 text-accent-blue'
-                : 'bg-[#121317]/80 text-[#8b90a0] opacity-0 group-hover:opacity-100 hover:text-accent-blue'
+                ? 'bg-[#121317] border-accent-blue/50 text-accent-blue'
+                : 'bg-[#121317]/90 border-[#292a2e] text-[#8b90a0] hover:text-accent-blue hover:border-accent-blue/40'
             }`}
           >
-            <Icon name="balance" size={16} />
+            <Icon name="balance" size={15} />
           </button>
         </div>
       </Link>
 
-      {/* ── Key Specifications Panel ── */}
+      {/* ── Key Specifications & Metadata ── */}
       <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-        <div className="product-spec-panel mb-4 bg-[#1B1E24] rounded-xl p-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-sans">
+        <div className="mb-4 pt-1 grid grid-cols-2 gap-2 text-xs font-sans border-t border-[#292a2e]/40">
           {product.specifications.slice(0, 2).map((spec) => (
-            <div key={spec.label} className="flex flex-col">
-              <span className="product-spec-label font-mono text-[9px] sm:text-[10px] text-[#8b90a0] uppercase tracking-wider font-semibold">
+            <div key={spec.label} className="flex flex-col pt-1.5">
+              <span className="product-spec-label font-mono text-[9px] text-[#8b90a0] uppercase tracking-wider font-semibold">
                 {spec.label}
               </span>
-              <span className="product-spec-value font-mono text-xs text-white font-bold truncate">
+              <span className="product-spec-value font-mono text-xs text-[#e3e2e7] font-bold truncate mt-0.5">
                 {spec.value}
               </span>
             </div>
@@ -145,10 +142,10 @@ export function ProductCard({
             onClick={() => onAddToCart(product)}
             disabled={product.stockStatus === 'out-of-stock'}
             aria-label={`Add ${product.name} to cart`}
-            className="w-full h-11 md:h-12 bg-accent-blue hover:bg-[#0066d6] active:scale-[0.98] text-white font-mono text-xs md:text-sm font-bold tracking-wider rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md shadow-accent-blue/20"
+            className="w-full h-11 bg-accent-blue hover:bg-[#0066d6] active:scale-[0.98] text-white font-sans text-xs md:text-sm font-bold tracking-wide rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm"
           >
             <Icon name="add_shopping_cart" size={18} />
-            <span>ADD TO CART</span>
+            <span>Add to Cart</span>
           </button>
         </div>
       </div>

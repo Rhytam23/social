@@ -206,20 +206,20 @@ export function CheckoutPage() {
               )}
 
               {/* Nav buttons */}
-              <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#292a2e]">
+              <div className="flex items-center justify-between mt-6 pt-4 border-t border-[#292a2e] font-sans">
                 <button
                   onClick={stepIndex === 0 ? () => navigate('/cart') : back}
-                  className="px-4 py-2.5 border border-[#414755] hover:border-white text-white font-mono text-xs rounded transition-colors flex items-center gap-1.5"
+                  className="px-4 py-2.5 border border-[#414755] hover:border-white text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5"
                 >
-                  <Icon name="arrow_back" size={15} /> {stepIndex === 0 ? 'BACK TO CART' : 'BACK'}
+                  <Icon name="arrow_back" size={15} /> {stepIndex === 0 ? 'Back to Cart' : 'Back'}
                 </button>
                 {step !== 'Review' ? (
-                  <button onClick={next} className="px-5 py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors">
-                    CONTINUE <Icon name="arrow_forward" size={15} />
+                  <button onClick={next} className="px-5 py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-sm">
+                    Continue <Icon name="arrow_forward" size={15} />
                   </button>
                 ) : (
-                  <button onClick={placeFinalOrder} className="px-5 py-2.5 bg-[#30d158] hover:bg-[#28b84c] text-[#0d0e12] font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors">
-                    <Icon name="lock" size={15} /> PLACE ORDER (${total.toFixed(2)})
+                  <button onClick={placeFinalOrder} className="px-6 py-3 bg-[#30d158] hover:bg-[#28b84c] text-[#0d0e12] text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-sm">
+                    <Icon name="lock" size={15} /> Place Order (${total.toFixed(2)})
                   </button>
                 )}
               </div>

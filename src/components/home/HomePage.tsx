@@ -77,7 +77,7 @@ function HardwareTicker() {
   return (
     <div className="bg-[#16171d] rounded-2xl px-5 py-3.5 flex flex-wrap items-center justify-between gap-3 text-xs font-mono shadow-sm">
       <div className="flex items-center gap-2.5">
-        <span className="w-2 h-2 rounded-full bg-[#30d158] inline-block animate-pulse" />
+        <span className="w-2 h-2 rounded-full bg-[#30d158] inline-block" />
         <span className="text-[#c1c6d7] font-bold">LIVE INVENTORY UPDATE:</span>
         <span className="text-[#8b90a0]">RTX 5090 FE & Ryzen 7 7800X3D units in stock for immediate dispatch.</span>
       </div>
