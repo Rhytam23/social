@@ -83,8 +83,11 @@ export function SearchBar({
     <div ref={containerRef} className={`relative w-full ${className}`}>
       <form
         onSubmit={handleSearch}
-        className="relative flex items-center w-full bg-[var(--bg-surface-secondary)] rounded-lg border border-[var(--border-theme)] focus-within:border-[var(--accent-blue)] transition-all overflow-hidden"
+        className="relative flex items-center w-full bg-[var(--bg-surface-secondary)] rounded-lg border border-[var(--border-theme)] focus-within:border-[var(--accent-blue)] transition-all overflow-hidden animate-none"
       >
+        <span className="pl-3.5 text-[var(--text-secondary)] flex items-center justify-center shrink-0">
+          <Icon name="search" size={18} />
+        </span>
         <input
           type="text"
           value={query}
@@ -95,7 +98,7 @@ export function SearchBar({
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
           aria-label="Search products, categories, or brands"
-          className="w-full bg-transparent text-[var(--text-primary)] text-xs py-2 px-3.5 focus:outline-none placeholder:text-[var(--text-muted)]"
+          className="w-full bg-transparent text-[var(--text-primary)] text-xs py-2 px-2.5 focus:outline-none placeholder:text-[var(--text-muted)]"
         />
         {query && (
           <button
@@ -104,19 +107,12 @@ export function SearchBar({
               setQuery('')
               setOpen(true)
             }}
-            className="px-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+            className="px-3 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
             aria-label="Clear search"
           >
             <Icon name="close" size={16} />
           </button>
         )}
-        <button
-          type="submit"
-          aria-label="Submit Search"
-          className="h-full px-4 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white transition-colors flex items-center justify-center shrink-0"
-        >
-          <Icon name="search" size={18} />
-        </button>
       </form>
 
       {showDropdown && (
@@ -455,7 +451,7 @@ function StoreNavigationBar() {
 // ─── Main Header Component ─────────────────────────────────────────────────────
 
 export function Header() {
-  const { cartCount, wishlistCount, compareCount, theme, toggleTheme } = useShop()
+  const { cartCount, wishlistCount, theme, toggleTheme } = useShop()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const location = useLocation()
@@ -469,7 +465,7 @@ export function Header() {
     <header className="sticky top-0 z-50 bg-[var(--bg-surface)] border-b border-[var(--border-theme)] select-none shadow-sm">
       {/* ROW 1 — STORE HEADER (Top Bar) */}
       <div className="container-max px-4 md:px-6">
-        <div className="flex items-center justify-between h-16 gap-4 md:gap-6">
+        <div className="flex items-center justify-between h-[72px] gap-4 md:gap-6">
           {/* Mobile Hamburger */}
           <button
             className="md:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1"
@@ -512,17 +508,7 @@ export function Header() {
               <span>PC Builder</span>
             </Link>
 
-            {/* Compare Indicator */}
-            {compareCount > 0 && (
-              <Link
-                to="/compare"
-                className="hidden xl:flex items-center gap-1 bg-accent-blue/10 text-[var(--accent-blue)] px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                title="View compared products"
-              >
-                <Icon name="balance" size={15} />
-                <span>{compareCount}</span>
-              </Link>
-            )}
+
 
             {/* Account Menu */}
             <div className="hidden sm:block">
