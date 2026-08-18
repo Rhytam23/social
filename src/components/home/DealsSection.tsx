@@ -126,39 +126,37 @@ interface DealsSectionProps {
 }
 
 export function DealsSection({ products, onAddToCart, onToggleWishlist, wishlistedIds }: DealsSectionProps) {
-  // Curated selection: 4 to 6 products max on homepage
-  const curatedDeals = products.slice(0, 6)
+  const [showMore, setShowMore] = useState(false)
+  const visibleDeals = showMore ? products.slice(0, 8) : products.slice(0, 4)
 
   return (
-    <section>
+    <section className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-5 sm:p-6">
       {/* Section Header */}
-      <div className="flex items-end justify-between mb-6 pb-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 pb-4 border-b border-[var(--border-theme)]">
         <div>
-          <div className="flex items-center gap-2.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#ff5c00] animate-pulse inline-block" />
-            <h2 className="text-white font-bold text-xl tracking-tight">Today's Deals</h2>
-            <span className="font-mono text-[10px] bg-[#ff5c0015] text-[#ff5c00] border border-[#ff5c0040] px-2 py-0.5 rounded font-bold">
-              LIMITED TIME
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-[var(--text-primary)] font-bold text-xl tracking-tight">Today's Flash Deals</h2>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-semibold rounded-md">
+              <Icon name="timer" size={14} /> 04:12:35 remaining
             </span>
           </div>
-          <p className="text-[#8b90a0] text-xs mt-1">
-            Exclusive limited-time savings on flagship GPUs, CPUs, monitors, and custom hardware.
+          <p className="text-[var(--text-secondary)] text-xs md:text-sm">
+            Limited-time discount pricing on processors, graphics cards, and storage
           </p>
         </div>
 
-        {/* View All Link */}
         <Link
           to="/deals"
-          className="text-[#007aff] hover:text-[#adc6ff] font-mono text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0 group self-start sm:self-auto"
+          className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1 shrink-0"
         >
-          <span>View All Deals</span>
-          <Icon name="arrow_forward" size={16} className="group-hover:translate-x-1 transition-transform" />
+          <span>All Deals</span>
+          <Icon name="arrow_forward" size={14} />
         </Link>
       </div>
 
-      {/* Curated Product Grid (Show 2 on mobile, 4-6 on desktop) */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-        {curatedDeals.map((product) => (
+      {/* Deals Product Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {visibleDeals.map((product) => (
           <DealCard
             key={product.id}
             product={product}
@@ -168,6 +166,19 @@ export function DealsSection({ products, onAddToCart, onToggleWishlist, wishlist
           />
         ))}
       </div>
+
+      {/* Show More Toggle Button */}
+      {products.length > 4 && (
+        <div className="mt-5 text-center">
+          <button
+            type="button"
+            onClick={() => setShowMore(!showMore)}
+            className="px-5 py-2 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] hover:border-[var(--accent-blue)] text-[var(--text-primary)] text-xs font-semibold rounded-lg transition-all"
+          >
+            {showMore ? 'Show Fewer Deals' : `Show More Deals (${products.length - 4} more)`}
+          </button>
+        </div>
+      )}
     </section>
   )
 }

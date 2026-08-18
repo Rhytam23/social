@@ -11,14 +11,14 @@ interface AccordionSectionProps {
 
 function FooterAccordion({ title, children, isOpen, onToggle }: AccordionSectionProps) {
   return (
-    <div className="border-b border-[#292a2e] py-3 md:border-none md:py-0">
+    <div className="border-b border-[var(--border-theme)] py-3 md:border-none md:py-0">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between font-mono text-xs font-bold tracking-wider text-white uppercase border-l-2 border-[#007aff] pl-2.5 md:cursor-default text-left"
+        className="w-full flex items-center justify-between font-mono text-xs font-bold tracking-wider text-[var(--text-primary)] uppercase border-l-2 border-[var(--accent-blue)] pl-2.5 md:cursor-default text-left cursor-pointer"
       >
         <span>{title}</span>
-        <span className="md:hidden text-[#8b90a0]">
+        <span className="md:hidden text-[var(--text-secondary)]">
           <Icon name={isOpen ? 'expand_less' : 'expand_more'} size={18} />
         </span>
       </button>
@@ -48,178 +48,80 @@ export function Footer() {
 
   const customerServiceLinks = [
     { label: 'Contact Support', href: '/support' },
-    { label: 'Track Your Order', href: '/account/orders' },
-    { label: 'Shipping & Delivery', href: '/shipping-policy' },
-    { label: 'Returns & Replacements', href: '/return-policy' },
+    { label: 'Track Order', href: '/account/orders' },
+    { label: 'Shipping Policy', href: '/shipping-policy' },
+    { label: 'Return Policy', href: '/return-policy' },
     { label: 'Warranty & RMA', href: '/return-policy' },
-    { label: 'FAQs & Help Center', href: '/support' },
-    { label: 'Delivery Information', href: '/shipping-policy' },
-    { label: 'Order Support', href: '/support' },
   ]
 
   const hardwareBuildsLinks = [
     { label: 'Custom PC Builder', href: '/builder' },
-    { label: 'Prebuilt Gaming PCs', href: '/gaming-pcs' },
-    { label: 'Graphics Cards (GPUs)', href: '/graphics-cards' },
-    { label: 'Desktop Processors (CPUs)', href: '/cpus' },
+    { label: 'Gaming PCs', href: '/gaming-pcs' },
+    { label: 'Graphics Cards', href: '/graphics-cards' },
+    { label: 'Processors (CPUs)', href: '/cpus' },
     { label: 'Motherboards', href: '/products?category=Motherboards' },
-    { label: 'RAM & Memory', href: '/products?category=RAM' },
-    { label: 'PCIe 5.0 SSDs & Storage', href: '/products?category=Storage' },
-    { label: 'AIO & Liquid Cooling', href: '/products?category=Cooling' },
-    { label: 'PC Chassis & Cases', href: '/products?category=Cases' },
-    { label: 'Power Supplies (PSUs)', href: '/products?category=PSUs' },
-    { label: 'High-Refresh Monitors', href: '/monitors' },
-    { label: 'Esports Peripherals', href: '/products?category=Peripherals' },
   ]
 
   const dealsShoppingLinks = [
     { label: "Today's Deals", href: '/deals' },
-    { label: 'Flash Deals', href: '/deals#flash' },
-    { label: 'Clearance & Refurbished', href: '/deals#clearance' },
-    { label: 'New Hardware Arrivals', href: '/products?filter=new' },
-    { label: 'Best Sellers', href: '/products?filter=bestsellers' },
-    { label: 'Gaming PC Deals', href: '/deals#gaming-pcs' },
-    { label: 'Component Bundles', href: '/deals#bundles' },
-    { label: 'E-Gift Cards', href: '/gift-cards' },
-    { label: 'All Catalog Products', href: '/products' },
-  ]
-
-  const brandLinks = [
-    { label: 'NVIDIA GeForce', href: '/brands' },
-    { label: 'AMD Ryzen & Radeon', href: '/brands' },
-    { label: 'Intel Core', href: '/brands' },
-    { label: 'ASUS & ROG', href: '/brands' },
-    { label: 'MSI Gaming', href: '/brands' },
-    { label: 'Gigabyte AORUS', href: '/brands' },
-    { label: 'Corsair', href: '/brands' },
-    { label: 'Kingston FURY', href: '/brands' },
-    { label: 'Samsung Memory', href: '/brands' },
-    { label: 'Western Digital', href: '/brands' },
-    { label: 'NZXT', href: '/brands' },
-    { label: 'Razer Gaming', href: '/brands' },
+    { label: 'New Arrivals', href: '/products?filter=new' },
+    { label: 'All Products', href: '/products' },
+    { label: 'Compare Products', href: '/compare' },
+    { label: 'Wishlist', href: '/wishlist' },
   ]
 
   const legalLinks = [
-    { label: 'About PREMIUM PC', href: '/about' },
-    { label: 'B2B Enterprise Sales', href: '/b2b' },
-    { label: 'Careers', href: '/careers' },
-    { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Cookie Policy', href: '/cookies' },
+    { label: 'About Us', href: '/about' },
     { label: 'Terms of Service', href: '/terms' },
-    { label: 'Terms of Sale', href: '/terms#sale' },
-    { label: 'Imprint', href: '/imprint' },
-    { label: 'Warranty & RMA Guidelines', href: '/support#warranty' },
-    { label: 'Accessibility', href: '/accessibility' },
-    { label: 'Authorized Partnerships', href: '/brands' },
+    { label: 'Privacy Policy', href: '/privacy' },
+    { label: 'Shipping Information', href: '/shipping-policy' },
+    { label: 'B2B & Business Sales', href: '/b2b' },
   ]
 
   return (
-    <footer className="bg-[#121317] mt-auto text-[#e3e2e7] select-none">
-      {/* ─── VIP Hardware Newsletter Top Banner ─── */}
-      <div className="bg-[#16171d]">
-        <div className="container-max px-4 md:px-6 py-8 md:py-10">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-[#121317] rounded-2xl p-6 md:p-8 shadow-xl">
-            <div className="max-w-[550px]">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-2 h-2 rounded-full bg-[#007aff]" />
-                <span className="font-mono text-xs text-[#007aff] font-bold tracking-widest uppercase">
-                  VIP HARDWARE ALERTS
-                </span>
-              </div>
-              <h3 className="text-white font-black text-xl md:text-2xl tracking-tight">
-                Get Exclusive Deals & Tech News
-              </h3>
-              <p className="text-[#8b90a0] text-xs sm:text-sm mt-1 leading-relaxed">
-                Subscribe for early access to GPU drops, flash deals, and hardware reviews. No spam.
-              </p>
-            </div>
-
-            <div className="w-full lg:max-w-[450px]">
-              {subscribed ? (
-                <div className="p-3.5 bg-[#30d158]/10 border border-[#30d158]/30 text-[#30d158] rounded-xl font-mono text-xs font-bold flex items-center gap-2">
-                  <Icon name="check_circle" size={18} />
-                  <span>THANK YOU FOR SUBSCRIBING! CHECK YOUR INBOX FOR CONFIRMATION.</span>
-                </div>
-              ) : (
-                <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2.5">
-                  <div className="relative flex-1">
-                    <Icon name="mail" size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8b90a0]" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email address"
-                      required
-                      className="w-full pl-10 pr-4 py-2.5 bg-[#16171d] border border-[#292a2e] rounded-xl text-white placeholder-[#8b90a0] text-xs font-mono focus:border-[#007aff] transition-colors"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="px-5 py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold tracking-wider rounded-xl transition-all shadow-md shrink-0 flex items-center justify-center gap-1.5"
-                  >
-                    <span>SUBSCRIBE</span>
-                    <Icon name="arrow_forward" size={14} />
-                  </button>
-                </form>
-              )}
-              <p className="font-mono text-[10px] text-[#8b90a0] mt-2">
-                By subscribing you agree to our Privacy Policy. Unsubscribe anytime.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── Main Footer 6-Column Grid ─── */}
-      <div className="container-max px-4 md:px-6 py-12 md:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-8 lg:gap-6">
-          {/* Column 1: Brand & Core Information */}
-          <div className="lg:col-span-1 space-y-4">
-            <Link to="/" className="flex items-center gap-2 font-black text-xl text-white tracking-tighter">
-              <span className="w-3 h-6 bg-[#007aff] rounded-sm inline-block shrink-0" />
-              <span>PREMIUM PC</span>
-            </Link>
-
-            <p className="text-[#8b90a0] text-xs leading-relaxed max-w-[350px]">
-              Precision engineered hardware for enthusiasts, esports competitors, creators, and computational professionals.
+    <footer className="bg-[var(--bg-surface)] border-t border-[var(--border-theme)] pt-12 pb-8 mt-auto">
+      <div className="container-max px-4 md:px-8">
+        {/* Newsletter Section */}
+        <div className="pb-10 mb-10 border-b border-[var(--border-theme)] flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+          <div>
+            <h3 className="text-[var(--text-primary)] font-bold text-lg">Stay Updated</h3>
+            <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-0.5">
+              Subscribe to get notified about hardware restocks and exclusive component deals.
             </p>
-
-            {/* Trust Badges */}
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {['100% AUTHENTIC', 'ATX 3.0 READY', 'GEN 5 VERIFIED', 'EXPRESS DISPATCH'].map((badge) => (
-                <span
-                  key={badge}
-                  className="font-mono text-[9px] tracking-wider border border-[#292a2e] bg-[#16171d] text-[#007aff] px-2 py-0.5 rounded-md font-bold"
-                >
-                  {badge}
-                </span>
-              ))}
-            </div>
-
-            {/* Security Compliance */}
-            <div className="flex flex-col gap-1.5 text-[#8b90a0] text-[11px] font-mono pt-2">
-              <span className="flex items-center gap-1.5">
-                <Icon name="lock" size={14} className="text-[#30d158]" /> 256-BIT SSL ENCRYPTED
-              </span>
-              <span className="flex items-center gap-1.5">
-                <Icon name="verified_user" size={14} className="text-[#007aff]" /> PCI-DSS COMPLIANT
-              </span>
-            </div>
           </div>
 
-          {/* Column 2: Customer Service */}
-          <FooterAccordion
-            title="CUSTOMER SERVICE"
-            isOpen={!!openSections['customer']}
-            onToggle={() => toggleSection('customer')}
-          >
-            <ul className="flex flex-col gap-2">
+          {!subscribed ? (
+            <form onSubmit={handleSubscribe} className="flex gap-2 w-full lg:w-auto">
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email address"
+                required
+                className="px-3.5 py-2 text-xs bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:border-[var(--accent-blue)] w-full sm:w-72"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg shrink-0 transition-all cursor-pointer"
+              >
+                Subscribe
+              </button>
+            </form>
+          ) : (
+            <div className="text-xs font-semibold text-emerald-500 flex items-center gap-1.5 py-2">
+              <Icon name="check_circle" size={16} />
+              <span>Thank you for subscribing!</span>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Navigation Columns */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+          <FooterAccordion title="Customer Support" isOpen={!!openSections['support']} onToggle={() => toggleSection('support')}>
+            <ul className="space-y-2">
               {customerServiceLinks.map((link) => (
                 <li key={link.label}>
-                  <Link
-                    to={link.href}
-                    className="text-[#8b90a0] text-xs hover:text-white transition-colors block py-0.5 font-medium"
-                  >
+                  <Link to={link.href} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -227,19 +129,11 @@ export function Footer() {
             </ul>
           </FooterAccordion>
 
-          {/* Column 3: Hardware & Builds */}
-          <FooterAccordion
-            title="HARDWARE & BUILDS"
-            isOpen={!!openSections['hardware']}
-            onToggle={() => toggleSection('hardware')}
-          >
-            <ul className="flex flex-col gap-2">
+          <FooterAccordion title="Hardware Catalog" isOpen={!!openSections['hardware']} onToggle={() => toggleSection('hardware')}>
+            <ul className="space-y-2">
               {hardwareBuildsLinks.map((link) => (
                 <li key={link.label}>
-                  <Link
-                    to={link.href}
-                    className="text-[#8b90a0] text-xs hover:text-white transition-colors block py-0.5 font-medium"
-                  >
+                  <Link to={link.href} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -247,19 +141,11 @@ export function Footer() {
             </ul>
           </FooterAccordion>
 
-          {/* Column 4: Deals & Shopping */}
-          <FooterAccordion
-            title="DEALS & SHOPPING"
-            isOpen={!!openSections['deals']}
-            onToggle={() => toggleSection('deals')}
-          >
-            <ul className="flex flex-col gap-2">
+          <FooterAccordion title="Deals & Shopping" isOpen={!!openSections['deals']} onToggle={() => toggleSection('deals')}>
+            <ul className="space-y-2">
               {dealsShoppingLinks.map((link) => (
                 <li key={link.label}>
-                  <Link
-                    to={link.href}
-                    className="text-[#8b90a0] text-xs hover:text-white transition-colors block py-0.5 font-medium"
-                  >
+                  <Link to={link.href} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -267,48 +153,11 @@ export function Footer() {
             </ul>
           </FooterAccordion>
 
-          {/* Column 5: Brands Directory */}
-          <FooterAccordion
-            title="BRANDS DIRECTORY"
-            isOpen={!!openSections['brands']}
-            onToggle={() => toggleSection('brands')}
-          >
-            <ul className="flex flex-col gap-2">
-              {brandLinks.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    to={link.href}
-                    className="text-[#8b90a0] text-xs hover:text-white transition-colors block py-0.5 font-medium"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-              <li className="pt-2">
-                <Link
-                  to="/brands"
-                  className="font-mono text-xs font-bold text-[#007aff] hover:text-[#adc6ff] flex items-center gap-1 transition-colors"
-                >
-                  <span>VIEW ALL BRANDS</span>
-                  <Icon name="arrow_forward" size={14} />
-                </Link>
-              </li>
-            </ul>
-          </FooterAccordion>
-
-          {/* Column 6: Company & Legal */}
-          <FooterAccordion
-            title="COMPANY & LEGAL"
-            isOpen={!!openSections['legal']}
-            onToggle={() => toggleSection('legal')}
-          >
-            <ul className="flex flex-col gap-2">
+          <FooterAccordion title="Company & Legal" isOpen={!!openSections['legal']} onToggle={() => toggleSection('legal')}>
+            <ul className="space-y-2">
               {legalLinks.map((link) => (
                 <li key={link.label}>
-                  <Link
-                    to={link.href}
-                    className="text-[#8b90a0] text-xs hover:text-white transition-colors block py-0.5 font-medium"
-                  >
+                  <Link to={link.href} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -317,60 +166,15 @@ export function Footer() {
           </FooterAccordion>
         </div>
 
-        {/* ─── Row 2: Payment Methods, Shipping & Social Bar ─── */}
-        <div className="border-t border-[#292a2e] mt-12 pt-8 flex flex-col lg:flex-row items-center justify-between gap-6">
-          {/* Payment Badges */}
-          <div className="flex flex-wrap items-center gap-3">
-            <span className="font-mono text-[11px] text-[#8b90a0] font-bold uppercase tracking-wider mr-1">
-              ACCEPTED PAYMENTS:
-            </span>
-            {['VISA', 'MASTERCARD', 'PAYPAL', 'APPLE PAY', 'GOOGLE PAY'].map((pay) => (
-              <span
-                key={pay}
-                className="font-mono text-[10px] bg-[#16171d] border border-[#292a2e] text-[#c1c6d7] px-2.5 py-1 rounded-md font-bold"
-              >
+        {/* Payment & Copyright Bar */}
+        <div className="border-t border-[var(--border-theme)] mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--text-secondary)]">
+          <p>© {new Date().getFullYear()} Premium PC Store. All rights reserved.</p>
+          <div className="flex items-center gap-2">
+            {['Visa', 'Mastercard', 'PayPal', 'Apple Pay'].map((pay) => (
+              <span key={pay} className="px-2 py-0.5 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-muted)] text-[10px] rounded font-mono">
                 {pay}
               </span>
             ))}
-          </div>
-
-          {/* Social Links */}
-          <div className="flex items-center gap-4">
-            <span className="font-mono text-[11px] text-[#8b90a0] font-bold uppercase tracking-wider">
-              CONNECT:
-            </span>
-            <div className="flex items-center gap-2">
-              {['Discord', 'YouTube', 'X / Twitter', 'Instagram', 'LinkedIn'].map((social) => (
-                <a
-                  key={social}
-                  href={`#${social.toLowerCase()}`}
-                  aria-label={social}
-                  className="w-8 h-8 rounded-lg bg-[#16171d] border border-[#292a2e] text-[#8b90a0] hover:text-[#007aff] hover:border-[#007aff] flex items-center justify-center transition-colors font-mono text-xs font-bold"
-                >
-                  {social[0]}
-                </a>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* ─── Row 3: Bottom Copyright & Quick Legal ─── */}
-        <div className="border-t border-[#292a2e] mt-8 pt-6 flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-mono text-[#8b90a0]">
-          <p>© {new Date().getFullYear()} PREMIUM PC STORE. ALL RIGHTS RESERVED.</p>
-
-          <div className="flex flex-wrap gap-5">
-            <Link to="/privacy" className="hover:text-white transition-colors">
-              Privacy Policy
-            </Link>
-            <Link to="/terms" className="hover:text-white transition-colors">
-              Terms of Sale
-            </Link>
-            <Link to="/support#warranty" className="hover:text-white transition-colors">
-              RMA Guidelines
-            </Link>
-            <Link to="/brands" className="hover:text-white transition-colors">
-              All Brands
-            </Link>
           </div>
         </div>
       </div>

@@ -1,176 +1,168 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../ui'
-import { useShop } from '../../context/ShopContext'
 
-// ─── HeroSection (Cinematic Flagship Hardware Hero) ─────────────────────────
+// ─── Carousel Slide Data ──────────────────────────────────────────────────────
+
+interface HeroSlide {
+  id: string
+  badge: string
+  badgeColor: string
+  headline: string
+  headlineAccent: string
+  description: string
+  image: string
+  primaryCta: { label: string; href: string }
+  secondaryCta?: { label: string; href: string }
+}
+
+const SLIDES: HeroSlide[] = [
+  {
+    id: 'rtx-5090',
+    badge: 'New Arrival',
+    badgeColor: '#007aff',
+    headline: 'NVIDIA RTX 5090',
+    headlineAccent: 'Founders Edition',
+    description: '32GB GDDR7 · Blackwell Architecture · The new standard for 4K ray tracing and AI workloads.',
+    image: 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&q=90',
+    primaryCta: { label: 'Shop Graphics Cards', href: '/graphics-cards' },
+    secondaryCta: { label: 'View Specs', href: '/products/nvidia-geforce-rtx-5090-fe' },
+  },
+  {
+    id: 'apex-titan',
+    badge: 'Featured Build',
+    badgeColor: '#30d158',
+    headline: 'APEX TITAN ZERO',
+    headlineAccent: 'RTX 5090 · i9-14900KS',
+    description: 'Our flagship gaming PC — 4K 165fps, 64GB DDR5, 4TB Gen5 NVMe. Stress-tested 72 hours.',
+    image: 'https://images.unsplash.com/photo-1587831990711-23ca6441447b?w=1200&q=90',
+    primaryCta: { label: 'Shop Gaming PCs', href: '/gaming-pcs' },
+    secondaryCta: { label: 'Build Your Own', href: '/builder' },
+  },
+  {
+    id: 'gpu-deals',
+    badge: 'Limited Time',
+    badgeColor: '#ff6b00',
+    headline: 'GPU Deals',
+    headlineAccent: 'Up to 15% Off',
+    description: 'Save on RTX 4090, RTX 4080 SUPER, and RX 7900 XTX — while stock lasts.',
+    image: 'https://images.unsplash.com/photo-1591488320449-011701bb6704?w=1200&q=90',
+    primaryCta: { label: 'Shop Deals', href: '/deals' },
+  },
+  {
+    id: 'pc-builder',
+    badge: 'Custom Builds',
+    badgeColor: '#bf5af2',
+    headline: 'PC Builder',
+    headlineAccent: 'Your Dream Rig',
+    description: 'Pick your CPU, GPU, RAM, storage and more — see real-time compatibility and wattage.',
+    image: 'https://images.unsplash.com/photo-1555617981-dac3880eac6e?w=1200&q=90',
+    primaryCta: { label: 'Start Building', href: '/builder' },
+    secondaryCta: { label: 'View Components', href: '/components' },
+  },
+  {
+    id: 'processors',
+    badge: 'Top Performance',
+    badgeColor: '#ff453a',
+    headline: 'Intel Core i9-14900KS',
+    headlineAccent: '6.2 GHz Max Turbo',
+    description: 'Extreme single-core speed for gaming and content creation. Unlocked and overclockable.',
+    image: 'https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=90',
+    primaryCta: { label: 'Shop Processors', href: '/cpus' },
+  },
+]
+
+const AUTO_INTERVAL = 6000
+
+// ─── HeroSection Carousel ─────────────────────────────────────────────────────
 
 export function HeroSection() {
-  const { heroCampaign } = useShop()
-  const [gpuImgError, setGpuImgError] = useState(false)
-  const [intelImgError, setIntelImgError] = useState(false)
-  const [apexImgError, setApexImgError] = useState(false)
+  const [current, setCurrent] = useState(0)
+  const [isPaused, setIsPaused] = useState(false)
+  const total = SLIDES.length
+
+  // Auto-rotate with clean interval and functional update
+  useEffect(() => {
+    if (isPaused) return
+    const timer = setInterval(() => {
+      setCurrent((curr) => (curr + 1) % total)
+    }, AUTO_INTERVAL)
+
+    return () => clearInterval(timer)
+  }, [isPaused, total])
 
   return (
     <section className="w-full max-w-container mx-auto">
-      {/* ─── MAIN HARDWARE HERO SHOWCASE ─── */}
-      <div className="cinematic-hero-card relative w-full rounded-2xl bg-[#121317] border border-[#292a2e] overflow-hidden min-h-135 md:min-h-145 flex flex-col justify-between p-6 sm:p-10 lg:p-14 shadow-xl">
-        {/* Background Gradients & Contrast Overlay */}
-        <div className="hero-bg-gradient absolute inset-0 bg-linear-to-r from-[#121317] via-[#121317]/90 to-transparent z-1 pointer-events-none hidden lg:block" />
-        <div className="hero-bg-gradient-mobile absolute inset-0 bg-linear-to-t from-[#121317] via-[#121317]/80 to-transparent z-1 pointer-events-none lg:hidden" />
-
-        {/* Desktop 45/55 Layout Container */}
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center h-full my-auto">
-          {/* Left Column: Typography & CTAs */}
-          <div className="lg:col-span-6 xl:col-span-5 flex flex-col justify-center order-1 lg:order-1">
-            {/* Label Badge */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent-blue/10 border border-accent-blue/20 rounded-md text-accent-blue font-mono text-xs font-semibold uppercase tracking-wider w-fit mb-4">
-              {heroCampaign.badge}
-            </div>
-
-            {/* Headline */}
-            <h1 className="font-sans font-black tracking-tight leading-[1.02] text-3xl sm:text-4xl md:text-5xl lg:text-6xl mb-4">
-              <span className="hero-headline-primary text-white block">{heroCampaign.headlinePrimary}</span>
-              <span className="text-accent-blue block mt-1">{heroCampaign.headlineAccent}</span>
-            </h1>
-
-            {/* GPU Visual - Mobile Only */}
-            <div className="block lg:hidden my-4 relative w-full aspect-16/10 max-h-60 mx-auto order-2">
-              {!gpuImgError ? (
-                <img
-                  src={heroCampaign.image}
-                  alt={heroCampaign.headlinePrimary}
-                  className="w-full h-full object-contain drop-shadow-lg"
-                  onError={() => setGpuImgError(true)}
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-lg">
-                  <Icon name="videogame_asset" size={48} className="text-accent-blue" />
-                  <span className="font-mono text-xs text-outline mt-2">RTX 5090 FE</span>
-                </div>
-              )}
-            </div>
-
-            {/* Description */}
-            <p className="hero-subtext text-[#8b90a0] text-sm sm:text-base max-w-lg leading-relaxed mb-6 order-3 font-normal font-sans">
-              {heroCampaign.description}
-            </p>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 order-4 font-sans">
-              <Link
-                to={heroCampaign.primaryCtaHref}
-                className="h-11 md:h-12 px-6 md:px-7 bg-accent-blue hover:bg-[#0066d6] active:scale-[0.99] text-white text-xs md:text-sm font-bold tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
-              >
-                <span>{heroCampaign.primaryCtaLabel}</span>
-                <Icon name="arrow_forward" size={16} />
-              </Link>
-
-              <Link
-                to={heroCampaign.secondaryCtaHref}
-                className="hero-sec-btn h-11 md:h-12 px-6 md:px-7 bg-[#1a1b1f] hover:bg-[#23242a] text-white border border-[#292a2e] text-xs md:text-sm font-semibold tracking-wide rounded-xl flex items-center justify-center gap-2 transition-all"
-              >
-                <span>{heroCampaign.secondaryCtaLabel}</span>
-                <Icon name="memory" size={16} className="text-accent-blue" />
-              </Link>
-            </div>
-          </div>
-
-          {/* Right Column: Hardware Visual (Desktop Only) */}
-          <div className="hidden lg:flex lg:col-span-6 xl:col-span-7 relative items-center justify-center order-2 h-full">
-            <div className="relative w-full max-w-160 aspect-16/10 flex items-center justify-center">
-              {!gpuImgError ? (
-                <img
-                  src={heroCampaign.image}
-                  alt={heroCampaign.headlinePrimary}
-                  className="w-full h-full object-contain drop-shadow-xl hover:scale-[1.01] transition-transform duration-500 select-none z-10"
-                  onError={() => setGpuImgError(true)}
-                />
-              ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center bg-[#16171d] rounded-xl p-8 z-10 border border-[#292a2e]">
-                  <Icon name="videogame_asset" size={80} className="text-accent-blue" />
-                  <span className="font-mono text-sm text-outline mt-3">{heroCampaign.headlinePrimary}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── SUPPORTING PROMOTIONS STRIP (BELOW MAIN HERO) ─── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 lg:gap-6 mt-4 md:mt-6">
-        {/* Strip Card 1: Intel i9-14900KS */}
-        <div className="group relative rounded-2xl bg-[#16171d] p-5 md:p-6 flex items-center justify-between gap-4 transition-all duration-300 shadow-lg hover:shadow-xl">
-          <div className="flex-1 min-w-0 z-10">
-            <span className="inline-block font-mono text-[9px] text-accent-orange bg-accent-orange/10 px-2.5 py-0.5 rounded font-bold uppercase mb-2">
-              FLAGSHIP PROCESSOR
-            </span>
-            <h3 className="text-white font-bold text-base md:text-lg tracking-tight truncate group-hover:text-accent-blue transition-colors">
-              INTEL CORE i9-14900KS
-            </h3>
-            <p className="text-outline text-xs leading-relaxed mt-1 mb-3 line-clamp-1">
-              6.2 GHz Max Turbo. Push beyond limits.
-            </p>
-            <Link
-              to="/cpus"
-              className="inline-flex items-center gap-1.5 font-mono text-xs text-accent-blue font-bold tracking-wider hover:text-[#adc6ff] transition-colors"
+      <div
+        className="relative w-full overflow-hidden"
+        onMouseEnter={() => setIsPaused(true)}
+        onMouseLeave={() => setIsPaused(false)}
+      >
+        {/* Slide Content */}
+        <div className="relative min-h-[340px] sm:min-h-[380px] lg:min-h-[420px]">
+          {SLIDES.map((s, i) => (
+            <div
+              key={s.id}
+              className="absolute inset-0 transition-all duration-500 ease-in-out"
+              style={{
+                opacity: i === current ? 1 : 0,
+                visibility: i === current ? 'visible' : 'hidden',
+                pointerEvents: i === current ? 'auto' : 'none',
+              }}
             >
-              <span>SHOP PROCESSORS</span>
-              <Icon name="arrow_forward" size={14} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
+              <div className="h-full grid grid-cols-1 lg:grid-cols-2 items-center px-6 sm:px-10 lg:px-14 py-8 sm:py-10 lg:py-12 gap-6 lg:gap-4">
+                {/* Left: Text */}
+                <div className="flex flex-col justify-center z-10 order-1">
+                  <span
+                    className="inline-block w-fit text-[11px] font-bold uppercase tracking-wider text-white px-2.5 py-1 rounded mb-4"
+                    style={{ backgroundColor: s.badgeColor }}
+                  >
+                    {s.badge}
+                  </span>
 
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl bg-[#121317] shrink-0 overflow-hidden relative">
-            {!intelImgError ? (
-              <img
-                src="https://images.unsplash.com/photo-1555617981-dac3880eac6e?w=400&q=80"
-                alt="Intel Core i9-14900KS"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                onError={() => setIntelImgError(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-accent-blue">
-                <Icon name="memory" size={32} />
+                  <h2 className="font-bold tracking-tight leading-[1.1] text-[var(--text-primary)] text-2xl sm:text-3xl lg:text-4xl xl:text-[2.75rem]">
+                    {s.headline}
+                  </h2>
+                  <span className="text-[var(--accent-blue)] font-bold text-lg sm:text-xl lg:text-2xl xl:text-[1.75rem] mt-1 block">
+                    {s.headlineAccent}
+                  </span>
+
+                  <p className="text-[var(--text-secondary)] text-sm sm:text-[15px] leading-relaxed mt-3 mb-6 max-w-md">
+                    {s.description}
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Link
+                      to={s.primaryCta.href}
+                      className="h-11 px-7 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                    >
+                      {s.primaryCta.label}
+                      <Icon name="arrow_forward" size={16} />
+                    </Link>
+
+                    {s.secondaryCta && (
+                      <Link
+                        to={s.secondaryCta.href}
+                        className="h-11 px-6 border border-[var(--border-theme)] hover:border-[var(--text-primary)] text-[var(--text-primary)] bg-[var(--bg-surface-secondary)] text-xs font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                      >
+                        {s.secondaryCta.label}
+                      </Link>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Product Image */}
+                <div className="hidden lg:flex items-center justify-center order-2 h-full">
+                  <img
+                    src={s.image}
+                    alt={s.headline}
+                    className="w-full max-w-[480px] xl:max-w-[540px] aspect-[4/3] object-cover rounded-xl select-none"
+                    draggable={false}
+                  />
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Strip Card 2: Apex Workstations */}
-        <div className="group relative rounded-xl border border-[#292a2e] bg-[#16171d] hover:border-accent-blue/50 p-5 md:p-6 flex items-center justify-between gap-4 transition-all duration-300 shadow-lg">
-          <div className="flex-1 min-w-0 z-10">
-            <span className="inline-block font-mono text-[9px] text-stock-green bg-stock-green/10 px-2 py-0.5 rounded border border-stock-green/30 font-bold uppercase mb-2">
-              WORKSTATION SYSTEMS
-            </span>
-            <h3 className="text-white font-bold text-base md:text-lg tracking-tight truncate group-hover:text-accent-blue transition-colors">
-              APEX WORKSTATIONS
-            </h3>
-            <p className="text-outline text-xs leading-relaxed mt-1 mb-3 line-clamp-1">
-              Pre-configured for rendering and ML.
-            </p>
-            <Link
-              to="/gaming-pcs?type=workstation"
-              className="inline-flex items-center gap-1.5 font-mono text-xs text-accent-blue font-bold tracking-wider hover:text-[#adc6ff] transition-colors"
-            >
-              <span>EXPLORE BUILDS</span>
-              <Icon name="arrow_forward" size={14} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
-
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-lg bg-[#121317] border border-[#292a2e] shrink-0 overflow-hidden relative">
-            {!apexImgError ? (
-              <img
-                src="https://images.unsplash.com/photo-1587831990711-23ca6441447b?w=400&q=80"
-                alt="Apex Workstations"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                onError={() => setApexImgError(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-accent-blue">
-                <Icon name="desktop_windows" size={32} />
-              </div>
-            )}
-          </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -220,7 +212,7 @@ export function PromotionalCard({
         <p className="text-outline text-xs mb-4 line-clamp-2">{subtitle}</p>
         <Link
           to={ctaHref}
-          className="inline-flex items-center gap-1.5 font-mono text-xs tracking-wider text-white hover:text-[#adc6ff] transition-colors font-bold group-hover:translate-x-1"
+          className="inline-flex items-center gap-1.5 font-mono text-xs tracking-wider text-white hover:text-[#adc6ff] transition-colors font-bold group-hover:translate-x-1 cursor-pointer"
         >
           <span>{ctaLabel}</span>
           <Icon name="arrow_forward" size={14} />

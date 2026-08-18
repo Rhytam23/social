@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Brand } from '../../types'
 import { Icon } from '../ui'
@@ -139,87 +138,49 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
   },
 ]
 
-// ─── Brand Card Component ─────────────────────────────────────────────────────
-
-function BrandCardItem({ config }: { config: BrandPartnerConfig }) {
-  const [hasError] = useState(false)
-
-  return (
-    <Link
-      to={config.href}
-      className="group relative flex flex-col items-center justify-between p-4 bg-[#121317] rounded-2xl transition-all duration-300 w-[190px] sm:w-[210px] md:w-[220px] h-[135px] md:h-[145px] shrink-0 overflow-hidden text-center shadow-md hover:shadow-2xl hover:-translate-y-1 select-none"
-    >
-      {/* Dedicated Logo Container Area */}
-      <div className="w-full h-[60px] md:h-[68px] flex items-center justify-center p-1 transition-transform duration-300 group-hover:scale-105 shrink-0 overflow-hidden">
-        {!hasError ? (
-          config.renderSvg()
-        ) : (
-          <span className="font-mono text-sm md:text-base font-black tracking-wider text-white uppercase">
-            {config.name}
-          </span>
-        )}
-      </div>
-
-      {/* Category Description Underneath */}
-      <div className="w-full pt-2">
-        <span className="font-mono text-[10px] md:text-[11px] text-[#8b90a0] group-hover:text-[#c1c6d7] transition-colors truncate block font-medium">
-          {config.description}
-        </span>
-      </div>
-    </Link>
-  )
-}
-
-// ─── BrandSection Component (Strict Viewport & Duplicate Set Architecture) ───
-
 interface BrandSectionProps {
   brands?: Brand[]
 }
 
 export function BrandSection({ brands: _brands }: BrandSectionProps = {}) {
-  // Build exact duplicate array for seamless -50% translateX marquee loop
-  const duplicateList = [...BRAND_PARTNERS_CONFIG, ...BRAND_PARTNERS_CONFIG]
-
   return (
-    <section className="relative overflow-hidden bg-[#16171d] rounded-2xl p-6 md:p-8 shadow-2xl">
+    <section className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-6 md:p-8">
       {/* Section Header */}
-      <div className="flex items-center justify-between mb-6 pb-4">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="w-2.5 h-2.5 rounded-full bg-accent-blue animate-pulse inline-block" />
-            <span className="font-mono text-xs text-accent-blue font-bold tracking-widest uppercase">
-              OFFICIAL PARTNERSHIPS
-            </span>
-          </div>
-          <h2 className="text-white font-black text-xl md:text-2xl tracking-tight">
+          <h2 className="text-[var(--text-primary)] font-bold text-xl tracking-tight">
             Authorized Brand Partners
           </h2>
-          <p className="text-outline text-xs mt-1">
-            Direct retail partner with complete official manufacturer warranty support
+          <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-0.5">
+            Direct retail partner with official manufacturer warranty support
           </p>
         </div>
 
         <Link
-          to="/products"
-          className="text-accent-blue hover:text-[#adc6ff] font-mono text-xs font-bold flex items-center gap-1.5 transition-colors shrink-0"
+          to="/brands"
+          className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1 shrink-0"
         >
-          <span>ALL BRANDS</span>
+          <span>All Brands</span>
           <Icon name="arrow_forward" size={14} />
         </Link>
       </div>
 
-      {/* Brand Viewport Container (overflow: hidden clipping boundary) */}
-      <div className="relative w-full overflow-hidden py-2">
-        {/* Left & Right Edge Fading Overlays */}
-        <div className="absolute top-0 bottom-0 left-0 w-12 md:w-20 bg-linear-to-r from-[#16171d] to-transparent z-10 pointer-events-none" />
-        <div className="absolute top-0 bottom-0 right-0 w-12 md:w-20 bg-linear-to-l from-[#16171d] to-transparent z-10 pointer-events-none" />
-
-        {/* Moving Marquee Track (-50% keyframe translation) */}
-        <div className="animate-marquee flex items-center gap-5 hover:[animation-play-state:paused] touch-pan-x">
-          {duplicateList.map((config, idx) => (
-            <BrandCardItem key={`${config.id}-${idx}`} config={config} />
-          ))}
-        </div>
+      {/* Brand Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
+        {BRAND_PARTNERS_CONFIG.map((config) => (
+          <Link
+            key={config.id}
+            to={config.href}
+            className="flex flex-col items-center justify-center p-3 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg hover:border-[var(--accent-blue)] transition-all h-20 text-center"
+          >
+            <div className="h-8 flex items-center justify-center">
+              {config.renderSvg()}
+            </div>
+            <span className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium truncate w-full">
+              {config.name}
+            </span>
+          </Link>
+        ))}
       </div>
     </section>
   )

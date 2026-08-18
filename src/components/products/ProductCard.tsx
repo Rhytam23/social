@@ -24,57 +24,37 @@ export function ProductCard({
   const comparing = isInCompare(product.id)
 
   return (
-    <article className="product-card-container group relative flex flex-col justify-between bg-[#17191E] rounded-2xl transition-all duration-250 overflow-hidden shadow-md hover:shadow-2xl hover:-translate-y-1 h-full select-none">
-      {/* ── Top Header Section (Brand + Stock) ── */}
-      <div className="p-4 sm:p-5 pb-0">
-        {/* Brand & Stock Row */}
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className="font-mono text-[11px] sm:text-xs tracking-wider text-accent-blue uppercase font-bold">
-            {product.brand}
-          </span>
-          <StockBadge status={product.stockStatus} />
-        </div>
-
-        {/* Product Title (18–20px desktop, font-weight 700, 1.25 line-height) */}
-        <Link to={`/products/${product.slug}`} className="group/link block mb-2">
-          <h3 className="product-card-title text-[#FFFFFF] text-base md:text-[18px] leading-tight font-bold group-hover/link:text-accent-blue transition-colors line-clamp-2 min-h-11.5">
-            {product.name}
-          </h3>
-        </Link>
-
-        {/* Star Rating & Reviews */}
-        <div className="mb-3">
-          <StarRating rating={product.rating} count={product.reviewCount} />
-        </div>
-      </div>
-
-      {/* ── Main Product Image Area (Contain Fit, Clean Surface) ── */}
+    <article className="product-card-container group relative flex flex-col justify-between bg-transparent transition-all duration-200 h-full select-none">
+      {/* ── Main Product Image Area ── */}
       <Link
         to={`/products/${product.slug}`}
-        className="product-card-img-area relative w-full h-48 md:h-52 bg-[#121317] border-y border-[#292a2e]/60 flex items-center justify-center p-4 overflow-hidden group/img shrink-0"
+        className="product-card-img-area relative w-full h-48 md:h-52 bg-white dark:bg-[var(--bg-surface-secondary)] rounded-xl flex items-center justify-center p-4 overflow-hidden shrink-0"
       >
         {!imageError ? (
           <img
             src={product.image}
-            alt={product.name}
+            alt=""
             className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300 ease-out relative z-10"
-            onError={() => setImageError(true)}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+              setImageError(true)
+            }}
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[#121317] relative z-10 text-[#414755]">
-            <Icon name="memory" size={48} className="text-accent-blue" />
+          <div className="w-full h-full flex items-center justify-center bg-[var(--bg-surface-secondary)] relative z-10 text-[var(--text-muted)] rounded-xl">
+            <Icon name="memory" size={44} className="text-[var(--accent-blue)]" />
           </div>
         )}
 
         {/* Badges Overlay */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-20 pointer-events-none">
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-20 pointer-events-none">
           {product.isNew && <Badge variant="primary">NEW</Badge>}
-          {product.discount && <Badge variant="orange">-{product.discount}% OFF</Badge>}
+          {product.discount && <Badge variant="orange">-{product.discount}%</Badge>}
         </div>
 
-        {/* Action Buttons (Wishlist & Compare - Always visible on mobile/touch, subtle hover on desktop) */}
-        <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-20">
+        {/* Action Buttons (Wishlist & Compare) */}
+        <div className="absolute top-2.5 right-2.5 flex flex-col gap-1 z-20">
           <button
             type="button"
             onClick={(e) => {
@@ -83,13 +63,13 @@ export function ProductCard({
               onToggleWishlist(product.id)
             }}
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all duration-200 shadow-sm ${
+            className={`w-7 h-7 flex items-center justify-center rounded-md border transition-all duration-150 ${
               isWishlisted
-                ? 'bg-[#121317] border-stock-red/50 text-stock-red'
-                : 'bg-[#121317]/90 border-[#292a2e] text-[#8b90a0] hover:text-stock-red hover:border-stock-red/40'
+                ? 'bg-[var(--bg-surface)] border-rose-500/50 text-rose-500'
+                : 'bg-[var(--bg-surface)]/90 border-[var(--border-theme)] text-[var(--text-secondary)] hover:text-rose-500 hover:border-rose-500/30'
             }`}
           >
-            <Icon name="favorite" size={15} filled={isWishlisted} />
+            <Icon name="favorite" size={14} filled={isWishlisted} />
           </button>
 
           <button
@@ -100,51 +80,58 @@ export function ProductCard({
               toggleCompare(product.id)
             }}
             aria-label={comparing ? 'Remove from comparison' : 'Add to comparison'}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg border transition-all duration-200 shadow-sm ${
+            className={`w-7 h-7 flex items-center justify-center rounded-md border transition-all duration-150 ${
               comparing
-                ? 'bg-[#121317] border-accent-blue/50 text-accent-blue'
-                : 'bg-[#121317]/90 border-[#292a2e] text-[#8b90a0] hover:text-accent-blue hover:border-accent-blue/40'
+                ? 'bg-[var(--bg-surface)] border-[var(--accent-blue)] text-[var(--accent-blue)]'
+                : 'bg-[var(--bg-surface)]/90 border-[var(--border-theme)] text-[var(--text-secondary)] hover:text-[var(--accent-blue)]'
             }`}
           >
-            <Icon name="balance" size={15} />
+            <Icon name="balance" size={14} />
           </button>
         </div>
       </Link>
 
-      {/* ── Key Specifications & Metadata ── */}
-      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-        <div className="mb-4 pt-1 grid grid-cols-2 gap-2 text-xs font-sans border-t border-[#292a2e]/40">
-          {product.specifications.slice(0, 2).map((spec) => (
-            <div key={spec.label} className="flex flex-col pt-1.5">
-              <span className="product-spec-label font-mono text-[9px] text-[#8b90a0] uppercase tracking-wider font-semibold">
-                {spec.label}
-              </span>
-              <span className="product-spec-value font-mono text-xs text-[#e3e2e7] font-bold truncate mt-0.5">
-                {spec.value}
-              </span>
-            </div>
-          ))}
+      {/* ── Content & Details ── */}
+      <div className="pt-3 px-1 pb-1 flex-1 flex flex-col justify-between">
+        <div>
+          {/* Brand & Stock */}
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="text-[11px] font-bold text-[var(--accent-blue)] uppercase">
+              {product.brand}
+            </span>
+            <StockBadge status={product.stockStatus} />
+          </div>
+
+          {/* Title */}
+          <Link to={`/products/${product.slug}`} className="group/link block mb-1.5">
+            <h3 className="product-card-title text-[var(--text-primary)] text-sm font-bold leading-snug group-hover/link:text-[var(--accent-blue)] transition-colors line-clamp-2">
+              {product.name}
+            </h3>
+          </Link>
+
+          {/* Rating */}
+          <div className="mb-3">
+            <StarRating rating={product.rating} count={product.reviewCount} />
+          </div>
         </div>
 
-        {/* ── Price & Add to Cart Action Area ── */}
-        <div className="pt-2 product-card-footer flex flex-col gap-3">
-          <div className="flex items-center justify-between">
-            <Price
-              price={product.price}
-              previousPrice={product.previousPrice}
-              discount={product.discount}
-              size="md"
-            />
-          </div>
+        {/* ── Price & Add to Cart Action ── */}
+        <div className="pt-2 flex flex-col gap-2.5">
+          <Price
+            price={product.price}
+            previousPrice={product.previousPrice}
+            discount={product.discount}
+            size="sm"
+          />
 
           <button
             type="button"
             onClick={() => onAddToCart(product)}
             disabled={product.stockStatus === 'out-of-stock'}
             aria-label={`Add ${product.name} to cart`}
-            className="w-full h-11 bg-accent-blue hover:bg-[#0066d6] active:scale-[0.98] text-white font-sans text-xs md:text-sm font-bold tracking-wide rounded-xl disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-sm"
+            className="w-full h-9 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
           >
-            <Icon name="add_shopping_cart" size={18} />
+            <Icon name="add_shopping_cart" size={16} />
             <span>Add to Cart</span>
           </button>
         </div>

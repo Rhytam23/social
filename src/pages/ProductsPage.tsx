@@ -448,10 +448,10 @@ export function ProductsPage() {
           {/* Product Results Column (9 cols) */}
           <div className="lg:col-span-9">
             {/* Active Result Count */}
-            <div className="flex items-center justify-between mb-4 text-xs font-mono text-[#8b90a0]">
-              <span>SHOWING {filteredProducts.length} PRODUCTS</span>
+            <div className="flex items-center justify-between mb-4 text-xs text-[var(--text-secondary)]">
+              <span>Showing {filteredProducts.length} products</span>
               {selectedBrand !== 'All' && (
-                <span className="text-[#adc6ff] bg-[#007aff15] px-2 py-0.5 rounded border border-[#007aff30]">
+                <span className="text-xs text-[var(--accent-blue)] bg-[var(--bg-surface-secondary)] px-2 py-0.5 rounded border border-[var(--border-theme)] font-medium">
                   Brand: {selectedBrand}
                 </span>
               )}
@@ -467,18 +467,18 @@ export function ProductsPage() {
                 columns={3}
               />
             ) : (
-              <div className="bg-[#1a1b1f] border border-[#414755] rounded p-12 text-center">
-                <Icon name="search_off" size={48} className="text-[#414755] mb-3" />
-                <h3 className="text-white font-bold text-lg mb-1">No Hardware Matches Found</h3>
-                <p className="text-[#8b90a0] text-xs max-w-sm mx-auto mb-4">
+              <div className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-12 text-center">
+                <Icon name="search_off" size={40} className="text-[var(--text-muted)] mb-3" />
+                <h3 className="text-[var(--text-primary)] font-bold text-base mb-1">No Hardware Matches Found</h3>
+                <p className="text-[var(--text-secondary)] text-xs max-w-sm mx-auto mb-4">
                   Try adjusting your price filter or selecting a different category from the sidebar.
                 </p>
                 <button
                   type="button"
                   onClick={clearAllFilters}
-                  className="px-4 py-2 bg-[#007aff] text-white font-mono text-xs rounded font-bold hover:bg-[#0066d6]"
+                  className="px-4 py-2 bg-[var(--accent-blue)] text-white text-xs font-semibold rounded-lg hover:bg-[var(--accent-blue-hover)]"
                 >
-                  RESET ALL FILTERS
+                  Reset All Filters
                 </button>
               </div>
             )}
@@ -489,23 +489,23 @@ export function ProductsPage() {
 
       {/* Mobile Filter Modal / Drawer */}
       {mobileFilterOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex justify-end">
-          <div className="w-full max-w-xs bg-[#121317] border-l border-[#414755] h-full p-6 overflow-y-auto flex flex-col justify-between">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end">
+          <div className="w-full max-w-xs bg-[var(--bg-surface)] border-l border-[var(--border-theme)] h-full p-6 overflow-y-auto flex flex-col justify-between">
             <div>
-              <div className="flex items-center justify-between pb-4 border-b border-[#292a2e] mb-6">
-                <span className="font-bold text-white font-mono text-sm">FILTER PRODUCTS</span>
-                <button onClick={() => setMobileFilterOpen(false)} className="text-[#8b90a0] hover:text-white">
+              <div className="flex items-center justify-between pb-4 border-b border-[var(--border-theme)] mb-6">
+                <span className="font-bold text-[var(--text-primary)] text-sm">Filter Products</span>
+                <button onClick={() => setMobileFilterOpen(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                   <Icon name="close" size={20} />
                 </button>
               </div>
 
               {/* Mobile Category */}
               <div className="mb-6">
-                <span className="font-mono text-xs font-bold text-[#8b90a0] block mb-2">CATEGORY</span>
+                <span className="text-xs font-semibold text-[var(--text-secondary)] block mb-2">Category</span>
                 <select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="w-full bg-[#1e1f23] border border-[#414755] rounded p-2 text-xs text-white"
+                  className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg p-2 text-xs text-[var(--text-primary)]"
                 >
                   {CATEGORY_NAMES.map((c) => (
                     <option key={c} value={c}>{c}</option>
@@ -515,11 +515,11 @@ export function ProductsPage() {
 
               {/* Mobile Brand */}
               <div className="mb-6">
-                <span className="font-mono text-xs font-bold text-[#8b90a0] block mb-2">BRAND</span>
+                <span className="text-xs font-semibold text-[var(--text-secondary)] block mb-2">Brand</span>
                 <select
                   value={selectedBrand}
                   onChange={(e) => setSelectedBrand(e.target.value)}
-                  className="w-full bg-[#1e1f23] border border-[#414755] rounded p-2 text-xs text-white"
+                  className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg p-2 text-xs text-[var(--text-primary)]"
                 >
                   {brands.map((b) => (
                     <option key={b} value={b}>{b}</option>
@@ -529,7 +529,7 @@ export function ProductsPage() {
 
               {/* Mobile Price */}
               <div className="mb-6">
-                <span className="font-mono text-xs font-bold text-[#8b90a0] block mb-1">MAX PRICE: ${priceMax}</span>
+                <span className="text-xs font-semibold text-[var(--text-secondary)] block mb-1">Max Price: ${priceMax}</span>
                 <input
                   type="range"
                   min="50"
@@ -537,7 +537,7 @@ export function ProductsPage() {
                   step="50"
                   value={priceMax}
                   onChange={(e) => setPriceMax(Number(e.target.value))}
-                  className="w-full accent-[#007aff]"
+                  className="w-full accent-[var(--accent-blue)]"
                 />
               </div>
 
@@ -547,19 +547,19 @@ export function ProductsPage() {
                   type="checkbox"
                   checked={onlyInStock}
                   onChange={(e) => setOnlyInStock(e.target.checked)}
-                  className="w-4 h-4 rounded bg-[#1e1f23] border-[#414755] text-[#007aff]"
+                  className="w-4 h-4 rounded bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--accent-blue)]"
                 />
-                <span className="text-xs font-mono text-white">IN-STOCK ONLY</span>
+                <span className="text-xs text-[var(--text-primary)]">In-stock only</span>
               </label>
             </div>
 
-            <div className="space-y-2 pt-4 border-t border-[#292a2e]">
+            <div className="space-y-2 pt-4 border-t border-[var(--border-theme)]">
               <button
                 type="button"
                 onClick={() => setMobileFilterOpen(false)}
-                className="w-full py-2.5 bg-[#007aff] text-white font-mono text-xs font-bold rounded"
+                className="w-full py-2.5 bg-[var(--accent-blue)] text-white text-xs font-semibold rounded-lg"
               >
-                APPLY FILTERS ({filteredProducts.length})
+                Apply Filters ({filteredProducts.length})
               </button>
               <button
                 type="button"
@@ -567,9 +567,9 @@ export function ProductsPage() {
                   clearAllFilters()
                   setMobileFilterOpen(false)
                 }}
-                className="w-full py-2 bg-transparent border border-[#414755] text-[#8b90a0] font-mono text-xs rounded"
+                className="w-full py-2 bg-transparent border border-[var(--border-theme)] text-[var(--text-secondary)] text-xs rounded-lg"
               >
-                RESET
+                Reset
               </button>
             </div>
           </div>

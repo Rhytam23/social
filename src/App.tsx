@@ -80,7 +80,7 @@ function PageFallback() {
 
 function StorefrontLayout() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#121317] text-[#e3e2e7]">
+    <div className="min-h-screen flex flex-col bg-[var(--bg-primary)] text-[var(--text-primary)]">
       <Header />
       <Suspense fallback={<PageFallback />}>
         <Outlet />
@@ -101,7 +101,7 @@ function AppContent() {
         <Route
           path="/admin/*"
           element={
-            <Suspense fallback={<div className="min-h-screen bg-[#121317] flex items-center justify-center text-outline font-mono text-xs">Loading admin console…</div>}>
+            <Suspense fallback={<div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-[var(--text-secondary)] font-mono text-xs">Loading admin console…</div>}>
               <AdminApp />
             </Suspense>
           }

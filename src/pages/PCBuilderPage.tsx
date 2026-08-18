@@ -5,7 +5,6 @@ import { allProducts } from '../data'
 import type { BuilderCategoryKey, ProductCategory } from '../types'
 import { useShop } from '../context/ShopContext'
 
-
 interface SlotConfig {
   key: BuilderCategoryKey
   name: string
@@ -44,12 +43,10 @@ export function PCBuilderPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [os, setOs] = useState(OS_OPTIONS[0].label)
 
-  // Count chosen slots
   const selectedCount = Object.values(builderSlots).filter(Boolean).length
   const osPrice = OS_OPTIONS.find((o) => o.label === os)?.price ?? 0
   const grandTotal = builderTotal + osPrice
 
-  // ── Compatibility analysis ──
   const compatIssues = useMemo(() => {
     const issues: { level: 'error' | 'warning' | 'ok'; text: string }[] = []
     const cpu = builderSlots.cpu
@@ -77,14 +74,15 @@ export function PCBuilderPage() {
     }
 
     const missing = BUILDER_SLOTS.filter((s) => s.required && !builderSlots[s.key])
-    if (missing.length) issues.push({ level: 'warning', text: `${missing.length} required component${missing.length > 1 ? 's' : ''} still needed to complete the build.` })
+    if (issues.length === 0 && missing.length) {
+      issues.push({ level: 'warning', text: `${missing.length} required component${missing.length > 1 ? 's' : ''} still needed to complete the build.` })
+    }
 
     return issues
   }, [builderSlots, builderWattage])
 
   const hasError = compatIssues.some((i) => i.level === 'error')
 
-  // ── Performance estimate ──
   const perf = useMemo(() => {
     const gpu = builderSlots.videoCard
     const cpu = builderSlots.cpu
@@ -114,7 +112,6 @@ export function PCBuilderPage() {
     }
   }
 
-  // Filter available products for modal
   const slotProducts = useMemo(() => {
     if (!activeSlot) return []
     return allProducts.filter((p) => {
@@ -126,7 +123,6 @@ export function PCBuilderPage() {
     })
   }, [activeSlot, searchQuery])
 
-  // Suggested PSU capacity based on wattage + 150W headroom
   const recommendedPSU = builderWattage + 150
 
   return (
@@ -134,26 +130,21 @@ export function PCBuilderPage() {
       <div className="container-max px-4 md:px-6 py-6">
 
         {/* Breadcrumb Header */}
-        <nav className="flex items-center gap-2 text-xs font-mono text-[#8b90a0] mb-4">
-          <Link to="/" className="hover:text-white">HOME</Link>
-          <Icon name="chevron_right" size={12} />
-          <span className="text-[#adc6ff]">INTERACTIVE PC BUILDER</span>
+        <nav className="flex items-center gap-2 text-xs text-[var(--text-secondary)] mb-4">
+          <Link to="/" className="hover:text-[var(--text-primary)]">Home</Link>
+          <Icon name="chevron_right" size={14} />
+          <span className="text-[var(--text-primary)] font-medium">Custom PC Builder</span>
         </nav>
 
-        {/* Builder Hero Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 bg-[#16171d] border border-[#414755] rounded mb-8">
+        {/* Builder Header - borderless */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-4 mb-8">
           <div>
-            <div className="flex items-center gap-2 mb-1.5">
-              <span className="font-mono text-[10px] text-[#007aff] bg-[#007aff15] px-2 py-0.5 rounded border border-[#007aff30] font-bold">
-                RIG CONFIGURATOR v2.4
-              </span>
-              <span className="font-mono text-[10px] text-[#30d158] flex items-center gap-1 font-semibold">
-                <Icon name="verified" size={12} /> COMPATIBILITY CHECKER ACTIVE
-              </span>
-            </div>
-            <h1 className="text-white font-bold text-2xl tracking-tight">Custom PC Part Picker & Configurator</h1>
-            <p className="text-[#8b90a0] text-xs mt-1">
-              Select parts from our inventory. Real-time wattage estimation and automated pinout verification.
+            <span className="text-xs font-semibold text-[var(--accent-blue)] uppercase tracking-wider block mb-1">
+              Interactive Configurator
+            </span>
+            <h1 className="text-[var(--text-primary)] font-bold text-2xl tracking-tight">Custom PC Part Picker</h1>
+            <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-0.5">
+              Select compatible components with live wattage estimation and system compatibility checks.
             </p>
           </div>
 
@@ -162,25 +153,25 @@ export function PCBuilderPage() {
               type="button"
               onClick={handleSaveBuild}
               disabled={selectedCount === 0}
-              className="px-3.5 py-2 border border-[#414755] hover:border-white text-[#c1c6d7] hover:text-white font-mono text-xs rounded transition-colors disabled:opacity-40 flex items-center gap-1.5"
+              className="px-3.5 py-2 border border-[var(--border-theme)] hover:bg-[var(--bg-surface-secondary)] text-[var(--text-primary)] text-xs rounded-lg transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer"
             >
-              <Icon name="bookmark" size={15} /> SAVE
+              <Icon name="bookmark" size={15} /> Save
             </button>
             <button
               type="button"
               onClick={handleShareBuild}
               disabled={selectedCount === 0}
-              className="px-3.5 py-2 border border-[#414755] hover:border-white text-[#c1c6d7] hover:text-white font-mono text-xs rounded transition-colors disabled:opacity-40 flex items-center gap-1.5"
+              className="px-3.5 py-2 border border-[var(--border-theme)] hover:bg-[var(--bg-surface-secondary)] text-[var(--text-primary)] text-xs rounded-lg transition-all disabled:opacity-40 flex items-center gap-1.5 cursor-pointer"
             >
-              <Icon name="share" size={15} /> SHARE
+              <Icon name="share" size={15} /> Share
             </button>
             <button
               type="button"
               onClick={clearBuilder}
               disabled={selectedCount === 0}
-              className="px-3.5 py-2 border border-[#414755] hover:border-[#ff453a] text-[#8b90a0] hover:text-[#ff453a] font-mono text-xs rounded transition-colors disabled:opacity-40"
+              className="px-3.5 py-2 border border-[var(--border-theme)] hover:border-rose-500 text-[var(--text-secondary)] hover:text-rose-500 text-xs rounded-lg transition-all disabled:opacity-40 cursor-pointer"
             >
-              CLEAR
+              Clear
             </button>
             <button
               type="button"
@@ -189,10 +180,10 @@ export function PCBuilderPage() {
                 navigate('/cart')
               }}
               disabled={selectedCount === 0}
-              className="px-5 py-2.5 bg-[#007aff] hover:bg-[#0066d6] active:bg-[#004fc2] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors disabled:opacity-40 shadow-lg"
+              className="px-5 py-2.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer"
             >
               <Icon name="shopping_cart" size={16} />
-              ADD TO CART (${grandTotal.toFixed(2)})
+              Add to Cart (${grandTotal.toFixed(2)})
             </button>
           </div>
         </div>
@@ -200,37 +191,30 @@ export function PCBuilderPage() {
         {/* Main Builder Layout: Slots + Summary Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-          {/* Component Slots (8 cols) */}
-          <div className="lg:col-span-8 space-y-3">
+          {/* Component Slots (8 cols) - Row layouts with border-b, no border boxes */}
+          <div className="lg:col-span-8 divide-y divide-[var(--border-theme)]">
             {BUILDER_SLOTS.map((slot) => {
               const selectedProduct = builderSlots[slot.key]
 
               return (
-                <div
-                  key={slot.key}
-                  className={`p-4 rounded border transition-all ${
-                    selectedProduct
-                      ? 'bg-[#1a1b1f] border-[#007aff50]'
-                      : 'bg-[#16171d] border-[#292a2e] hover:border-[#414755]'
-                  }`}
-                >
+                <div key={slot.key} className="py-4 first:pt-0 last:pb-0">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     {/* Slot Header / Title */}
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-10 h-10 rounded flex items-center justify-center shrink-0 ${
-                        selectedProduct ? 'bg-[#007aff20] text-[#007aff]' : 'bg-[#1e1f23] text-[#8b90a0]'
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                        selectedProduct ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]' : 'bg-[var(--bg-surface-secondary)] text-[var(--text-muted)]'
                       }`}>
                         <Icon name={slot.icon} size={20} />
                       </div>
                       <div className="min-w-0">
-                        <span className="font-mono text-[10px] text-[#8b90a0] uppercase block">{slot.name}</span>
+                        <span className="text-xs text-[var(--text-secondary)] block font-medium">{slot.name}</span>
                         {selectedProduct ? (
                           <div className="flex items-center gap-2">
-                            <span className="text-white font-bold text-sm truncate max-w-sm">{selectedProduct.name}</span>
-                            <span className="font-mono text-xs text-[#007aff] font-semibold">${selectedProduct.price.toFixed(2)}</span>
+                            <span className="text-[var(--text-primary)] font-bold text-sm truncate max-w-sm">{selectedProduct.name}</span>
+                            <span className="text-xs text-[var(--accent-blue)] font-semibold">${selectedProduct.price.toFixed(2)}</span>
                           </div>
                         ) : (
-                          <span className="text-[#414755] font-mono text-xs">No component selected</span>
+                          <span className="text-[var(--text-muted)] text-xs">No component selected</span>
                         )}
                       </div>
                     </div>
@@ -245,14 +229,14 @@ export function PCBuilderPage() {
                               setActiveSlot(slot)
                               setSearchQuery('')
                             }}
-                            className="px-3 py-1.5 bg-[#1e1f23] hover:bg-[#292a2e] border border-[#414755] text-white font-mono text-[11px] rounded transition-colors"
+                            className="px-3 py-1.5 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] text-xs rounded-lg transition-all cursor-pointer"
                           >
-                            CHANGE
+                            Change
                           </button>
                           <button
                             type="button"
                             onClick={() => setBuilderSlot(slot.key, null)}
-                            className="p-1.5 text-[#8b90a0] hover:text-[#ff453a] transition-colors"
+                            className="p-1.5 text-[var(--text-secondary)] hover:text-rose-500 transition-colors cursor-pointer"
                             aria-label="Remove component"
                           >
                             <Icon name="delete" size={18} />
@@ -265,9 +249,9 @@ export function PCBuilderPage() {
                             setActiveSlot(slot)
                             setSearchQuery('')
                           }}
-                          className="px-4 py-2 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors shadow-md"
+                          className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
                         >
-                          <Icon name="add" size={16} /> CHOOSE {slot.name.split(' ')[0]}
+                          <Icon name="add" size={16} /> Choose
                         </button>
                       )}
                     </div>
@@ -277,90 +261,89 @@ export function PCBuilderPage() {
             })}
 
             {/* Operating System slot */}
-            <div className={`p-4 rounded border transition-all ${os && os !== 'No OS (bare metal)' ? 'bg-[#1a1b1f] border-[#007aff50]' : 'bg-[#16171d] border-[#292a2e]'}`}>
+            <div className="py-4 last:pb-0">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 rounded flex items-center justify-center shrink-0 ${os !== 'No OS (bare metal)' ? 'bg-[#007aff20] text-[#007aff]' : 'bg-[#1e1f23] text-[#8b90a0]'}`}>
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${os !== 'No OS (bare metal)' ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]' : 'bg-[var(--bg-surface-secondary)] text-[var(--text-muted)]'}`}>
                     <Icon name="desktop_windows" size={20} />
                   </div>
                   <div className="min-w-0">
-                    <span className="font-mono text-[10px] text-[#8b90a0] uppercase block">Operating System</span>
-                    <span className="text-white font-bold text-sm">{os}</span>
+                    <span className="text-xs text-[var(--text-secondary)] block font-medium">Operating System</span>
+                    <span className="text-[var(--text-primary)] font-bold text-sm">{os}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <select
                     value={os}
                     onChange={(e) => setOs(e.target.value)}
-                    className="bg-[#121317] border border-[#414755] text-[#e3e2e7] font-mono text-xs rounded px-3 py-2 focus:outline-none focus:border-[#007aff]"
+                    className="bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] text-xs rounded px-3 py-2 focus:outline-none focus:border-[var(--accent-blue)]"
                   >
                     {OS_OPTIONS.map((o) => (
                       <option key={o.label} value={o.label}>{o.label}{o.price ? ` (+$${o.price})` : ' (Free)'}</option>
                     ))}
                   </select>
-                  <span className="font-mono text-xs text-[#007aff] font-semibold w-14 text-right">{osPrice ? `$${osPrice.toFixed(2)}` : 'FREE'}</span>
+                  <span className="text-[var(--accent-blue)] font-semibold w-14 text-right">{osPrice ? `$${osPrice.toFixed(2)}` : 'FREE'}</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Persistent Summary Box (4 cols) */}
+          {/* Persistent Summary Box (4 cols) - Borderless */}
           <aside className="lg:col-span-4 space-y-6">
-            {/* System Telemetry Box */}
-            <div className="p-5 bg-[#1a1b1f] border border-[#414755] rounded space-y-4 sticky top-24">
-              <div className="pb-3 border-b border-[#292a2e] flex items-center justify-between">
-                <span className="font-mono text-xs font-bold text-white uppercase tracking-wider">SYSTEM TELEMETRY</span>
-                <span className="font-mono text-xs text-[#007aff]">{selectedCount} / 8 INSTALLED</span>
+            <div className="sticky top-24 space-y-4">
+              <div className="pb-3 border-b border-[var(--border-theme)] flex items-center justify-between">
+                <span className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">SYSTEM TELEMETRY</span>
+                <span className="font-mono text-xs text-[var(--accent-blue)]">{selectedCount} / 8 INSTALLED</span>
               </div>
 
-              {/* Estimated Wattage Gauge */}
-              <div className="bg-[#121317] p-3.5 rounded border border-[#292a2e]">
-                <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-                  <span className="text-[#8b90a0] flex items-center gap-1"><Icon name="bolt" size={14} className="text-[#ffd60a]" /> ESTIMATED WATTAGE</span>
-                  <span className="text-white font-bold">{builderWattage} W</span>
+              {/* Estimated Wattage Gauge - borderless */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs font-mono mb-1">
+                  <span className="text-[var(--text-secondary)] flex items-center gap-1"><Icon name="bolt" size={14} className="text-amber-400" /> ESTIMATED WATTAGE</span>
+                  <span className="text-[var(--text-primary)] font-bold">{builderWattage} W</span>
                 </div>
-                <div className="w-full bg-[#1e1f23] h-2 rounded overflow-hidden">
+                <div className="w-full bg-[var(--bg-surface-secondary)] h-2 rounded overflow-hidden">
                   <div
                     className={`h-full transition-all duration-300 ${
-                      builderWattage > 850 ? 'bg-[#ff453a]' : builderWattage > 500 ? 'bg-[#ffd60a]' : 'bg-[#30d158]'
+                      builderWattage > 850 ? 'bg-rose-500' : builderWattage > 500 ? 'bg-amber-500' : 'bg-[var(--color-stock-green)]'
                     }`}
                     style={{ width: `${Math.min(100, (builderWattage / 1200) * 100)}%` }}
                   />
                 </div>
-                <div className="text-[10px] font-mono text-[#8b90a0] mt-1.5 flex justify-between">
-                  <span>Recommended PSU: <strong className="text-[#adc6ff]">{recommendedPSU}W+</strong></span>
+                <div className="text-[10px] font-mono text-[var(--text-secondary)] mt-1 flex justify-between">
+                  <span>Recommended PSU: <strong className="text-[var(--accent-blue)]">{recommendedPSU}W+</strong></span>
                   <span>Max Peak Headroom</span>
                 </div>
               </div>
 
-              {/* Performance Estimate */}
-              <div className="bg-[#121317] p-3.5 rounded border border-[#292a2e]">
-                <div className="flex items-center justify-between text-xs font-mono mb-1.5">
-                  <span className="text-[#8b90a0] flex items-center gap-1"><Icon name="speed" size={14} className="text-[#007aff]" /> PERFORMANCE</span>
-                  <span className="text-white font-bold">{perf.tier}</span>
+              {/* Performance Estimate - borderless */}
+              <div className="space-y-1.5 pt-2">
+                <div className="flex items-center justify-between text-xs font-mono mb-1">
+                  <span className="text-[var(--text-secondary)] flex items-center gap-1"><Icon name="speed" size={14} className="text-[var(--accent-blue)]" /> PERFORMANCE</span>
+                  <span className="text-[var(--text-primary)] font-bold">{perf.tier}</span>
                 </div>
-                <div className="w-full bg-[#1e1f23] h-2 rounded overflow-hidden">
-                  <div className="h-full bg-gradient-to-r from-[#007aff] to-[#30d158] transition-all duration-300" style={{ width: `${perf.score}%` }} />
+                <div className="w-full bg-[var(--bg-surface-secondary)] h-2 rounded overflow-hidden">
+                  <div className="h-full bg-gradient-to-r from-[var(--accent-blue)] to-[var(--color-stock-green)] transition-all duration-300" style={{ width: `${perf.score}%` }} />
                 </div>
-                <div className="text-[10px] font-mono text-[#8b90a0] mt-1.5 flex justify-between">
-                  <span>Target: <strong className="text-[#adc6ff]">{perf.res}</strong></span>
+                <div className="text-[10px] font-mono text-[var(--text-secondary)] mt-1 flex justify-between">
+                  <span>Target: <strong className="text-[var(--accent-blue)]">{perf.res}</strong></span>
                   <span>{perf.score}/100</span>
                 </div>
               </div>
 
               {/* Compatibility Check */}
-              <div className="space-y-1.5">
-                <span className="font-mono text-[10px] text-[#8b90a0] uppercase block">Compatibility</span>
+              <div className="space-y-1.5 pt-2">
+                <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase block">Compatibility</span>
                 {compatIssues.length === 0 ? (
-                  <div className="p-3 bg-[#16171d] border border-[#292a2e] rounded text-xs font-mono text-[#8b90a0]">Select components to run compatibility checks.</div>
+                  <div className="p-3 bg-[var(--bg-surface-secondary)] rounded text-xs font-mono text-[var(--text-secondary)]">Select components to run compatibility checks.</div>
                 ) : (
                   compatIssues.map((issue, i) => (
                     <div
                       key={i}
                       className={`p-2.5 rounded text-[11px] font-mono flex items-start gap-2 border ${
-                        issue.level === 'error' ? 'bg-[#ff453a15] border-[#ff453a40] text-[#ff453a]'
-                          : issue.level === 'warning' ? 'bg-[#ffd60a15] border-[#ffd60a40] text-[#ffd60a]'
-                          : 'bg-[#30d15815] border-[#30d15840] text-[#30d158]'
+                        issue.level === 'error' ? 'bg-rose-500/10 border-rose-500/20 text-rose-500'
+                          : issue.level === 'warning' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500'
+                          : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500'
                       }`}
                     >
                       <Icon name={issue.level === 'error' ? 'error' : issue.level === 'warning' ? 'warning' : 'check_circle'} size={14} className="shrink-0 mt-0.5" filled={issue.level === 'ok'} />
@@ -371,29 +354,29 @@ export function PCBuilderPage() {
               </div>
 
               {/* Pricing Breakdown */}
-              <div className="space-y-2 pt-2 border-t border-[#292a2e] text-xs font-mono">
-                <div className="flex justify-between text-[#8b90a0]">
+              <div className="space-y-2 pt-2 border-t border-[var(--border-theme)] text-xs font-mono">
+                <div className="flex justify-between text-[var(--text-secondary)]">
                   <span>Component Subtotal:</span>
-                  <span className="text-white">${builderTotal.toFixed(2)}</span>
+                  <span className="text-[var(--text-primary)]">${builderTotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-[#8b90a0]">
+                <div className="flex justify-between text-[var(--text-secondary)]">
                   <span>Operating System:</span>
-                  <span className={osPrice ? 'text-white' : 'text-[#30d158]'}>{osPrice ? `$${osPrice.toFixed(2)}` : 'FREE'}</span>
+                  <span className={osPrice ? 'text-[var(--text-primary)]' : 'text-[var(--color-stock-green)]'}>{osPrice ? `$${osPrice.toFixed(2)}` : 'FREE'}</span>
                 </div>
-                <div className="flex justify-between text-[#8b90a0]">
+                <div className="flex justify-between text-[var(--text-secondary)]">
                   <span>Assembly + 72H Testing:</span>
-                  <span className="text-[#30d158]">INCLUDED</span>
+                  <span className="text-[var(--color-stock-green)] font-semibold">INCLUDED</span>
                 </div>
-                <div className="flex justify-between text-base font-bold text-white pt-2 border-t border-[#292a2e]">
+                <div className="flex justify-between text-base font-bold text-[var(--text-primary)] pt-2 border-t border-[var(--border-theme)]">
                   <span>TOTAL:</span>
-                  <span className="text-[#007aff]">${grandTotal.toFixed(2)}</span>
+                  <span className="text-[var(--accent-blue)]">${grandTotal.toFixed(2)}</span>
                 </div>
               </div>
 
               {/* Action Buttons */}
               <div className="space-y-2 pt-2">
                 {hasError && (
-                  <p className="text-[10px] font-mono text-[#ff453a] flex items-center gap-1"><Icon name="error" size={12} /> Resolve compatibility errors before ordering.</p>
+                  <p className="text-[10px] font-mono text-rose-500 flex items-center gap-1"><Icon name="error" size={12} /> Resolve compatibility errors before ordering.</p>
                 )}
                 <button
                   type="button"
@@ -402,13 +385,13 @@ export function PCBuilderPage() {
                     navigate('/cart')
                   }}
                   disabled={selectedCount === 0 || hasError}
-                  className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] active:bg-[#004fc2] disabled:opacity-40 disabled:cursor-not-allowed text-white font-mono text-xs font-bold rounded flex items-center justify-center gap-1.5 transition-colors shadow-lg"
+                  className="w-full py-3 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-mono text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Icon name="shopping_cart" size={16} /> ADD BUILD TO CART
                 </button>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={handleSaveBuild} disabled={selectedCount === 0} className="py-2 border border-[#414755] hover:border-white text-[#c1c6d7] hover:text-white font-mono text-[10px] rounded transition-colors disabled:opacity-40 flex items-center justify-center gap-1"><Icon name="bookmark" size={13} /> SAVE</button>
-                  <button type="button" onClick={handleShareBuild} disabled={selectedCount === 0} className="py-2 border border-[#414755] hover:border-white text-[#c1c6d7] hover:text-white font-mono text-[10px] rounded transition-colors disabled:opacity-40 flex items-center justify-center gap-1"><Icon name="share" size={13} /> SHARE</button>
+                  <button type="button" onClick={handleSaveBuild} disabled={selectedCount === 0} className="py-2 border border-[var(--border-theme)] hover:border-[var(--text-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-mono text-[10px] rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer"><Icon name="bookmark" size={13} /> SAVE</button>
+                  <button type="button" onClick={handleShareBuild} disabled={selectedCount === 0} className="py-2 border border-[var(--border-theme)] hover:border-[var(--text-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-mono text-[10px] rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer"><Icon name="share" size={13} /> SHARE</button>
                 </div>
               </div>
             </div>
@@ -421,17 +404,17 @@ export function PCBuilderPage() {
       {/* Component Selection Modal */}
       {activeSlot && (
         <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-          <div className="bg-[#16171d] border border-[#414755] rounded max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-fadeIn">
+          <div className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-fadeIn">
             {/* Modal Header */}
-            <div className="p-4 bg-[#1a1b1f] border-b border-[#292a2e] flex items-center justify-between">
+            <div className="p-4 bg-[var(--bg-surface-secondary)] border-b border-[var(--border-theme)] flex items-center justify-between">
               <div>
-                <span className="font-mono text-[10px] text-[#007aff] uppercase font-bold block">PART SELECTION</span>
-                <h3 className="text-white font-bold text-lg">Choose {activeSlot.name}</h3>
+                <span className="font-mono text-[10px] text-[var(--accent-blue)] uppercase font-bold block">PART SELECTION</span>
+                <h3 className="text-[var(--text-primary)] font-bold text-lg">Choose {activeSlot.name}</h3>
               </div>
               <button
                 type="button"
                 onClick={() => setActiveSlot(null)}
-                className="text-[#8b90a0] hover:text-white p-1"
+                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1 cursor-pointer"
                 aria-label="Close modal"
               >
                 <Icon name="close" size={20} />
@@ -439,33 +422,33 @@ export function PCBuilderPage() {
             </div>
 
             {/* Modal Search Bar */}
-            <div className="p-3 border-b border-[#292a2e] bg-[#121317]">
-              <div className="relative flex items-center bg-[#1e1f23] rounded border border-[#414755] px-3 py-1.5">
-                <Icon name="search" size={16} className="text-[#8b90a0] mr-2" />
+            <div className="p-3 border-b border-[var(--border-theme)] bg-[var(--bg-surface)]">
+              <div className="relative flex items-center bg-[var(--bg-surface-secondary)] rounded-lg border border-[var(--border-theme)] px-3 py-1.5">
+                <Icon name="search" size={16} className="text-[var(--text-secondary)] mr-2" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder={`Search ${activeSlot.name}...`}
-                  className="w-full bg-transparent text-xs text-white focus:outline-none placeholder:text-[#8b90a0]"
+                  className="w-full bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder:text-[var(--text-secondary)]"
                 />
               </div>
             </div>
 
             {/* Products List */}
-            <div className="p-4 overflow-y-auto flex-1 space-y-3">
+            <div className="p-4 overflow-y-auto flex-1 space-y-3 bg-[var(--bg-primary)]">
               {slotProducts.length > 0 ? (
                 slotProducts.map((prod) => (
                   <div
                     key={prod.id}
-                    className="p-3.5 bg-[#1a1b1f] border border-[#292a2e] hover:border-[#007aff] rounded flex items-center justify-between gap-4 transition-colors"
+                    className="p-3.5 bg-[var(--bg-surface)] border border-[var(--border-theme)] hover:border-[var(--accent-blue)] rounded-lg flex items-center justify-between gap-4 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <img src={prod.image} alt={prod.name} className="w-14 h-14 object-cover rounded bg-[#1e1f23] shrink-0" />
+                      <img src={prod.image} alt={prod.name} className="w-14 h-14 object-cover rounded bg-[var(--bg-surface-secondary)] shrink-0" />
                       <div className="min-w-0">
-                        <span className="font-mono text-[10px] text-[#8b90a0] uppercase block">{prod.brand}</span>
-                        <h4 className="text-white font-semibold text-xs truncate max-w-md">{prod.name}</h4>
-                        <div className="flex gap-2 text-[10px] font-mono text-[#8b90a0] mt-0.5">
+                        <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase block">{prod.brand}</span>
+                        <h4 className="text-[var(--text-primary)] font-semibold text-xs truncate max-w-md">{prod.name}</h4>
+                        <div className="flex gap-2 text-[10px] font-mono text-[var(--text-secondary)] mt-0.5">
                           {prod.specifications.slice(0, 2).map((s) => (
                             <span key={s.label}>{s.label}: {s.value}</span>
                           ))}
@@ -481,7 +464,7 @@ export function PCBuilderPage() {
                           setBuilderSlot(activeSlot.key, prod)
                           setActiveSlot(null)
                         }}
-                        className="px-3.5 py-1.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-[11px] font-bold rounded transition-colors"
+                        className="px-3.5 py-1.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-mono text-[11px] font-bold rounded transition-colors cursor-pointer"
                       >
                         SELECT
                       </button>
@@ -489,7 +472,7 @@ export function PCBuilderPage() {
                   </div>
                 ))
               ) : (
-                <div className="py-12 text-center text-[#8b90a0] font-mono text-xs">
+                <div className="py-12 text-center text-[var(--text-secondary)] font-mono text-xs">
                   No matching components found for "{searchQuery}".
                 </div>
               )}

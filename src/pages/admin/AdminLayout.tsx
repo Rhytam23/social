@@ -37,26 +37,26 @@ function AdminAuthGate() {
     setError(false)
   }
 
-  const fieldClass = 'w-full bg-[#121317] border border-[#414755] rounded p-3 text-xs text-white focus:outline-none focus:border-[#007aff] placeholder:text-[#8b90a0]'
-  const labelClass = 'text-[11px] font-mono text-[#8b90a0] block mb-1.5 uppercase tracking-wider font-bold'
+  const fieldClass = 'w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg p-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] placeholder:text-[var(--text-muted)]'
+  const labelClass = 'text-xs font-semibold text-[var(--text-secondary)] block mb-1.5'
 
   return (
-    <div className="min-h-screen bg-[#121317] flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-[#16171d] border border-[#414755] rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-6 sm:p-8 shadow-xl space-y-6">
         <div className="flex flex-col items-center text-center">
-          <div className="w-14 h-14 rounded-2xl bg-[#007aff]/15 border border-[#007aff]/40 flex items-center justify-center text-[#007aff] mb-3 shadow-[0_0_25px_rgba(0,122,255,0.2)]">
-            <Icon name="admin_panel_settings" size={32} />
+          <div className="w-12 h-12 rounded-xl bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/20 flex items-center justify-center text-[var(--accent-blue)] mb-3">
+            <Icon name="admin_panel_settings" size={28} />
           </div>
-          <span className="font-black text-xl text-white tracking-tighter">PREMIUM PC</span>
-          <span className="font-mono text-[10px] text-[#007aff] tracking-[0.2em] uppercase mt-1">RESTRICTED ADMIN CONSOLE</span>
-          <p className="text-[#8b90a0] text-xs mt-2 max-w-xs">
-            Unauthorized access prohibited. Please authenticate with store administrator credentials.
+          <span className="font-bold text-xl text-[var(--text-primary)] tracking-tight">PREMIUM PC</span>
+          <span className="text-xs text-[var(--accent-blue)] font-semibold uppercase tracking-wider mt-1">Admin Console</span>
+          <p className="text-[var(--text-secondary)] text-xs mt-2 max-w-xs leading-relaxed">
+            Please authenticate with your store administrator credentials to manage products, orders, and settings.
           </p>
         </div>
 
         {error && (
-          <div className="p-3 bg-[#ff453a]/15 border border-[#ff453a]/40 rounded-lg text-[#ff453a] font-mono text-xs flex items-center gap-2">
-            <Icon name="error" size={16} /> Invalid administrator password. Try &quot;admin123&quot;.
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs flex items-center gap-2">
+            <Icon name="error" size={16} /> Invalid password. Try &quot;admin123&quot;.
           </div>
         )}
 
@@ -79,7 +79,7 @@ function AdminAuthGate() {
               <button
                 type="button"
                 onClick={fillDemo}
-                className="font-mono text-[10px] text-[#007aff] hover:underline"
+                className="text-xs text-[var(--accent-blue)] hover:underline cursor-pointer"
               >
                 Auto-fill Demo Password
               </button>
@@ -96,15 +96,15 @@ function AdminAuthGate() {
 
           <button
             type="submit"
-            className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded-xl transition-colors shadow-lg flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Icon name="lock" size={16} />
             <span>UNLOCK ADMIN CONSOLE</span>
           </button>
         </form>
 
-        <div className="pt-4 border-t border-[#292a2e] text-center">
-          <Link to="/" className="font-mono text-xs text-[#8b90a0] hover:text-white flex items-center justify-center gap-1">
+        <div className="pt-4 border-t border-[var(--border-theme)] text-center">
+          <Link to="/" className="font-mono text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center justify-center gap-1">
             <Icon name="arrow_back" size={14} /> Return to Storefront
           </Link>
         </div>
@@ -128,14 +128,14 @@ export function AdminLayout() {
   }
 
   const sidebar = (
-    <div className="flex flex-col h-full bg-[#0d0e12] border-r border-[#292a2e]">
-      <div className="p-5 border-b border-[#292a2e] flex items-center justify-between">
+    <div className="flex flex-col h-full bg-[var(--bg-surface-secondary)] border-r border-[var(--border-theme)]">
+      <div className="p-5 border-b border-[var(--border-theme)] flex items-center justify-between">
         <Link to="/admin" className="flex flex-col leading-none">
-          <span className="font-black text-lg text-white tracking-tighter">PREMIUM PC</span>
-          <span className="font-mono text-[9px] text-[#007aff] tracking-[0.2em] mt-0.5">ADMIN CONSOLE</span>
+          <span className="font-black text-lg text-[var(--text-primary)] tracking-tighter">PREMIUM PC</span>
+          <span className="font-mono text-[9px] text-[var(--accent-blue)] tracking-[0.2em] mt-0.5">ADMIN CONSOLE</span>
         </Link>
         <button
-          className="lg:hidden text-[#8b90a0] hover:text-white"
+          className="lg:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
           onClick={() => setMobileOpen(false)}
           aria-label="Close menu"
         >
@@ -151,8 +151,8 @@ export function AdminLayout() {
             end={item.end}
             onClick={() => setMobileOpen(false)}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded font-mono text-xs font-bold transition-colors ${
-                isActive ? 'bg-[#007aff] text-white' : 'text-[#8b90a0] hover:text-white hover:bg-[#1a1b1f]'
+              `flex items-center gap-3 px-3 py-2.5 rounded-lg font-mono text-xs font-bold transition-colors ${
+                isActive ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-tertiary)]'
               }`
             }
           >
@@ -162,10 +162,10 @@ export function AdminLayout() {
         ))}
       </nav>
 
-      <div className="p-3 border-t border-[#292a2e] space-y-1">
+      <div className="p-3 border-t border-[var(--border-theme)] space-y-1">
         <Link
           to="/"
-          className="flex items-center gap-3 px-3 py-2 rounded font-mono text-xs font-bold text-[#8b90a0] hover:text-white hover:bg-[#1a1b1f] transition-colors"
+          className="flex items-center gap-3 px-3 py-2 rounded-lg font-mono text-xs font-bold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-tertiary)] transition-colors"
         >
           <Icon name="storefront" size={18} />
           <span className="uppercase">View Store</span>
@@ -173,17 +173,17 @@ export function AdminLayout() {
 
         <button
           onClick={handleLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 rounded font-mono text-xs font-bold text-[#ff453a] hover:bg-[#ff453a]/15 transition-colors"
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg font-mono text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
         >
           <Icon name="logout" size={18} />
-          <span className="uppercase">Sign Out Admin</span>
+          <span className="uppercase">Sign Out</span>
         </button>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen flex bg-[#121317] text-[#e3e2e7]">
+    <div className="min-h-screen flex bg-[var(--bg-primary)] text-[var(--text-primary)]">
       {/* Desktop sidebar */}
       <aside className="hidden lg:block w-60 shrink-0 sticky top-0 h-screen">{sidebar}</aside>
 
@@ -197,25 +197,25 @@ export function AdminLayout() {
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Topbar */}
-        <header className="sticky top-0 z-40 bg-[#121317] border-b border-[#292a2e] px-4 md:px-6 py-3 flex items-center gap-4">
+        <header className="sticky top-0 z-40 bg-[var(--bg-surface)] border-b border-[var(--border-theme)] px-4 md:px-6 py-3 flex items-center gap-4">
           <button
-            className="lg:hidden text-[#c1c6d7] hover:text-white"
+            className="lg:hidden text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer"
             onClick={() => setMobileOpen(true)}
             aria-label="Open menu"
           >
             <Icon name="menu" size={22} />
           </button>
-          <div className="relative flex items-center bg-[#1a1b1f] border border-[#414755] rounded px-3 py-1.5 max-w-md flex-1">
-            <Icon name="search" size={16} className="text-[#8b90a0] mr-2" />
+          <div className="relative flex items-center bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg px-3 py-1.5 max-w-md flex-1">
+            <Icon name="search" size={16} className="text-[var(--text-secondary)] mr-2" />
             <input
               placeholder="Search orders, products, customers..."
-              className="w-full bg-transparent text-xs text-white focus:outline-none placeholder:text-[#8b90a0]"
+              className="w-full bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder:text-[var(--text-secondary)]"
             />
           </div>
           <div className="flex items-center gap-3 ml-auto">
             <button
               onClick={handleLogout}
-              className="px-3 py-1.5 bg-[#ff453a]/15 hover:bg-[#ff453a] text-[#ff453a] hover:text-white font-mono text-[11px] font-bold rounded transition-colors flex items-center gap-1.5"
+              className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white font-mono text-[11px] font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
             >
               <Icon name="lock" size={14} />
               <span>LOCK CONSOLE</span>
@@ -245,8 +245,8 @@ export function AdminPageHeader({
   return (
     <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
       <div>
-        <h1 className="text-white font-bold text-xl md:text-2xl tracking-tight">{title}</h1>
-        {subtitle && <p className="text-[#8b90a0] text-xs mt-1">{subtitle}</p>}
+        <h1 className="text-[var(--text-primary)] font-bold text-xl md:text-2xl tracking-tight">{title}</h1>
+        {subtitle && <p className="text-[var(--text-secondary)] text-xs mt-1">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -259,7 +259,7 @@ export function StatCard({
   delta,
   deltaUp,
   icon,
-  color = '#007aff',
+  color = '#0066FF',
 }: {
   label: string
   value: string
@@ -269,10 +269,10 @@ export function StatCard({
   color?: string
 }) {
   return (
-    <div className="bg-[#1a1b1f] border border-[#414755] rounded p-4">
+    <div className="bg-[var(--bg-surface-secondary)] p-4 rounded-xl">
       <div className="flex items-start justify-between">
         <div
-          className="w-9 h-9 rounded flex items-center justify-center shrink-0"
+          className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
           style={{ background: `${color}20`, color }}
         >
           <Icon name={icon} size={18} />
@@ -280,42 +280,42 @@ export function StatCard({
         {delta && (
           <span
             className={`font-mono text-[10px] font-bold flex items-center gap-0.5 ${
-              deltaUp ? 'text-[#30d158]' : 'text-[#ff453a]'
+              deltaUp ? 'text-[var(--color-stock-green)]' : 'text-rose-500'
             }`}
           >
             <Icon name={deltaUp ? 'trending_up' : 'trending_down'} size={13} /> {delta}
           </span>
         )}
       </div>
-      <div className="text-white font-bold text-2xl mt-3 tracking-tight">{value}</div>
-      <div className="font-mono text-[10px] text-[#8b90a0] uppercase mt-1 tracking-wider">{label}</div>
+      <div className="text-[var(--text-primary)] font-bold text-2xl mt-3 tracking-tight">{value}</div>
+      <div className="font-mono text-[10px] text-[var(--text-secondary)] uppercase mt-1 tracking-wider">{label}</div>
     </div>
   )
 }
 
 export function Pill({ status }: { status: string }) {
   const map: Record<string, string> = {
-    Delivered: 'bg-[#30d15815] text-[#30d158] border-[#30d15840]',
-    Shipped: 'bg-[#007aff15] text-[#007aff] border-[#007aff40]',
-    Processing: 'bg-[#ffd60a15] text-[#ffd60a] border-[#ffd60a40]',
-    Cancelled: 'bg-[#ff453a15] text-[#ff453a] border-[#ff453a40]',
-    Paid: 'bg-[#30d15815] text-[#30d158] border-[#30d15840]',
-    Pending: 'bg-[#ffd60a15] text-[#ffd60a] border-[#ffd60a40]',
-    Refunded: 'bg-[#ff453a15] text-[#ff453a] border-[#ff453a40]',
-    Active: 'bg-[#30d15815] text-[#30d158] border-[#30d15840]',
-    VIP: 'bg-[#bf5af215] text-[#bf5af2] border-[#bf5af240]',
-    Inactive: 'bg-[#8b90a015] text-[#8b90a0] border-[#8b90a040]',
-    'in-stock': 'bg-[#30d15815] text-[#30d158] border-[#30d15840]',
-    'low-stock': 'bg-[#ffd60a15] text-[#ffd60a] border-[#ffd60a40]',
-    'out-of-stock': 'bg-[#ff453a15] text-[#ff453a] border-[#ff453a40]',
-    Scheduled: 'bg-[#007aff15] text-[#007aff] border-[#007aff40]',
-    Expired: 'bg-[#8b90a015] text-[#8b90a0] border-[#8b90a040]',
+    Delivered: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    Shipped: 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] border-[var(--accent-blue)]/20',
+    Processing: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    Cancelled: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    Paid: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    Pending: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    Refunded: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    Active: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    VIP: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+    Inactive: 'bg-[var(--text-secondary)]/10 text-[var(--text-secondary)] border-[var(--border-theme)]',
+    'in-stock': 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    'low-stock': 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    'out-of-stock': 'bg-rose-500/10 text-rose-500 border-rose-500/20',
+    Scheduled: 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] border-[var(--accent-blue)]/20',
+    Expired: 'bg-[var(--text-secondary)]/10 text-[var(--text-secondary)] border-[var(--border-theme)]',
   }
   const label = status.replace('-', ' ').toUpperCase()
   return (
     <span
       className={`font-mono text-[9px] px-2 py-0.5 rounded font-bold border whitespace-nowrap ${
-        map[status] || 'bg-[#292a2e] text-[#c1c6d7] border-[#414755]'
+        map[status] || 'bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] border-[var(--border-theme)]'
       }`}
     >
       {label}
