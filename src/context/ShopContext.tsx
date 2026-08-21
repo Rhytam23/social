@@ -275,7 +275,7 @@ export function ShopProvider({ children }: { children: ReactNode }) {
   })
 
   const loginAsAdmin = (password: string) => {
-    if (password === 'admin123' || password === 'admin' || password === 'secret' || password.length >= 4) {
+    if (password === 'admin123' || password === 'admin') {
       setIsAdminLoggedIn(true)
       try {
         localStorage.setItem('premium_pc_admin_auth', 'true')

@@ -122,26 +122,7 @@ export function HomePage() {
           </div>
         </section>
 
-        {/* 3. Shop by Category */}
-        <section className="space-y-6">
-          <div className="flex items-end justify-between">
-            <div className="space-y-1">
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">Shop by Category</h2>
-              <p className="text-[var(--text-secondary)] text-sm">Explore component categories and pre-built systems</p>
-            </div>
-            <Link to="/categories" className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1 shrink-0">
-              <span>All Categories →</span>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {categories.slice(0, 12).map((cat) => (
-              <CategoryTile key={cat.id} cat={cat} />
-            ))}
-          </div>
-        </section>
-
-        {/* 4. Best Sellers */}
+        {/* 3. Best Sellers */}
         <section className="space-y-6">
           <div className="flex items-end justify-between">
             <div className="space-y-1">
@@ -166,7 +147,80 @@ export function HomePage() {
           </div>
         </section>
 
-        {/* 5. Gaming PCs */}
+        {/* 4. Trending Hardware */}
+        <section className="space-y-6">
+          <div className="flex items-end justify-between">
+            <div className="space-y-1">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">Trending Now</h2>
+              <p className="text-[var(--text-secondary)] text-sm">Most popular gear in our community this week</p>
+            </div>
+            <Link to="/products" className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1 shrink-0">
+              <span>Explore More →</span>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {trendingProducts.map((product) => (
+              <article key={product.id} className="group flex bg-transparent transition-all py-4 border-b border-[var(--border-theme)] gap-4 items-center">
+                <Link to={`/products/${product.slug}`} className="w-24 h-24 bg-white dark:bg-[var(--bg-surface-secondary)] rounded-xl p-2 flex items-center justify-center shrink-0 border border-[var(--border-theme)]/20">
+                  {!trendingImageErrors[product.id] ? (
+                    <img
+                      src={product.image}
+                      alt=""
+                      className="max-w-full max-h-full object-contain"
+                      onError={() => setTrendingImageErrors((prev) => ({ ...prev, [product.id]: true }))}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <Icon name="memory" size={32} className="text-[var(--text-muted)]" />
+                  )}
+                </Link>
+                <div className="flex-1 min-w-0 space-y-2">
+                  <div>
+                    <span className="text-[10px] font-bold text-[var(--accent-blue)] uppercase tracking-wider">{product.brand}</span>
+                    <Link to={`/products/${product.slug}`} className="block">
+                      <h3 className="text-[var(--text-primary)] text-sm font-bold truncate hover:text-[var(--accent-blue)] transition-colors">{product.name}</h3>
+                    </Link>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <Price price={product.price} previousPrice={product.previousPrice} discount={product.discount} size="sm" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => addToCart(product)}
+                      disabled={product.stockStatus === 'out-of-stock'}
+                      className="px-3.5 py-1.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <Icon name="add_shopping_cart" size={14} /> Add
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* 5. Shop by Category */}
+        <section className="space-y-6">
+          <div className="flex items-end justify-between">
+            <div className="space-y-1">
+              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">Shop by Category</h2>
+              <p className="text-[var(--text-secondary)] text-sm">Explore component categories and pre-built systems</p>
+            </div>
+            <Link to="/categories" className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1 shrink-0">
+              <span>All Categories →</span>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {categories.slice(0, 12).map((cat) => (
+              <CategoryTile key={cat.id} cat={cat} />
+            ))}
+          </div>
+        </section>
+
+        {/* 6. Gaming PCs */}
         <section className="space-y-6">
           <div className="flex items-end justify-between">
             <div className="space-y-1">
@@ -250,60 +304,6 @@ export function HomePage() {
                       className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
                       <Icon name="shopping_cart" size={14} /> ORDER
-                    </button>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        {/* 6. Trending Hardware */}
-        <section className="space-y-6">
-          <div className="flex items-end justify-between">
-            <div className="space-y-1">
-              <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-[var(--text-primary)]">Trending Now</h2>
-              <p className="text-[var(--text-secondary)] text-sm">Most popular gear in our community this week</p>
-            </div>
-            <Link to="/products" className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1 shrink-0">
-              <span>Explore More →</span>
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            {trendingProducts.map((product) => (
-              <article key={product.id} className="group flex bg-transparent transition-all py-4 border-b border-[var(--border-theme)] gap-4 items-center">
-                <Link to={`/products/${product.slug}`} className="w-24 h-24 bg-white dark:bg-[var(--bg-surface-secondary)] rounded-xl p-2 flex items-center justify-center shrink-0 border border-[var(--border-theme)]/20">
-                  {!trendingImageErrors[product.id] ? (
-                    <img
-                      src={product.image}
-                      alt=""
-                      className="max-w-full max-h-full object-contain"
-                      onError={() => setTrendingImageErrors((prev) => ({ ...prev, [product.id]: true }))}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <Icon name="memory" size={32} className="text-[var(--text-muted)]" />
-                  )}
-                </Link>
-                <div className="flex-1 min-w-0 space-y-2">
-                  <div>
-                    <span className="text-[10px] font-bold text-[var(--accent-blue)] uppercase tracking-wider">{product.brand}</span>
-                    <Link to={`/products/${product.slug}`} className="block">
-                      <h3 className="text-[var(--text-primary)] text-sm font-bold truncate hover:text-[var(--accent-blue)] transition-colors">{product.name}</h3>
-                    </Link>
-                  </div>
-                  <div className="flex items-center justify-between gap-4">
-                    <div>
-                      <Price price={product.price} previousPrice={product.previousPrice} discount={product.discount} size="sm" />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => addToCart(product)}
-                      disabled={product.stockStatus === 'out-of-stock'}
-                      className="px-3.5 py-1.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Icon name="add_shopping_cart" size={14} /> Add
                     </button>
                   </div>
                 </div>
