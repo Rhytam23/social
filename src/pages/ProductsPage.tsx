@@ -202,14 +202,14 @@ export function ProductsPage() {
       <div className="container-max px-4 md:px-6 py-6">
 
         {/* Breadcrumb Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[#292a2e]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--border-theme)]">
           <div>
-            <nav className="flex items-center gap-2 text-xs font-mono text-[#8b90a0] mb-1">
-              <Link to="/" className="hover:text-white">HOME</Link>
+            <nav className="flex items-center gap-2 text-xs font-mono text-[var(--text-secondary)] mb-1">
+              <Link to="/" className="hover:text-[var(--text-primary)]">HOME</Link>
               <Icon name="chevron_right" size={12} />
-              <span className="text-[#adc6ff] uppercase">{selectedCategory}</span>
+              <span className="text-[var(--accent-blue)] uppercase">{selectedCategory}</span>
             </nav>
-            <h1 className="text-white font-bold text-2xl tracking-tight">
+            <h1 className="text-[var(--text-primary)] font-bold text-2xl tracking-tight">
               {selectedCategory === 'All' ? 'Complete Hardware Catalog' : selectedCategory}
             </h1>
           </div>
@@ -219,18 +219,18 @@ export function ProductsPage() {
             <button
               type="button"
               onClick={() => setMobileFilterOpen(true)}
-              className="lg:hidden px-3.5 py-2 bg-[#1a1b1f] border border-[#414755] text-white text-xs font-mono rounded flex items-center gap-1.5"
+              className="lg:hidden px-3.5 py-2 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] text-xs font-mono rounded-lg flex items-center gap-1.5 cursor-pointer"
             >
               <Icon name="tune" size={16} /> FILTERS
             </button>
 
             {/* Sort Dropdown */}
             <div className="flex items-center gap-2">
-              <span className="font-mono text-xs text-[#8b90a0] hidden sm:inline">SORT BY:</span>
+              <span className="font-mono text-xs text-[var(--text-secondary)] hidden sm:inline">SORT BY:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-[#1a1b1f] border border-[#414755] text-[#e3e2e7] font-mono text-xs rounded px-3 py-2 focus:outline-none focus:border-[#007aff]"
+                className="bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-[var(--accent-blue)]"
               >
                 <option value="featured">Featured / Best Match</option>
                 <option value="price-asc">Price: Low to High</option>
@@ -248,15 +248,15 @@ export function ProductsPage() {
           {/* Desktop Filter Sidebar (3 cols) */}
           <aside className="hidden lg:block lg:col-span-3 space-y-6">
             {/* Active Filters Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-[#292a2e]">
-              <span className="font-mono text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                <Icon name="filter_list" size={16} className="text-[#007aff]" /> FILTER CATALOG
+            <div className="flex items-center justify-between pb-3 border-b border-[var(--border-theme)]">
+              <span className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                <Icon name="filter_list" size={16} className="text-[var(--accent-blue)]" /> FILTER CATALOG
               </span>
               {(selectedCategory !== 'All' || selectedBrand !== 'All' || onlyInStock || priceMax < 3000 || minRating > 0) && (
                 <button
                   type="button"
                   onClick={clearAllFilters}
-                  className="text-[10px] font-mono text-[#ff453a] hover:underline"
+                  className="text-[10px] font-mono text-rose-500 hover:underline cursor-pointer"
                 >
                   RESET ALL
                 </button>
@@ -265,7 +265,7 @@ export function ProductsPage() {
 
             {/* Category Filter */}
             <div>
-              <span className="font-mono text-[11px] font-semibold text-[#8b90a0] uppercase block mb-2">CATEGORY</span>
+              <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)] uppercase block mb-2">CATEGORY</span>
               <div className="flex flex-col gap-1 max-h-56 overflow-y-auto scrollbar-none pr-1">
                 {CATEGORY_NAMES.map((cat) => (
                   <button
@@ -276,10 +276,10 @@ export function ProductsPage() {
                       if (cat !== 'All') setSearchParams({ category: cat })
                       else setSearchParams({})
                     }}
-                    className={`text-left text-xs py-1.5 px-2 rounded font-mono transition-colors flex items-center justify-between ${
+                    className={`text-left text-xs py-1.5 px-2 rounded-lg font-mono transition-colors flex items-center justify-between cursor-pointer ${
                       selectedCategory.toLowerCase() === cat.toLowerCase()
-                        ? 'bg-[#007aff20] text-[#007aff] font-bold border-l-2 border-[#007aff]'
-                        : 'text-[#c1c6d7] hover:bg-[#1a1b1f] hover:text-white'
+                        ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] font-bold border-l-2 border-[var(--accent-blue)]'
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)] hover:text-[var(--text-primary)]'
                     }`}
                   >
                     <span>{cat}</span>
@@ -289,12 +289,12 @@ export function ProductsPage() {
             </div>
 
             {/* GPU Chipset Filter */}
-            <div className="pt-4 border-t border-[#292a2e]">
-              <span className="font-mono text-[11px] font-semibold text-[#8b90a0] uppercase block mb-2">GPU CHIPSET</span>
+            <div className="pt-4 border-t border-[var(--border-theme)]">
+              <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)] uppercase block mb-2">GPU CHIPSET</span>
               <select
                 value={selectedGpu}
                 onChange={(e) => setSelectedGpu(e.target.value)}
-                className="w-full bg-[#1a1b1f] border border-[#414755] text-[#e3e2e7] font-mono text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007aff]"
+                className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--accent-blue)]"
               >
                 <option value="All">All Graphics Chipsets</option>
                 <option value="RTX 5090">GeForce RTX 5090</option>
@@ -307,12 +307,12 @@ export function ProductsPage() {
             </div>
 
             {/* CPU Filter */}
-            <div className="pt-4 border-t border-[#292a2e]">
-              <span className="font-mono text-[11px] font-semibold text-[#8b90a0] uppercase block mb-2">PROCESSOR (CPU)</span>
+            <div className="pt-4 border-t border-[var(--border-theme)]">
+              <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)] uppercase block mb-2">PROCESSOR (CPU)</span>
               <select
                 value={selectedCpu}
                 onChange={(e) => setSelectedCpu(e.target.value)}
-                className="w-full bg-[#1a1b1f] border border-[#414755] text-[#e3e2e7] font-mono text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007aff]"
+                className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--accent-blue)]"
               >
                 <option value="All">All Processors</option>
                 <option value="Intel Core Ultra">Intel Core Ultra (Arrow Lake)</option>
@@ -324,12 +324,12 @@ export function ProductsPage() {
             </div>
 
             {/* RAM Filter */}
-            <div className="pt-4 border-t border-[#292a2e]">
-              <span className="font-mono text-[11px] font-semibold text-[#8b90a0] uppercase block mb-2">RAM SPEED & TYPE</span>
+            <div className="pt-4 border-t border-[var(--border-theme)]">
+              <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)] uppercase block mb-2">RAM SPEED & TYPE</span>
               <select
                 value={selectedRam}
                 onChange={(e) => setSelectedRam(e.target.value)}
-                className="w-full bg-[#1a1b1f] border border-[#414755] text-[#e3e2e7] font-mono text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007aff]"
+                className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--accent-blue)]"
               >
                 <option value="All">All Memory Types</option>
                 <option value="DDR5-8000">DDR5-8000+ Extreme</option>
@@ -340,13 +340,13 @@ export function ProductsPage() {
             </div>
 
             {/* Storage & Form Factor Filter */}
-            <div className="pt-4 border-t border-[#292a2e] grid grid-cols-2 gap-2">
+            <div className="pt-4 border-t border-[var(--border-theme)] grid grid-cols-2 gap-2">
               <div>
-                <span className="font-mono text-[10px] font-semibold text-[#8b90a0] uppercase block mb-1">STORAGE</span>
+                <span className="font-mono text-[10px] font-semibold text-[var(--text-secondary)] uppercase block mb-1">STORAGE</span>
                 <select
                   value={selectedStorage}
                   onChange={(e) => setSelectedStorage(e.target.value)}
-                  className="w-full bg-[#1a1b1f] border border-[#414755] text-[#e3e2e7] font-mono text-[11px] rounded p-1.5"
+                  className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-[11px] rounded-lg p-1.5"
                 >
                   <option value="All">All</option>
                   <option value="PCIe 5.0">PCIe 5.0</option>
@@ -355,11 +355,11 @@ export function ProductsPage() {
                 </select>
               </div>
               <div>
-                <span className="font-mono text-[10px] font-semibold text-[#8b90a0] uppercase block mb-1">FORM FACTOR</span>
+                <span className="font-mono text-[10px] font-semibold text-[var(--text-secondary)] uppercase block mb-1">FORM FACTOR</span>
                 <select
                   value={selectedFormFactor}
                   onChange={(e) => setSelectedFormFactor(e.target.value)}
-                  className="w-full bg-[#1a1b1f] border border-[#414755] text-[#e3e2e7] font-mono text-[11px] rounded p-1.5"
+                  className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-[11px] rounded-lg p-1.5"
                 >
                   <option value="All">All</option>
                   <option value="ATX">ATX</option>
@@ -370,12 +370,12 @@ export function ProductsPage() {
             </div>
 
             {/* Performance Tier */}
-            <div className="pt-4 border-t border-[#292a2e]">
-              <span className="font-mono text-[11px] font-semibold text-[#8b90a0] uppercase block mb-2">PERFORMANCE TIER</span>
+            <div className="pt-4 border-t border-[var(--border-theme)]">
+              <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)] uppercase block mb-2">PERFORMANCE TIER</span>
               <select
                 value={selectedPerformance}
                 onChange={(e) => setSelectedPerformance(e.target.value)}
-                className="w-full bg-[#1a1b1f] border border-[#414755] text-[#e3e2e7] font-mono text-xs rounded px-2.5 py-1.5 focus:outline-none focus:border-[#007aff]"
+                className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--accent-blue)]"
               >
                 <option value="All">All Tiers</option>
                 <option value="Tier 4">Tier 4 - Enthusiast Extreme (4K Path Tracing)</option>
@@ -386,10 +386,10 @@ export function ProductsPage() {
             </div>
 
             {/* Price Max Range Slider */}
-            <div className="pt-4 border-t border-[#292a2e]">
+            <div className="pt-4 border-t border-[var(--border-theme)]">
               <div className="flex items-center justify-between mb-2">
-                <span className="font-mono text-[11px] font-semibold text-[#8b90a0] uppercase">MAX PRICE</span>
-                <span className="font-mono text-xs font-bold text-white">${priceMax.toLocaleString()}</span>
+                <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)] uppercase">MAX PRICE</span>
+                <span className="font-mono text-xs font-bold text-[var(--text-primary)]">${priceMax.toLocaleString()}</span>
               </div>
               <input
                 type="range"
@@ -398,17 +398,17 @@ export function ProductsPage() {
                 step="50"
                 value={priceMax}
                 onChange={(e) => setPriceMax(Number(e.target.value))}
-                className="w-full accent-[#007aff] bg-[#292a2e] rounded h-1.5"
+                className="w-full accent-[var(--accent-blue)] bg-[var(--bg-surface-secondary)] rounded-lg h-1.5"
               />
-              <div className="flex justify-between text-[10px] font-mono text-[#8b90a0] mt-1">
+              <div className="flex justify-between text-[10px] font-mono text-[var(--text-secondary)] mt-1">
                 <span>$50</span>
                 <span>$3,000+</span>
               </div>
             </div>
 
             {/* Rating Filter */}
-            <div className="pt-4 border-t border-[#292a2e]">
-              <span className="font-mono text-[11px] font-semibold text-[#8b90a0] uppercase block mb-2">MINIMUM RATING</span>
+            <div className="pt-4 border-t border-[var(--border-theme)]">
+              <span className="font-mono text-[11px] font-semibold text-[var(--text-secondary)] uppercase block mb-2">MINIMUM RATING</span>
               <div className="flex flex-col gap-1">
                 {[
                   { label: 'All Ratings', value: 0 },
@@ -420,11 +420,11 @@ export function ProductsPage() {
                     key={r.value}
                     type="button"
                     onClick={() => setMinRating(r.value)}
-                    className={`text-left text-xs py-1.5 px-2 rounded font-mono transition-colors flex items-center gap-1.5 ${
-                      minRating === r.value ? 'bg-[#007aff20] text-[#007aff] font-bold border-l-2 border-[#007aff]' : 'text-[#c1c6d7] hover:bg-[#1a1b1f] hover:text-white'
+                    className={`text-left text-xs py-1.5 px-2 rounded-lg font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
+                      minRating === r.value ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] font-bold border-l-2 border-[var(--accent-blue)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-surface-secondary)] hover:text-[var(--text-primary)]'
                     }`}
                   >
-                    {r.value > 0 && <Icon name="star" size={12} className="text-[#ffd60a]" filled />}
+                    {r.value > 0 && <Icon name="star" size={12} className="text-amber-400" filled />}
                     <span>{r.label}</span>
                   </button>
                 ))}
@@ -432,15 +432,15 @@ export function ProductsPage() {
             </div>
 
             {/* In-Stock Only Toggle */}
-            <div className="pt-4 border-t border-[#292a2e]">
+            <div className="pt-4 border-t border-[var(--border-theme)]">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={onlyInStock}
                   onChange={(e) => setOnlyInStock(e.target.checked)}
-                  className="w-4 h-4 rounded bg-[#1e1f23] border-[#414755] text-[#007aff] focus:ring-0 cursor-pointer"
+                  className="w-4 h-4 rounded bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--accent-blue)] focus:ring-0 cursor-pointer"
                 />
-                <span className="text-xs font-mono text-white">IN-STOCK ONLY</span>
+                <span className="text-xs font-mono text-[var(--text-primary)]">IN-STOCK ONLY</span>
               </label>
             </div>
           </aside>

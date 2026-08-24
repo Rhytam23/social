@@ -107,10 +107,10 @@ function DealCard({ product, onAddToCart, onToggleWishlist, isWishlisted = false
             type="button"
             onClick={() => onAddToCart(product)}
             disabled={product.stockStatus === 'out-of-stock'}
-            className="w-full py-1.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-[10px] font-bold rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-1.5 uppercase tracking-wider"
+            className="w-full py-2 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-sans text-xs font-semibold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
-            <Icon name="add_shopping_cart" size={14} />
-            Add to Cart
+            <Icon name="add_shopping_cart" size={15} />
+            <span>Add to Cart</span>
           </button>
         </div>
       </div>

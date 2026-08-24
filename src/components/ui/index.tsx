@@ -79,10 +79,11 @@ export function StockBadge({ status }: StockBadgeProps) {
 
 interface ButtonProps {
   children: ReactNode
-  variant?: 'primary' | 'secondary' | 'ghost' | 'icon'
+  variant?: 'primary' | 'secondary' | 'tertiary' | 'ghost' | 'outline' | 'destructive' | 'icon'
   size?: 'sm' | 'md' | 'lg'
+  fullWidth?: boolean
   className?: string
-  onClick?: () => void
+  onClick?: (e?: any) => void
   disabled?: boolean
   type?: 'button' | 'submit' | 'reset'
   ariaLabel?: string
@@ -92,6 +93,7 @@ export function Button({
   children,
   variant = 'primary',
   size = 'md',
+  fullWidth = false,
   className = '',
   onClick,
   disabled = false,
@@ -102,8 +104,11 @@ export function Button({
 
   const variantClasses: Record<string, string> = {
     primary: 'bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)] active:scale-[0.98] shadow-xs',
-    secondary: 'bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] hover:border-[var(--accent-blue)] active:scale-[0.98]',
+    secondary: 'bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] hover:border-[var(--text-secondary)] active:scale-[0.98]',
+    tertiary: 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-secondary)]',
     ghost: 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-secondary)]',
+    outline: 'bg-transparent border border-[var(--border-theme)] text-[var(--text-primary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)] active:scale-[0.98]',
+    destructive: 'bg-rose-500/10 hover:bg-rose-500 border border-rose-500/20 text-rose-500 hover:text-white font-semibold transition-colors active:scale-[0.98]',
     icon: 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--bg-surface-secondary)]',
   }
 
@@ -113,13 +118,15 @@ export function Button({
     lg: 'px-5 py-2.5 text-sm',
   }
 
+  const widthClass = fullWidth ? 'w-full' : ''
+
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
       aria-label={ariaLabel}
-      className={`${baseClasses} ${variantClasses[variant]} ${variant !== 'icon' ? sizeClasses[size] : ''} ${className}`}
+      className={`${baseClasses} ${variantClasses[variant]} ${variant !== 'icon' ? sizeClasses[size] : ''} ${widthClass} ${className}`}
     >
       {children}
     </button>

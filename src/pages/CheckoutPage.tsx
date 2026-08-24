@@ -218,7 +218,7 @@ export function CheckoutPage() {
                     Continue <Icon name="arrow_forward" size={15} />
                   </button>
                 ) : (
-                  <button onClick={placeFinalOrder} className="px-6 py-3 bg-[var(--color-stock-green)] hover:bg-emerald-600 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+                  <button onClick={placeFinalOrder} className="px-6 py-3 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-sm">
                     <Icon name="lock" size={15} /> Place Order (${total.toFixed(2)})
                   </button>
                 )}

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { Icon, Breadcrumbs, StarRating, EmptyState } from '../components/ui'
+import { Icon, Breadcrumbs, StarRating, EmptyState, Button } from '../components/ui'
 import { allProducts, getProductById } from '../data'
 import { useShop } from '../context/ShopContext'
 import type { Product } from '../types'
@@ -51,29 +51,31 @@ export function ComparePage() {
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Compare Products' }]} className="mb-4" />
 
         {/* Page Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[#292a2e]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-[var(--border-theme)]">
           <div>
-            <h1 className="text-white font-bold text-2xl md:text-3xl tracking-tight">Product Comparison</h1>
-            <p className="text-[#8b90a0] text-xs md:text-sm mt-1">
+            <h1 className="text-[var(--text-primary)] font-bold text-2xl md:text-3xl tracking-tight">Product Comparison</h1>
+            <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-1">
               Compare up to 4 hardware products side-by-side. Technical differences are automatically highlighted.
             </p>
           </div>
           {products.length > 0 && (
             <div className="flex items-center gap-3 shrink-0">
               {products.length < 4 && (
-                <button
+                <Button
+                  variant="outline"
+                  size="md"
                   onClick={() => setPickerOpen(true)}
-                  className="px-3.5 py-2 bg-[#007aff15] border border-[#007aff50] text-[#007aff] hover:bg-[#007aff25] font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors"
                 >
-                  <Icon name="add" size={16} /> ADD PRODUCT
-                </button>
+                  <Icon name="add" size={16} /> Add Product
+                </Button>
               )}
-              <button
+              <Button
+                variant="tertiary"
+                size="md"
                 onClick={clearCompare}
-                className="px-3.5 py-2 bg-[#16171d] border border-[#292a2e] text-[#8b90a0] hover:text-[#ff453a] hover:border-[#ff453a50] font-mono text-xs rounded transition-colors"
               >
-                CLEAR ALL
-              </button>
+                Clear All
+              </Button>
             </div>
           )}
         </div>
@@ -86,38 +88,37 @@ export function ComparePage() {
               title="No products selected for comparison"
               message="Click the balance (compare) icon on any product card, listing, or catalog item to compare technical specifications side-by-side."
               action={
-                <Link
-                  to="/products"
-                  className="px-6 py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs rounded font-bold transition-colors shadow-md inline-block mt-2"
-                >
-                  BROWSE PRODUCTS CATALOG
+                <Link to="/products">
+                  <Button variant="primary" size="lg" className="mt-2">
+                    Browse Products Catalog
+                  </Button>
                 </Link>
               }
             />
           </div>
         ) : (
-          <div className="overflow-x-auto border border-[#292a2e] rounded-lg shadow-xl bg-[#121317]">
+          <div className="overflow-x-auto border border-[var(--border-theme)] rounded-xl shadow-sm bg-[var(--bg-surface)]">
             <table className="w-full border-collapse min-w-[700px]">
-              <tbody className="divide-y divide-[#292a2e]">
+              <tbody className="divide-y divide-[var(--border-theme)]">
                 {/* Product Header Row */}
                 <tr>
-                  <th className="w-44 bg-[#16171d] p-4 text-left align-top sticky left-0 z-20 border-r border-[#292a2e] shadow-md">
-                    <span className="font-mono text-[10px] text-[#8b90a0] uppercase font-bold tracking-wider block">
+                  <th className="w-44 bg-[var(--bg-surface-secondary)] p-4 text-left align-top sticky left-0 z-20 border-r border-[var(--border-theme)] shadow-xs">
+                    <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider block">
                       PRODUCTS ({products.length}/4)
                     </span>
                   </th>
                   {products.map((p) => (
-                    <td key={p.id} className="p-4 align-top bg-[#16171d] border-r border-[#292a2e] min-w-[220px] max-w-[260px]">
+                    <td key={p.id} className="p-4 align-top bg-[var(--bg-surface-secondary)] border-r border-[var(--border-theme)] min-w-[220px] max-w-[260px]">
                       <div className="relative">
                         <button
                           onClick={() => toggleCompare(p.id)}
                           aria-label="Remove product"
-                          className="absolute -top-1 -right-1 text-[#8b90a0] hover:text-[#ff453a] bg-[#121317] rounded-full p-1 border border-[#292a2e] hover:border-[#ff453a] transition-colors z-10"
+                          className="absolute -top-1 -right-1 text-[var(--text-secondary)] hover:text-rose-500 bg-[var(--bg-surface)] rounded-full p-1 border border-[var(--border-theme)] hover:border-rose-500 transition-colors z-10 cursor-pointer"
                         >
                           <Icon name="close" size={14} />
                         </button>
                         <Link to={`/products/${p.slug}`} className="block group">
-                          <div className="w-full aspect-[4/3] rounded bg-[#0d0e12] overflow-hidden mb-3 border border-[#292a2e] group-hover:border-[#007aff] transition-colors">
+                          <div className="w-full aspect-[4/3] rounded-lg bg-[var(--bg-surface)] overflow-hidden mb-3 border border-[var(--border-theme)] group-hover:border-[var(--accent-blue)] transition-colors">
                             {!imgErrors[p.id] ? (
                               <img
                                 src={p.image}
@@ -126,15 +127,15 @@ export function ComparePage() {
                                 onError={() => handleImgError(p.id)}
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[#414755]">
+                              <div className="w-full h-full flex items-center justify-center text-[var(--text-secondary)]">
                                 <Icon name="memory" size={36} />
                               </div>
                             )}
                           </div>
-                          <span className="font-mono text-[10px] text-[#007aff] font-bold uppercase tracking-wider block mb-0.5">
+                          <span className="font-mono text-[10px] text-[var(--accent-blue)] font-bold uppercase tracking-wider block mb-0.5">
                             {p.brand}
                           </span>
-                          <h3 className="text-white text-xs font-bold leading-snug line-clamp-2 group-hover:text-[#adc6ff] transition-colors min-h-[32px]">
+                          <h3 className="text-[var(--text-primary)] text-xs font-bold leading-snug line-clamp-2 group-hover:text-[var(--accent-blue)] transition-colors min-h-[32px]">
                             {p.name}
                           </h3>
                         </Link>
@@ -144,15 +145,15 @@ export function ComparePage() {
 
                   {/* Empty Slot Card */}
                   {products.length < 4 && (
-                    <td className="p-4 align-middle bg-[#121317] border-r border-[#292a2e] min-w-[200px]">
+                    <td className="p-4 align-middle bg-[var(--bg-surface)] border-r border-[var(--border-theme)] min-w-[200px]">
                       <button
                         onClick={() => setPickerOpen(true)}
-                        className="w-full h-36 border-2 border-dashed border-[#292a2e] hover:border-[#007aff] rounded-lg flex flex-col items-center justify-center gap-2 text-[#8b90a0] hover:text-[#007aff] transition-all bg-[#16171d]/50 hover:bg-[#16171d]"
+                        className="w-full h-36 border-2 border-dashed border-[var(--border-theme)] hover:border-[var(--accent-blue)] rounded-xl flex flex-col items-center justify-center gap-2 text-[var(--text-secondary)] hover:text-[var(--accent-blue)] transition-all bg-[var(--bg-surface-secondary)]/50 hover:bg-[var(--bg-surface-secondary)] cursor-pointer"
                       >
-                        <div className="w-9 h-9 rounded-full bg-[#007aff15] flex items-center justify-center">
-                          <Icon name="add" size={20} className="text-[#007aff]" />
+                        <div className="w-9 h-9 rounded-full bg-[var(--accent-blue)]/10 flex items-center justify-center">
+                          <Icon name="add" size={20} className="text-[var(--accent-blue)]" />
                         </div>
-                        <span className="font-mono text-xs font-bold uppercase tracking-wider">Add Product</span>
+                        <span className="font-sans text-xs font-semibold">Add Product</span>
                       </button>
                     </td>
                   )}
@@ -161,56 +162,56 @@ export function ComparePage() {
                 {/* Price Row */}
                 <CompareRow label="Retail Price">
                   {products.map((p) => (
-                    <td key={p.id} className="p-4 align-top border-r border-[#292a2e]">
-                      <span className="text-white font-bold font-mono text-lg block">${p.price.toFixed(2)}</span>
+                    <td key={p.id} className="p-4 align-top border-r border-[var(--border-theme)]">
+                      <span className="text-[var(--text-primary)] font-bold font-mono text-lg block">${p.price.toFixed(2)}</span>
                       {p.previousPrice && (
-                        <span className="text-[#8b90a0] text-xs line-through font-mono">
+                        <span className="text-[var(--text-secondary)] text-xs line-through font-mono">
                           ${p.previousPrice.toFixed(2)}
                         </span>
                       )}
                     </td>
                   ))}
-                  {products.length < 4 && <td className="border-r border-[#292a2e]" />}
+                  {products.length < 4 && <td className="border-r border-[var(--border-theme)]" />}
                 </CompareRow>
 
                 {/* Rating Row */}
                 <CompareRow label="Customer Rating">
                   {products.map((p) => (
-                    <td key={p.id} className="p-4 align-top border-r border-[#292a2e]">
+                    <td key={p.id} className="p-4 align-top border-r border-[var(--border-theme)]">
                       <StarRating rating={p.rating} count={p.reviewCount} />
                     </td>
                   ))}
-                  {products.length < 4 && <td className="border-r border-[#292a2e]" />}
+                  {products.length < 4 && <td className="border-r border-[var(--border-theme)]" />}
                 </CompareRow>
 
                 {/* Availability Row */}
                 <CompareRow label="Availability">
                   {products.map((p) => (
-                    <td key={p.id} className="p-4 align-top border-r border-[#292a2e]">
+                    <td key={p.id} className="p-4 align-top border-r border-[var(--border-theme)]">
                       <span
-                        className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded border inline-block ${
+                        className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded-md border inline-block ${
                           p.stockStatus === 'in-stock'
-                            ? 'bg-[#30d15815] text-[#30d158] border-[#30d15830]'
+                            ? 'bg-[var(--color-stock-green)]/15 text-[var(--color-stock-green)] border-[var(--color-stock-green)]/30'
                             : p.stockStatus === 'low-stock'
-                            ? 'bg-[#ffd60a15] text-[#ffd60a] border-[#ffd60a30]'
-                            : 'bg-[#ff453a15] text-[#ff453a] border-[#ff453a30]'
+                            ? 'bg-[var(--color-stock-yellow-val)]/15 text-[var(--color-stock-yellow-val)] border-[var(--color-stock-yellow-val)]/30'
+                            : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
                         }`}
                       >
                         {p.stockStatus.replace('-', ' ').toUpperCase()}
                       </span>
                     </td>
                   ))}
-                  {products.length < 4 && <td className="border-r border-[#292a2e]" />}
+                  {products.length < 4 && <td className="border-r border-[var(--border-theme)]" />}
                 </CompareRow>
 
                 {/* Category Row */}
                 <CompareRow label="Category">
                   {products.map((p) => (
-                    <td key={p.id} className="p-4 align-top text-xs text-[#c1c6d7] font-medium border-r border-[#292a2e]">
+                    <td key={p.id} className="p-4 align-top text-xs text-[var(--text-primary)] font-medium border-r border-[var(--border-theme)]">
                       {p.category}
                     </td>
                   ))}
-                  {products.length < 4 && <td className="border-r border-[#292a2e]" />}
+                  {products.length < 4 && <td className="border-r border-[var(--border-theme)]" />}
                 </CompareRow>
 
                 {/* Dynamic Specifications Rows */}
@@ -221,36 +222,38 @@ export function ComparePage() {
                       {products.map((p) => (
                         <td
                           key={p.id}
-                          className={`p-4 align-top text-xs border-r border-[#292a2e] ${
-                            differs ? 'text-white font-semibold' : 'text-[#8b90a0]'
+                          className={`p-4 align-top text-xs border-r border-[var(--border-theme)] ${
+                            differs ? 'text-[var(--text-primary)] font-semibold' : 'text-[var(--text-secondary)]'
                           }`}
                         >
                           {getSpec(p, label)}
                         </td>
                       ))}
-                      {products.length < 4 && <td className="border-r border-[#292a2e]" />}
+                      {products.length < 4 && <td className="border-r border-[var(--border-theme)]" />}
                     </CompareRow>
                   )
                 })}
 
                 {/* Action CTA Row */}
                 <tr>
-                  <th className="bg-[#16171d] p-4 text-left sticky left-0 z-20 border-r border-[#292a2e]">
-                    <span className="font-mono text-[10px] text-[#8b90a0] uppercase font-bold tracking-wider">
+                  <th className="bg-[var(--bg-surface-secondary)] p-4 text-left sticky left-0 z-20 border-r border-[var(--border-theme)]">
+                    <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider">
                       Purchase Action
                     </span>
                   </th>
                   {products.map((p) => (
-                    <td key={p.id} className="p-4 align-top bg-[#16171d] border-r border-[#292a2e]">
-                      <button
+                    <td key={p.id} className="p-4 align-top bg-[var(--bg-surface-secondary)] border-r border-[var(--border-theme)]">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        fullWidth
                         onClick={() => addToCart(p)}
-                        className="w-full py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center justify-center gap-1.5 transition-colors shadow"
                       >
-                        <Icon name="add_shopping_cart" size={14} /> ADD TO CART
-                      </button>
+                        <Icon name="add_shopping_cart" size={14} /> Add to Cart
+                      </Button>
                     </td>
                   ))}
-                  {products.length < 4 && <td className="bg-[#121317] border-r border-[#292a2e]" />}
+                  {products.length < 4 && <td className="bg-[var(--bg-surface)] border-r border-[var(--border-theme)]" />}
                 </tr>
               </tbody>
             </table>
@@ -261,28 +264,28 @@ export function ComparePage() {
       {/* Product Picker Modal */}
       {pickerOpen && (
         <div
-          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-xs flex items-center justify-center p-4"
           onClick={() => setPickerOpen(false)}
         >
           <div
-            className="bg-[#16171d] border border-[#292a2e] rounded-lg max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-2xl animate-fadeIn"
+            className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl max-w-xl w-full max-h-[85vh] flex flex-col overflow-hidden shadow-xl animate-fadeIn"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-4 bg-[#121317] border-b border-[#292a2e] flex items-center justify-between">
-              <h3 className="text-white font-bold text-base">Select Product to Compare</h3>
-              <button onClick={() => setPickerOpen(false)} className="text-[#8b90a0] hover:text-white" aria-label="Close">
+            <div className="p-4 bg-[var(--bg-surface-secondary)] border-b border-[var(--border-theme)] flex items-center justify-between">
+              <h3 className="text-[var(--text-primary)] font-bold text-base">Select Product to Compare</h3>
+              <button onClick={() => setPickerOpen(false)} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] cursor-pointer" aria-label="Close">
                 <Icon name="close" size={20} />
               </button>
             </div>
 
-            <div className="p-3 border-b border-[#292a2e] bg-[#16171d]">
-              <div className="relative flex items-center bg-[#121317] rounded border border-[#292a2e] px-3 py-2">
-                <Icon name="search" size={16} className="text-[#8b90a0] mr-2" />
+            <div className="p-3 border-b border-[var(--border-theme)] bg-[var(--bg-surface)]">
+              <div className="relative flex items-center bg-[var(--bg-surface-secondary)] rounded-lg border border-[var(--border-theme)] px-3 py-2">
+                <Icon name="search" size={16} className="text-[var(--text-secondary)] mr-2" />
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search catalog by name or brand..."
-                  className="w-full bg-transparent text-xs text-white focus:outline-none placeholder:text-[#8b90a0]"
+                  className="w-full bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder:text-[var(--text-secondary)]"
                 />
               </div>
             </div>
@@ -295,14 +298,14 @@ export function ComparePage() {
                     toggleCompare(p.id)
                     if (compare.length + 1 >= 4) setPickerOpen(false)
                   }}
-                  className="w-full flex items-center gap-3 p-3 bg-[#121317] border border-[#292a2e] hover:border-[#007aff] rounded-md text-left transition-colors group"
+                  className="w-full flex items-center gap-3 p-3 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] hover:border-[var(--accent-blue)] rounded-lg text-left transition-colors group cursor-pointer"
                 >
-                  <img src={p.image} alt="" className="w-11 h-11 object-cover rounded bg-[#0d0e12] shrink-0" />
+                  <img src={p.image} alt="" className="w-11 h-11 object-cover rounded-md bg-[var(--bg-surface)] shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <span className="font-mono text-[10px] text-[#007aff] uppercase font-bold">{p.brand}</span>
-                    <h4 className="text-white text-xs font-semibold truncate group-hover:text-[#adc6ff]">{p.name}</h4>
+                    <span className="font-mono text-[10px] text-[var(--accent-blue)] uppercase font-bold">{p.brand}</span>
+                    <h4 className="text-[var(--text-primary)] text-xs font-semibold truncate group-hover:text-[var(--accent-blue)]">{p.name}</h4>
                   </div>
-                  <span className="font-mono text-xs text-[#007aff] font-bold shrink-0">${p.price.toFixed(2)}</span>
+                  <span className="font-mono text-xs text-[var(--accent-blue)] font-bold shrink-0">${p.price.toFixed(2)}</span>
                 </button>
               ))}
             </div>
@@ -315,10 +318,10 @@ export function ComparePage() {
 
 function CompareRow({ label, highlight, children }: { label: string; highlight?: boolean; children: React.ReactNode }) {
   return (
-    <tr className={highlight ? 'bg-[#007aff0c]' : ''}>
-      <th className="bg-[#16171d] p-4 text-left align-top sticky left-0 z-20 border-r border-[#292a2e]">
-        <span className="font-mono text-[10px] text-[#8b90a0] uppercase flex items-center gap-1.5 font-bold tracking-wider">
-          {highlight && <span className="w-1.5 h-1.5 rounded-full bg-[#007aff] shrink-0" />}
+    <tr className={highlight ? 'bg-[var(--accent-blue)]/5' : ''}>
+      <th className="bg-[var(--bg-surface-secondary)] p-4 text-left align-top sticky left-0 z-20 border-r border-[var(--border-theme)]">
+        <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase flex items-center gap-1.5 font-bold tracking-wider">
+          {highlight && <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-blue)] shrink-0" />}
           {label}
         </span>
       </th>

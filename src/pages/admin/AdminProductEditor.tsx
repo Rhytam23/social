@@ -1,19 +1,19 @@
 import { useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { Icon } from '../../components/ui'
+import { Icon, Button } from '../../components/ui'
 import { AdminPageHeader } from './AdminLayout'
 import { useShop } from '../../context/ShopContext'
 import type { Product, ProductCategory, StockStatus } from '../../types'
 
 const CATEGORIES = ['Graphics Cards', 'CPUs', 'Motherboards', 'RAM', 'Storage', 'Cooling', 'Cases', 'Power Supplies', 'Monitors', 'Peripherals', 'Streaming', 'Gaming PCs']
-const field = 'w-full bg-[#121317] border border-[#414755] rounded p-2.5 text-xs text-white focus:outline-none focus:border-[#007aff] placeholder:text-[#8b90a0]'
-const lbl = 'text-[11px] font-mono text-[#8b90a0] block mb-1.5 uppercase tracking-wider'
+const field = 'w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg p-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] placeholder:text-[var(--text-secondary)]'
+const lbl = 'text-[11px] font-mono text-[var(--text-secondary)] block mb-1.5 uppercase tracking-wider font-semibold'
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="bg-[#1a1b1f] border border-[#414755] rounded p-5">
-      <h2 className="font-mono text-xs font-bold text-white uppercase mb-4 border-b border-[#292a2e] pb-3 flex items-center gap-1.5">
-        <Icon name={icon} size={16} className="text-[#007aff]" /> {title}
+    <section className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-5 shadow-sm">
+      <h2 className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase mb-4 border-b border-[var(--border-theme)] pb-3 flex items-center gap-1.5">
+        <Icon name={icon} size={16} className="text-[var(--accent-blue)]" /> {title}
       </h2>
       {children}
     </section>
@@ -86,16 +86,18 @@ export function AdminProductEditor() {
         subtitle={isNew ? 'Create a new catalog entry' : existing?.name}
         action={
           <div className="flex items-center gap-2">
-            <Link to="/admin/products" className="px-4 py-2 bg-[#1a1b1f] border border-[#414755] hover:border-white text-white font-mono text-xs rounded transition-colors">CANCEL</Link>
-            <button type="submit" className="px-4 py-2 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors">
-              <Icon name={saved ? 'check' : 'save'} size={15} /> {saved ? 'SAVED' : 'SAVE PRODUCT'}
-            </button>
+            <Link to="/admin/products">
+              <Button variant="secondary" size="md">Cancel</Button>
+            </Link>
+            <Button type="submit" variant="primary" size="md">
+              <Icon name={saved ? 'check' : 'save'} size={15} /> {saved ? 'Saved' : 'Save Product'}
+            </Button>
           </div>
         }
       />
 
       {saved && (
-        <div className="mb-4 p-3 bg-[#30d15815] border border-[#30d15840] rounded text-[#30d158] font-mono text-xs flex items-center gap-2">
+        <div className="mb-4 p-3 bg-[var(--color-stock-green)]/10 border border-[var(--color-stock-green)]/20 rounded-lg text-[var(--color-stock-green)] font-mono text-xs flex items-center gap-2 font-semibold">
           <Icon name="check_circle" size={16} filled /> Product {isNew ? 'created' : 'updated'} successfully. Redirecting…
         </div>
       )}
@@ -164,7 +166,7 @@ export function AdminProductEditor() {
                 />
               </div>
               {image && (
-                <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-[#292a2e] bg-[#121317]">
+                <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-[var(--border-theme)] bg-[var(--bg-surface-secondary)]">
                   <img src={image} alt="Preview" className="w-full h-full object-contain" />
                 </div>
               )}
@@ -196,7 +198,7 @@ export function AdminProductEditor() {
                   <button
                     type="button"
                     onClick={() => setSpecs((sp) => sp.filter((_, x) => x !== i))}
-                    className="px-2 text-[#8b90a0] hover:text-[#ff453a]"
+                    className="px-2 text-[var(--text-secondary)] hover:text-rose-500 cursor-pointer"
                     aria-label="Remove spec"
                   >
                     <Icon name="close" size={16} />
@@ -206,9 +208,9 @@ export function AdminProductEditor() {
               <button
                 type="button"
                 onClick={() => setSpecs((sp) => [...sp, { label: '', value: '' }])}
-                className="font-mono text-[11px] text-[#adc6ff] hover:text-white flex items-center gap-1 mt-1 font-bold"
+                className="font-sans text-xs text-[var(--accent-blue)] hover:underline flex items-center gap-1 mt-1 font-semibold cursor-pointer"
               >
-                <Icon name="add" size={14} /> ADD SPECIFICATION
+                <Icon name="add" size={14} /> Add Specification
               </button>
             </div>
           </Section>
@@ -281,22 +283,22 @@ export function AdminProductEditor() {
           </Section>
 
           <Section title="Visibility & Badges" icon="visibility">
-            <div className="space-y-2 text-xs text-[#c1c6d7]">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="space-y-2 text-xs text-[var(--text-primary)]">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={isFeatured}
                   onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="w-4 h-4 accent-[#007aff]"
+                  className="w-4 h-4 rounded bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--accent-blue)]"
                 />
                 Featured product
               </label>
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={isNewTag}
                   onChange={(e) => setIsNewTag(e.target.checked)}
-                  className="w-4 h-4 accent-[#007aff]"
+                  className="w-4 h-4 rounded bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--accent-blue)]"
                 />
                 Mark as new arrival
               </label>

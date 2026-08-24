@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Icon } from '../../components/ui'
+import { Icon, Button } from '../../components/ui'
 import { AdminPageHeader } from './AdminLayout'
 import { useShop } from '../../context/ShopContext'
 
@@ -31,8 +31,8 @@ export function AdminSettings() {
     setTimeout(() => setSaved(false), 2500)
   }
 
-  const fieldClass = 'w-full bg-[#121317] border border-[#414755] rounded p-2.5 text-xs text-white focus:outline-none focus:border-[#007aff]'
-  const labelClass = 'text-[11px] font-mono text-[#8b90a0] block mb-1 uppercase font-bold tracking-wider'
+  const fieldClass = 'w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg p-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]'
+  const labelClass = 'text-[11px] font-mono text-[var(--text-secondary)] block mb-1 uppercase font-bold tracking-wider'
 
   return (
     <div className="space-y-6 max-w-4xl">
@@ -41,13 +41,13 @@ export function AdminSettings() {
         subtitle="Manage store identity, shipping thresholds, tax rates, and currency parameters"
       />
 
-      <form onSubmit={handleSubmit} className="bg-[#1a1b1f] border border-[#414755] rounded p-6 space-y-5 shadow-xl">
-        <div className="flex items-center justify-between pb-3 border-b border-[#292a2e]">
-          <h2 className="text-white font-bold text-base flex items-center gap-2">
-            <Icon name="settings" size={20} className="text-[#007aff]" /> General Store Parameters
+      <form onSubmit={handleSubmit} className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-6 space-y-5 shadow-sm">
+        <div className="flex items-center justify-between pb-3 border-b border-[var(--border-theme)]">
+          <h2 className="text-[var(--text-primary)] font-bold text-base flex items-center gap-2">
+            <Icon name="settings" size={20} className="text-[var(--accent-blue)]" /> General Store Parameters
           </h2>
           {saved && (
-            <span className="font-mono text-xs text-[#30d158] font-bold flex items-center gap-1">
+            <span className="font-mono text-xs text-[var(--color-stock-green)] font-bold flex items-center gap-1">
               <Icon name="check_circle" size={16} /> SETTINGS SAVED
             </span>
           )}
@@ -77,9 +77,9 @@ export function AdminSettings() {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-[#292a2e]">
-          <h2 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
-            <Icon name="local_shipping" size={18} className="text-[#007aff]" /> Shipping & Tax Rates
+        <div className="pt-4 border-t border-[var(--border-theme)]">
+          <h2 className="text-[var(--text-primary)] font-bold text-sm mb-3 flex items-center gap-2">
+            <Icon name="local_shipping" size={18} className="text-[var(--accent-blue)]" /> Shipping & Tax Rates
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
@@ -97,13 +97,14 @@ export function AdminSettings() {
           </div>
         </div>
 
-        <div className="pt-4 border-t border-[#292a2e]">
-          <button
+        <div className="pt-4 border-t border-[var(--border-theme)]">
+          <Button
             type="submit"
-            className="px-6 py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
+            variant="primary"
+            size="md"
           >
-            <Icon name="save" size={16} /> SAVE STORE CONFIGURATION
-          </button>
+            <Icon name="save" size={16} /> Save Store Configuration
+          </Button>
         </div>
       </form>
     </div>

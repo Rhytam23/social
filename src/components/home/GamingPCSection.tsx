@@ -89,54 +89,54 @@ function RigCard({ pc }: RigCardProps) {
           </div>
 
           {/* Detailed Hardware Spec Table */}
-          <div className="bg-[#16171d] rounded-xl p-3.5 space-y-2.5 font-sans text-xs">
+          <div className="bg-[var(--bg-surface-secondary)] rounded-xl p-3.5 space-y-2.5 font-sans text-xs border border-[var(--border-theme)]">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
-                <Icon name="memory" size={15} className="text-[#007aff]" /> CPU
+              <span className="text-[var(--text-secondary)] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
+                <Icon name="memory" size={15} className="text-[var(--accent-blue)]" /> CPU
               </span>
-              <span className="text-white font-mono text-xs font-bold truncate text-right">{pc.cpu}</span>
+              <span className="text-[var(--text-primary)] font-mono text-xs font-bold truncate text-right">{pc.cpu}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
-                <Icon name="videogame_asset" size={15} className="text-[#ff5c00]" /> GPU
+              <span className="text-[var(--text-secondary)] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
+                <Icon name="videogame_asset" size={15} className="text-[var(--accent-orange)]" /> GPU
               </span>
-              <span className="text-white font-mono text-xs font-bold truncate text-right">{pc.gpu}</span>
+              <span className="text-[var(--text-primary)] font-mono text-xs font-bold truncate text-right">{pc.gpu}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
-                <Icon name="storage" size={15} className="text-[#30d158]" /> RAM
+              <span className="text-[var(--text-secondary)] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
+                <Icon name="storage" size={15} className="text-[var(--color-stock-green)]" /> RAM
               </span>
-              <span className="text-[#c1c6d7] font-mono text-xs font-semibold truncate text-right">{pc.ram}</span>
+              <span className="text-[var(--text-primary)] font-mono text-xs font-semibold truncate text-right">{pc.ram}</span>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[#8b90a0] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
-                <Icon name="hard_drive" size={15} className="text-[#ffd60a]" /> SSD
+              <span className="text-[var(--text-secondary)] font-mono text-[11px] uppercase flex items-center gap-2 shrink-0 font-semibold">
+                <Icon name="hard_drive" size={15} className="text-amber-400" /> SSD
               </span>
-              <span className="text-[#c1c6d7] font-mono text-xs font-semibold truncate text-right">{pc.storage}</span>
+              <span className="text-[var(--text-primary)] font-mono text-xs font-semibold truncate text-right">{pc.storage}</span>
             </div>
           </div>
         </div>
 
         {/* Price & Action CTA */}
-        <div className="mt-6 pt-4 border-t border-[#292a2e] flex items-center justify-between gap-3">
+        <div className="mt-6 pt-4 border-t border-[var(--border-theme)] flex items-center justify-between gap-3">
           <div>
-            <span className="text-[10px] font-mono text-[#8b90a0] block uppercase font-bold tracking-wider">SYSTEM PRICE</span>
+            <span className="text-[10px] font-mono text-[var(--text-secondary)] block uppercase font-bold tracking-wider">SYSTEM PRICE</span>
             <Price price={pc.price} previousPrice={pc.previousPrice} discount={pc.discount} size="md" />
           </div>
 
           <div className="flex items-center gap-2">
             <Link
               to={`/gaming-pc/${pc.id}`}
-              className="px-3.5 py-2.5 border border-[#292a2e] hover:border-white text-white text-xs font-mono rounded-lg font-bold transition-all hover:bg-white/10"
+              className="px-3 py-2 border border-[var(--border-theme)] hover:border-[var(--text-secondary)] text-[var(--text-primary)] text-xs font-sans rounded-lg font-semibold transition-all bg-[var(--bg-surface-secondary)]"
             >
-              SPECS
+              Specs
             </Link>
             <button
               type="button"
               onClick={() => addToCart(pc, 1)}
-              className="px-4 py-2.5 bg-[#007aff] hover:bg-[#0066d6] text-white text-xs font-mono font-bold rounded-lg flex items-center gap-1.5 transition-all shadow-md shadow-[#007aff]/20 active:scale-95"
+              className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-sans font-semibold rounded-lg flex items-center gap-1.5 transition-all shadow-xs cursor-pointer"
             >
-              <Icon name="shopping_cart" size={15} /> ORDER
+              <Icon name="shopping_cart" size={15} /> Order
             </button>
           </div>
         </div>

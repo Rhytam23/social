@@ -385,13 +385,13 @@ export function PCBuilderPage() {
                     navigate('/cart')
                   }}
                   disabled={selectedCount === 0 || hasError}
-                  className="w-full py-3 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-mono text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                  className="w-full py-3 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] disabled:opacity-40 disabled:cursor-not-allowed text-white font-sans text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 >
-                  <Icon name="shopping_cart" size={16} /> ADD BUILD TO CART
+                  <Icon name="shopping_cart" size={16} /> Add Build to Cart
                 </button>
                 <div className="grid grid-cols-2 gap-2">
-                  <button type="button" onClick={handleSaveBuild} disabled={selectedCount === 0} className="py-2 border border-[var(--border-theme)] hover:border-[var(--text-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-mono text-[10px] rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer"><Icon name="bookmark" size={13} /> SAVE</button>
-                  <button type="button" onClick={handleShareBuild} disabled={selectedCount === 0} className="py-2 border border-[var(--border-theme)] hover:border-[var(--text-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-mono text-[10px] rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer"><Icon name="share" size={13} /> SHARE</button>
+                  <button type="button" onClick={handleSaveBuild} disabled={selectedCount === 0} className="py-2 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] hover:border-[var(--text-secondary)] text-[var(--text-primary)] font-sans text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer"><Icon name="bookmark" size={13} /> Save Build</button>
+                  <button type="button" onClick={handleShareBuild} disabled={selectedCount === 0} className="py-2 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] hover:border-[var(--text-secondary)] text-[var(--text-primary)] font-sans text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer"><Icon name="share" size={13} /> Share Build</button>
                 </div>
               </div>
             </div>
