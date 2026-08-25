@@ -36,24 +36,24 @@ export function AdminProducts() {
 
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex items-center bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg px-3 py-2 flex-1 min-w-[200px]">
-          <Icon name="search" size={16} className="text-[var(--text-secondary)] mr-2" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, brand, SKU..." className="w-full bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder:text-[var(--text-secondary)]" />
+        <div className="relative flex items-center bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg px-3 py-2 flex-1 min-w-[200px]">
+          <Icon name="search" size={16} className="text-(--text-secondary) mr-2" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by name, brand, SKU..." className="w-full bg-transparent text-xs text-(--text-primary) focus:outline-none placeholder:text-(--text-secondary)" />
         </div>
-        <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-[var(--accent-blue)]">
+        <select value={category} onChange={(e) => setCategory(e.target.value)} className="bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-(--accent-blue)">
           {CATEGORIES.map((c) => <option key={c} value={c}>{c === 'All' ? 'All Categories' : c}</option>)}
         </select>
-        <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-[var(--accent-blue)]">
+        <select value={status} onChange={(e) => setStatus(e.target.value)} className="bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-(--accent-blue)">
           {STATUSES.map((s) => <option key={s} value={s}>{s === 'All' ? 'All Status' : s.replace('-', ' ')}</option>)}
         </select>
       </div>
 
       {/* Table */}
       {filtered.length ? (
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl overflow-x-auto">
+        <div className="bg-(--bg-surface) border border-(--border-theme) rounded-xl overflow-x-auto">
           <table className="w-full text-xs min-w-[760px]">
             <thead>
-              <tr className="font-mono text-[10px] text-[var(--text-secondary)] uppercase border-b border-[var(--border-theme)]">
+              <tr className="font-mono text-[10px] text-(--text-secondary) uppercase border-b border-(--border-theme)">
                 <th className="text-left p-3 font-semibold">Product</th>
                 <th className="text-left p-3 font-semibold">SKU</th>
                 <th className="text-left p-3 font-semibold">Category</th>
@@ -63,28 +63,28 @@ export function AdminProducts() {
                 <th className="text-right p-3 font-semibold">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-theme)]">
+            <tbody className="divide-y divide-(--border-theme)">
               {filtered.map((p) => (
-                <tr key={p.id} className="hover:bg-[var(--bg-surface-secondary)]">
+                <tr key={p.id} className="hover:bg-(--bg-surface-secondary)">
                   <td className="p-3">
                     <div className="flex items-center gap-3 min-w-0">
-                      <img src={p.image} alt="" className="w-10 h-10 object-cover rounded-md bg-[var(--bg-surface-secondary)] shrink-0" />
+                      <img src={p.image} alt="" className="w-10 h-10 object-cover rounded-md bg-(--bg-surface-secondary) shrink-0" />
                       <div className="min-w-0">
-                        <div className="text-[var(--text-primary)] font-semibold truncate max-w-[240px]">{p.name}</div>
-                        <div className="font-mono text-[10px] text-[var(--text-secondary)]">{p.brand}</div>
+                        <div className="text-(--text-primary) font-semibold truncate max-w-[240px]">{p.name}</div>
+                        <div className="font-mono text-[10px] text-(--text-secondary)">{p.brand}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="p-3 font-mono text-[var(--text-secondary)]">{p.sku}</td>
-                  <td className="p-3 text-[var(--text-primary)]">{p.category}</td>
-                  <td className="p-3 text-right font-mono text-[var(--text-primary)] font-bold">${p.price.toFixed(2)}</td>
-                  <td className="p-3 text-right font-mono text-[var(--text-secondary)]">{p.stockCount ?? 0}</td>
+                  <td className="p-3 font-mono text-(--text-secondary)">{p.sku}</td>
+                  <td className="p-3 text-(--text-primary)">{p.category}</td>
+                  <td className="p-3 text-right font-mono text-(--text-primary) font-bold">${p.price.toFixed(2)}</td>
+                  <td className="p-3 text-right font-mono text-(--text-secondary)">{p.stockCount ?? 0}</td>
                   <td className="p-3 text-center"><Pill status={p.stockStatus} /></td>
                   <td className="p-3">
                     <div className="flex items-center justify-end gap-1">
-                      <Link to={`/admin/products/${p.id}`} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--accent-blue)] transition-colors" title="Edit"><Icon name="edit" size={16} /></Link>
-                      <button onClick={() => duplicateProduct(p.id)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--color-stock-green)] transition-colors cursor-pointer" title="Duplicate"><Icon name="content_copy" size={16} /></button>
-                      <button onClick={() => deleteProduct(p.id)} className="p-1.5 text-[var(--text-secondary)] hover:text-rose-500 transition-colors cursor-pointer" title="Delete"><Icon name="delete" size={16} /></button>
+                      <Link to={`/admin/products/${p.id}`} className="p-1.5 text-(--text-secondary) hover:text-(--accent-blue) transition-colors" title="Edit"><Icon name="edit" size={16} /></Link>
+                      <button onClick={() => duplicateProduct(p.id)} className="p-1.5 text-(--text-secondary) hover:text-(--color-stock-green) transition-colors cursor-pointer" title="Duplicate"><Icon name="content_copy" size={16} /></button>
+                      <button onClick={() => deleteProduct(p.id)} className="p-1.5 text-(--text-secondary) hover:text-rose-500 transition-colors cursor-pointer" title="Delete"><Icon name="delete" size={16} /></button>
                     </div>
                   </td>
                 </tr>
@@ -96,7 +96,7 @@ export function AdminProducts() {
         <EmptyState icon="search_off" title="No products match" message="Try adjusting your search or filters." />
       )}
 
-      <p className="font-mono text-[10px] text-[var(--text-secondary)] mt-3">Showing {filtered.length} of {products.length} products</p>
+      <p className="font-mono text-[10px] text-(--text-secondary) mt-3">Showing {filtered.length} of {products.length} products</p>
     </div>
   )
 }

@@ -6,14 +6,14 @@ import { useShop } from '../../context/ShopContext'
 import type { Product, ProductCategory, StockStatus } from '../../types'
 
 const CATEGORIES = ['Graphics Cards', 'CPUs', 'Motherboards', 'RAM', 'Storage', 'Cooling', 'Cases', 'Power Supplies', 'Monitors', 'Peripherals', 'Streaming', 'Gaming PCs']
-const field = 'w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg p-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] placeholder:text-[var(--text-secondary)]'
-const lbl = 'text-[11px] font-mono text-[var(--text-secondary)] block mb-1.5 uppercase tracking-wider font-semibold'
+const field = 'w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg p-2.5 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue) placeholder:text-(--text-secondary)'
+const lbl = 'text-[11px] font-mono text-(--text-secondary) block mb-1.5 uppercase tracking-wider font-semibold'
 
 function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
   return (
-    <section className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-5 shadow-sm">
-      <h2 className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase mb-4 border-b border-[var(--border-theme)] pb-3 flex items-center gap-1.5">
-        <Icon name={icon} size={16} className="text-[var(--accent-blue)]" /> {title}
+    <section className="bg-(--bg-surface) border border-(--border-theme) rounded-xl p-5 shadow-sm">
+      <h2 className="font-mono text-xs font-bold text-(--text-primary) uppercase mb-4 border-b border-(--border-theme) pb-3 flex items-center gap-1.5">
+        <Icon name={icon} size={16} className="text-(--accent-blue)" /> {title}
       </h2>
       {children}
     </section>
@@ -97,7 +97,7 @@ export function AdminProductEditor() {
       />
 
       {saved && (
-        <div className="mb-4 p-3 bg-[var(--color-stock-green)]/10 border border-[var(--color-stock-green)]/20 rounded-lg text-[var(--color-stock-green)] font-mono text-xs flex items-center gap-2 font-semibold">
+        <div className="mb-4 p-3 bg-(--color-stock-green)/10 border border-(--color-stock-green)/20 rounded-lg text-(--color-stock-green) font-mono text-xs flex items-center gap-2 font-semibold">
           <Icon name="check_circle" size={16} filled /> Product {isNew ? 'created' : 'updated'} successfully. Redirecting…
         </div>
       )}
@@ -166,7 +166,7 @@ export function AdminProductEditor() {
                 />
               </div>
               {image && (
-                <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-[var(--border-theme)] bg-[var(--bg-surface-secondary)]">
+                <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-(--border-theme) bg-(--bg-surface-secondary)">
                   <img src={image} alt="Preview" className="w-full h-full object-contain" />
                 </div>
               )}
@@ -198,7 +198,7 @@ export function AdminProductEditor() {
                   <button
                     type="button"
                     onClick={() => setSpecs((sp) => sp.filter((_, x) => x !== i))}
-                    className="px-2 text-[var(--text-secondary)] hover:text-rose-500 cursor-pointer"
+                    className="px-2 text-(--text-secondary) hover:text-rose-500 cursor-pointer"
                     aria-label="Remove spec"
                   >
                     <Icon name="close" size={16} />
@@ -208,7 +208,7 @@ export function AdminProductEditor() {
               <button
                 type="button"
                 onClick={() => setSpecs((sp) => [...sp, { label: '', value: '' }])}
-                className="font-sans text-xs text-[var(--accent-blue)] hover:underline flex items-center gap-1 mt-1 font-semibold cursor-pointer"
+                className="font-sans text-xs text-(--accent-blue) hover:underline flex items-center gap-1 mt-1 font-semibold cursor-pointer"
               >
                 <Icon name="add" size={14} /> Add Specification
               </button>
@@ -283,13 +283,13 @@ export function AdminProductEditor() {
           </Section>
 
           <Section title="Visibility & Badges" icon="visibility">
-            <div className="space-y-2 text-xs text-[var(--text-primary)]">
+            <div className="space-y-2 text-xs text-(--text-primary)">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={isFeatured}
                   onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="w-4 h-4 rounded bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--accent-blue)]"
+                  className="w-4 h-4 rounded bg-(--bg-surface-secondary) border-(--border-theme) text-(--accent-blue)"
                 />
                 Featured product
               </label>
@@ -298,7 +298,7 @@ export function AdminProductEditor() {
                   type="checkbox"
                   checked={isNewTag}
                   onChange={(e) => setIsNewTag(e.target.checked)}
-                  className="w-4 h-4 rounded bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--accent-blue)]"
+                  className="w-4 h-4 rounded bg-(--bg-surface-secondary) border-(--border-theme) text-(--accent-blue)"
                 />
                 Mark as new arrival
               </label>

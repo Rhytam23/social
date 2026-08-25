@@ -19,9 +19,9 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
     name: 'NVIDIA',
     href: '/brands',
     description: 'GeForce RTX GPUs',
-    maxW: 'max-w-[135px]',
+    maxW: 'max-w-33.75',
     renderSvg: () => (
-      <svg viewBox="0 0 160 48" className="h-8 md:h-10 w-auto max-w-[135px] max-h-[44px] object-contain select-none shrink-0">
+      <svg viewBox="0 0 160 48" className="h-8 md:h-10 w-auto max-w-33.75 max-h-11 object-contain select-none shrink-0">
         <g fill="#76B900">
           <path d="M38 12c-7.7 0-14 6.3-14 14s6.3 14 14 14 14-6.3 14-14-6.3-14-14-14zm0 22.5c-4.7 0-8.5-3.8-8.5-8.5s3.8-8.5 8.5-8.5 8.5 3.8 8.5 8.5-3.8 8.5-8.5 8.5z" />
           <path d="M14 4C6.3 4 0 10.3 0 18s6.3 14 14 14c5.8 0 10.7-3.6 12.6-8.8h-5.8c-1.5 2.6-4.3 4.4-7.6 4.4-4.8 0-8.7-3.9-8.7-8.7S8.4 10.2 13.2 10.2c3.3 0 6.1 1.8 7.6 4.4h5.8C24.7 9.4 19.8 4 14 4z" />
@@ -37,9 +37,9 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
     name: 'AMD',
     href: '/brands',
     description: 'Ryzen & Radeon',
-    maxW: 'max-w-[125px]',
+    maxW: 'max-w-31.25',
     renderSvg: () => (
-      <svg viewBox="0 0 140 44" className="h-8 md:h-10 w-auto max-w-[125px] max-h-[44px] object-contain select-none shrink-0">
+      <svg viewBox="0 0 140 44" className="h-8 md:h-10 w-auto max-w-31.25 max-h-11 object-contain select-none shrink-0">
         <path fill="#ED1C24" d="M0 6h22v22H0zM26 6h12v5H32v5h12v5H32v5h12v5H26zM46 6h6l12 15V6h6v30h-6L52 18v18h-6z" />
         <text x="0" y="32" fill="#ED1C24" fontFamily="system-ui, -apple-system, sans-serif" fontSize="28" fontWeight="900" letterSpacing="1px">
           AMD
@@ -52,9 +52,9 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
     name: 'Intel',
     href: '/brands',
     description: 'Core Desktop CPUs',
-    maxW: 'max-w-[115px]',
+    maxW: 'max-w-28.75',
     renderSvg: () => (
-      <svg viewBox="0 0 130 44" className="h-8 md:h-10 w-auto max-w-[115px] max-h-[44px] object-contain select-none shrink-0">
+      <svg viewBox="0 0 130 44" className="h-8 md:h-10 w-auto max-w-28.75 max-h-11 object-contain select-none shrink-0">
         <text x="5" y="33" fill="#00C7FD" fontFamily="system-ui, -apple-system, sans-serif" fontSize="32" fontWeight="800" fontStyle="italic" letterSpacing="-1.5px">
           intel
         </text>
@@ -66,9 +66,9 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
     name: 'ASUS ROG',
     href: '/brands',
     description: 'Republic of Gamers',
-    maxW: 'max-w-[135px]',
+    maxW: 'max-w-33.75',
     renderSvg: () => (
-      <svg viewBox="0 0 170 44" className="h-8 md:h-10 w-auto max-w-[135px] max-h-[44px] object-contain select-none shrink-0">
+      <svg viewBox="0 0 170 44" className="h-8 md:h-10 w-auto max-w-33.75 max-h-11 object-contain select-none shrink-0">
         <path fill="#FF4655" d="M12 4C26 2 44 8 48 16c-9 0-20 5-26 13zM48 12c8-4 20-10 26-12-8 14-28 18-35 9z" />
         <text x="0" y="36" fill="#FF4655" fontFamily="system-ui, -apple-system, sans-serif" fontSize="13" fontWeight="900" letterSpacing="1.5px">
           REPUBLIC OF GAMERS
@@ -81,9 +81,9 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
     name: 'MSI',
     href: '/brands',
     description: 'SUPRIM & MEG',
-    maxW: 'max-w-[115px]',
+    maxW: 'max-w-28.75',
     renderSvg: () => (
-      <svg viewBox="0 0 130 44" className="h-8 md:h-10 w-auto max-w-[115px] max-h-[44px] object-contain select-none shrink-0">
+      <svg viewBox="0 0 130 44" className="h-8 md:h-10 w-auto max-w-28.75 max-h-11 object-contain select-none shrink-0">
         <text x="8" y="33" fill="#FF3333" fontFamily="system-ui, -apple-system, sans-serif" fontSize="32" fontWeight="900" letterSpacing="3px">
           msi
         </text>
@@ -95,9 +95,9 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
     name: 'Corsair',
     href: '/brands',
     description: 'Dominator & Vengeance',
-    maxW: 'max-w-[135px]',
+    maxW: 'max-w-33.75',
     renderSvg: () => (
-      <svg viewBox="0 0 160 44" className="h-8 md:h-10 w-auto max-w-[135px] max-h-[44px] object-contain select-none shrink-0">
+      <svg viewBox="0 0 160 44" className="h-8 md:h-10 w-auto max-w-33.75 max-h-11 object-contain select-none shrink-0">
         <g fill="#FFDE00">
           <path d="M10 6l12 24H0zM26 6l12 24H14zM42 6l12 24H30z" />
         </g>
@@ -112,9 +112,9 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
     name: 'NZXT',
     href: '/brands',
     description: 'Kraken & H-Series',
-    maxW: 'max-w-[115px]',
+    maxW: 'max-w-28.75',
     renderSvg: () => (
-      <svg viewBox="0 0 130 44" className="h-8 md:h-10 w-auto max-w-[115px] max-h-[44px] object-contain select-none shrink-0">
+      <svg viewBox="0 0 130 44" className="h-8 md:h-10 w-auto max-w-28.75 max-h-11 object-contain select-none shrink-0">
         <text x="8" y="33" fill="#FF2D55" fontFamily="system-ui, -apple-system, sans-serif" fontSize="32" fontWeight="900" letterSpacing="2px">
           NZXT
         </text>
@@ -126,9 +126,9 @@ const BRAND_PARTNERS_CONFIG: BrandPartnerConfig[] = [
     name: 'Samsung',
     href: '/brands',
     description: '990 PRO NVMe',
-    maxW: 'max-w-[130px]',
+    maxW: 'max-w-32.5',
     renderSvg: () => (
-      <svg viewBox="0 0 160 44" className="h-8 md:h-10 w-auto max-w-[130px] max-h-[44px] object-contain select-none shrink-0">
+      <svg viewBox="0 0 160 44" className="h-8 md:h-10 w-auto max-w-32.5 max-h-11 object-contain select-none shrink-0">
         <ellipse cx="80" cy="22" rx="74" ry="18" fill="#1428A0" />
         <text x="22" y="28" fill="#FFFFFF" fontFamily="system-ui, -apple-system, sans-serif" fontSize="17" fontWeight="900" letterSpacing="2px">
           SAMSUNG
@@ -144,21 +144,21 @@ interface BrandSectionProps {
 
 export function BrandSection({ brands: _brands }: BrandSectionProps = {}) {
   return (
-    <section className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-6 md:p-8">
+    <section className="bg-(--bg-surface) border border-(--border-theme) rounded-xl p-6 md:p-8">
       {/* Section Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-[var(--text-primary)] font-bold text-xl tracking-tight">
+          <h2 className="text-(--text-primary) font-bold text-xl tracking-tight">
             Authorized Brand Partners
           </h2>
-          <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-0.5">
+          <p className="text-(--text-secondary) text-xs md:text-sm mt-0.5">
             Direct retail partner with official manufacturer warranty support
           </p>
         </div>
 
         <Link
           to="/brands"
-          className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1 shrink-0"
+          className="text-xs font-semibold text-(--accent-blue) hover:underline flex items-center gap-1 shrink-0"
         >
           <span>All Brands</span>
           <Icon name="arrow_forward" size={14} />
@@ -171,12 +171,12 @@ export function BrandSection({ brands: _brands }: BrandSectionProps = {}) {
           <Link
             key={config.id}
             to={config.href}
-            className="flex flex-col items-center justify-center p-3 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg hover:border-[var(--accent-blue)] transition-all h-20 text-center"
+            className="flex flex-col items-center justify-center p-3 bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg hover:border-(--accent-blue) transition-all h-20 text-center"
           >
             <div className="h-8 flex items-center justify-center">
               {config.renderSvg()}
             </div>
-            <span className="text-[11px] text-[var(--text-secondary)] mt-1 font-medium truncate w-full">
+            <span className="text-[11px] text-(--text-secondary) mt-1 font-medium truncate w-full">
               {config.name}
             </span>
           </Link>

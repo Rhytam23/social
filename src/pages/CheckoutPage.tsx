@@ -7,8 +7,8 @@ import type { Order } from '../types'
 const STEPS = ['Customer', 'Shipping', 'Payment', 'Review'] as const
 type Step = (typeof STEPS)[number]
 
-const inputClass = 'w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded p-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]'
-const labelClass = 'text-[11px] font-mono text-[var(--text-secondary)] block mb-1'
+const inputClass = 'w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded p-2.5 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)'
+const labelClass = 'text-[11px] font-mono text-(--text-secondary) block mb-1'
 
 export function CheckoutPage() {
   const navigate = useNavigate()
@@ -33,10 +33,10 @@ export function CheckoutPage() {
   if (cart.length === 0) {
     return (
       <main className="flex-1 w-full py-16 text-center container-max px-4">
-        <Icon name="shopping_cart_off" size={48} className="text-[var(--text-secondary)] mb-4 mx-auto" />
-        <h1 className="text-[var(--text-primary)] font-bold text-2xl mb-3">No Items to Checkout</h1>
-        <p className="text-[var(--text-secondary)] mb-6">Your shopping bag is currently empty.</p>
-        <Link to="/products" className="px-5 py-2.5 bg-[var(--accent-blue)] text-white font-mono text-xs rounded font-bold inline-block cursor-pointer">BROWSE HARDWARE</Link>
+        <Icon name="shopping_cart_off" size={48} className="text-(--text-secondary) mb-4 mx-auto" />
+        <h1 className="text-(--text-primary) font-bold text-2xl mb-3">No Items to Checkout</h1>
+        <p className="text-(--text-secondary) mb-6">Your shopping bag is currently empty.</p>
+        <Link to="/products" className="px-5 py-2.5 bg-(--accent-blue) text-white font-mono text-xs rounded font-bold inline-block cursor-pointer">BROWSE HARDWARE</Link>
       </main>
     )
   }
@@ -84,7 +84,7 @@ export function CheckoutPage() {
     <main className="flex-1 w-full pb-16">
       <div className="container-max px-4 md:px-6 py-6">
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Cart', href: '/cart' }, { label: 'Checkout' }]} className="mb-4" />
-        <h1 className="text-[var(--text-primary)] font-bold text-2xl tracking-tight mb-6">Secure Checkout</h1>
+        <h1 className="text-(--text-primary) font-bold text-2xl tracking-tight mb-6">Secure Checkout</h1>
 
         {/* Stepper */}
         <div className="flex items-center mb-8 overflow-x-auto scrollbar-none">
@@ -95,15 +95,15 @@ export function CheckoutPage() {
                 className={`flex items-center gap-2 ${i <= stepIndex ? 'cursor-pointer' : 'cursor-default'}`}
               >
                 <span className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-[11px] font-bold border transition-colors ${
-                  i < stepIndex ? 'bg-[var(--color-stock-green)] border-[var(--color-stock-green)] text-white'
-                    : i === stepIndex ? 'bg-[var(--accent-blue)] border-[var(--accent-blue)] text-white'
-                    : 'bg-transparent border-[var(--border-theme)] text-[var(--text-secondary)]'
+                  i < stepIndex ? 'bg-(--color-stock-green) border-(--color-stock-green) text-white'
+                    : i === stepIndex ? 'bg-(--accent-blue) border-(--accent-blue) text-white'
+                    : 'bg-transparent border-(--border-theme) text-(--text-secondary)'
                 }`}>
                   {i < stepIndex ? <Icon name="check" size={14} /> : i + 1}
                 </span>
-                <span className={`font-mono text-[11px] uppercase tracking-wider ${i <= stepIndex ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'} hidden sm:inline`}>{s}</span>
+                <span className={`font-mono text-[11px] uppercase tracking-wider ${i <= stepIndex ? 'text-(--text-primary)' : 'text-(--text-secondary)'} hidden sm:inline`}>{s}</span>
               </button>
-              {i < STEPS.length - 1 && <div className={`w-8 sm:w-16 h-px mx-2 ${i < stepIndex ? 'bg-[var(--color-stock-green)]' : 'bg-[var(--border-theme)]'}`} />}
+              {i < STEPS.length - 1 && <div className={`w-8 sm:w-16 h-px mx-2 ${i < stepIndex ? 'bg-(--color-stock-green)' : 'bg-(--border-theme)'}`} />}
             </div>
           ))}
         </div>
@@ -114,7 +114,7 @@ export function CheckoutPage() {
             <div className="space-y-6">
               {step === 'Customer' && (
                 <div className="space-y-4">
-                  <h2 className="text-[var(--text-primary)] font-bold text-base font-mono uppercase border-b border-[var(--border-theme)] pb-3">Contact Details</h2>
+                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Contact Details</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div><label className={labelClass}>FIRST NAME</label><input className={inputClass} value={form.firstName} onChange={(e) => set('firstName', e.target.value)} /></div>
                     <div><label className={labelClass}>LAST NAME</label><input className={inputClass} value={form.lastName} onChange={(e) => set('lastName', e.target.value)} /></div>
@@ -128,7 +128,7 @@ export function CheckoutPage() {
 
               {step === 'Shipping' && (
                 <div className="space-y-4">
-                  <h2 className="text-[var(--text-primary)] font-bold text-base font-mono uppercase border-b border-[var(--border-theme)] pb-3">Shipping Address</h2>
+                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Shipping Address</h2>
                   <div><label className={labelClass}>STREET ADDRESS</label><input className={inputClass} value={form.street} onChange={(e) => set('street', e.target.value)} /></div>
                   <div className="grid grid-cols-3 gap-3">
                     <div><label className={labelClass}>CITY</label><input className={inputClass} value={form.city} onChange={(e) => set('city', e.target.value)} /></div>
@@ -136,14 +136,14 @@ export function CheckoutPage() {
                     <div><label className={labelClass}>ZIP</label><input className={inputClass} value={form.zip} onChange={(e) => set('zip', e.target.value)} /></div>
                   </div>
                   <div className="pt-2 space-y-3">
-                    <span className="font-mono text-xs text-[var(--text-secondary)] uppercase">Shipping Method</span>
+                    <span className="font-mono text-xs text-(--text-secondary) uppercase">Shipping Method</span>
                     {([['standard', 'Standard Ground (2–3 days)', 'FREE'], ['express', 'Priority Overnight Air', '$19.99']] as const).map(([val, label, price]) => (
-                      <label key={val} className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-colors ${shippingMethod === val ? 'bg-[var(--accent-blue)]/10 border-[var(--accent-blue)]' : 'bg-[var(--bg-surface-secondary)] border-[var(--border-theme)]'}`}>
+                      <label key={val} className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-colors ${shippingMethod === val ? 'bg-(--accent-blue)/10 border-(--accent-blue)' : 'bg-(--bg-surface-secondary) border-(--border-theme)'}`}>
                         <div className="flex items-center gap-3">
-                          <input type="radio" name="ship" checked={shippingMethod === val} onChange={() => setShippingMethod(val)} className="accent-[var(--accent-blue)]" />
-                          <span className="text-[var(--text-primary)] font-bold text-xs">{label}</span>
+                          <input type="radio" name="ship" checked={shippingMethod === val} onChange={() => setShippingMethod(val)} className="accent-(--accent-blue)" />
+                          <span className="text-(--text-primary) font-bold text-xs">{label}</span>
                         </div>
-                        <span className={`font-mono text-xs font-bold ${price === 'FREE' ? 'text-[var(--color-stock-green)]' : 'text-[var(--text-primary)]'}`}>{price}</span>
+                        <span className={`font-mono text-xs font-bold ${price === 'FREE' ? 'text-(--color-stock-green)' : 'text-(--text-primary)'}`}>{price}</span>
                       </label>
                     ))}
                   </div>
@@ -152,16 +152,16 @@ export function CheckoutPage() {
 
               {step === 'Payment' && (
                 <div className="space-y-4">
-                  <h2 className="text-[var(--text-primary)] font-bold text-base font-mono uppercase border-b border-[var(--border-theme)] pb-3">Payment Method</h2>
+                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Payment Method</h2>
                   <div className="grid grid-cols-3 gap-3">
                     {([['card', 'CREDIT CARD', 'credit_card'], ['paypal', 'PAYPAL', 'account_balance_wallet'], ['crypto', 'CRYPTO', 'currency_bitcoin']] as const).map(([val, label, icon]) => (
-                      <button key={val} type="button" onClick={() => setPaymentMethod(val)} className={`p-3 rounded border font-mono text-[10px] flex flex-col items-center gap-1.5 transition-colors cursor-pointer ${paymentMethod === val ? 'bg-[var(--accent-blue)]/10 border-[var(--accent-blue)] text-[var(--text-primary)]' : 'bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--text-secondary)]'}`}>
+                      <button key={val} type="button" onClick={() => setPaymentMethod(val)} className={`p-3 rounded border font-mono text-[10px] flex flex-col items-center gap-1.5 transition-colors cursor-pointer ${paymentMethod === val ? 'bg-(--accent-blue)/10 border-(--accent-blue) text-(--text-primary)' : 'bg-(--bg-surface-secondary) border-(--border-theme) text-(--text-secondary)'}`}>
                         <Icon name={icon} size={20} /><span>{label}</span>
                       </button>
                     ))}
                   </div>
                   {paymentMethod === 'card' && (
-                    <div className="p-4 bg-[var(--bg-surface-secondary)] rounded border border-[var(--border-theme)] space-y-3">
+                    <div className="p-4 bg-(--bg-surface-secondary) rounded border border-(--border-theme) space-y-3">
                       <div><label className={labelClass}>CARD NUMBER</label><input className={inputClass} value={form.cardNumber} onChange={(e) => set('cardNumber', e.target.value)} /></div>
                       <div className="grid grid-cols-2 gap-3">
                         <div><label className={labelClass}>EXPIRATION</label><input className={inputClass} value={form.cardExp} onChange={(e) => set('cardExp', e.target.value)} /></div>
@@ -170,7 +170,7 @@ export function CheckoutPage() {
                     </div>
                   )}
                   {paymentMethod !== 'card' && (
-                    <div className="p-4 bg-[var(--bg-surface-secondary)] rounded border border-[var(--border-theme)] text-xs text-[var(--text-secondary)] font-mono">
+                    <div className="p-4 bg-(--bg-surface-secondary) rounded border border-(--border-theme) text-xs text-(--text-secondary) font-mono">
                       You will be redirected to {paymentMethod === 'paypal' ? 'PayPal' : 'the crypto gateway'} to complete payment securely. (Demo — no real payment.)
                     </div>
                   )}
@@ -179,46 +179,46 @@ export function CheckoutPage() {
 
               {step === 'Review' && (
                 <div className="space-y-4">
-                  <h2 className="text-[var(--text-primary)] font-bold text-base font-mono uppercase border-b border-[var(--border-theme)] pb-3">Review & Confirm</h2>
+                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Review & Confirm</h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    <div className="bg-[var(--bg-surface-secondary)] rounded border border-[var(--border-theme)] p-3">
-                      <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase block mb-1">Contact</span>
-                      <p className="text-[var(--text-primary)]">{form.firstName} {form.lastName}</p>
-                      <p className="text-[var(--text-secondary)]">{form.email}</p>
-                      <p className="text-[var(--text-secondary)]">{form.phone}</p>
+                    <div className="bg-(--bg-surface-secondary) rounded border border-(--border-theme) p-3">
+                      <span className="font-mono text-[10px] text-(--text-secondary) uppercase block mb-1">Contact</span>
+                      <p className="text-(--text-primary)">{form.firstName} {form.lastName}</p>
+                      <p className="text-(--text-secondary)">{form.email}</p>
+                      <p className="text-(--text-secondary)">{form.phone}</p>
                     </div>
-                    <div className="bg-[var(--bg-surface-secondary)] rounded border border-[var(--border-theme)] p-3">
-                      <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase block mb-1">Ship To</span>
-                      <p className="text-[var(--text-primary)]">{form.street}</p>
-                      <p className="text-[var(--text-secondary)]">{form.city}, {form.state} {form.zip}</p>
-                      <p className="text-[var(--text-secondary)]">{shippingMethod === 'express' ? 'Priority Overnight' : 'Standard Ground'}</p>
+                    <div className="bg-(--bg-surface-secondary) rounded border border-(--border-theme) p-3">
+                      <span className="font-mono text-[10px] text-(--text-secondary) uppercase block mb-1">Ship To</span>
+                      <p className="text-(--text-primary)">{form.street}</p>
+                      <p className="text-(--text-secondary)">{form.city}, {form.state} {form.zip}</p>
+                      <p className="text-(--text-secondary)">{shippingMethod === 'express' ? 'Priority Overnight' : 'Standard Ground'}</p>
                     </div>
-                    <div className="bg-[var(--bg-surface-secondary)] rounded border border-[var(--border-theme)] p-3 sm:col-span-2">
-                      <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase block mb-1">Payment</span>
-                      <p className="text-[var(--text-primary)] capitalize">{paymentMethod === 'card' ? `Credit Card ${form.cardNumber.slice(-4)}` : paymentMethod}</p>
+                    <div className="bg-(--bg-surface-secondary) rounded border border-(--border-theme) p-3 sm:col-span-2">
+                      <span className="font-mono text-[10px] text-(--text-secondary) uppercase block mb-1">Payment</span>
+                      <p className="text-(--text-primary) capitalize">{paymentMethod === 'card' ? `Credit Card ${form.cardNumber.slice(-4)}` : paymentMethod}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-2 text-[10px] font-mono text-[var(--text-secondary)] pt-2">
-                    <Icon name="lock" size={14} className="text-[var(--color-stock-green)] shrink-0 mt-0.5" />
+                  <div className="flex items-start gap-2 text-[10px] font-mono text-(--text-secondary) pt-2">
+                    <Icon name="lock" size={14} className="text-(--color-stock-green) shrink-0 mt-0.5" />
                     By placing this order you authorize PREMIUM PC to charge your selected payment method. This is a frontend demo — no real payment is processed.
                   </div>
                 </div>
               )}
 
               {/* Nav buttons */}
-              <div className="flex items-center justify-between mt-6 pt-4 border-t border-[var(--border-theme)] font-sans">
+              <div className="flex items-center justify-between mt-6 pt-4 border-t border-(--border-theme) font-sans">
                 <button
                   onClick={stepIndex === 0 ? () => navigate('/cart') : back}
-                  className="px-4 py-2.5 border border-[var(--border-theme)] hover:border-[var(--text-primary)] text-[var(--text-primary)] text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 border border-(--border-theme) hover:border-(--text-primary) text-(--text-primary) text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
                   <Icon name="arrow_back" size={15} /> {stepIndex === 0 ? 'Back to Cart' : 'Back'}
                 </button>
                 {step !== 'Review' ? (
-                  <button onClick={next} className="px-5 py-2.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
+                  <button onClick={next} className="px-5 py-2.5 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
                     Continue <Icon name="arrow_forward" size={15} />
                   </button>
                 ) : (
-                  <button onClick={placeFinalOrder} className="px-6 py-3 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-sm">
+                  <button onClick={placeFinalOrder} className="px-6 py-3 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-sm">
                     <Icon name="lock" size={15} /> Place Order (${total.toFixed(2)})
                   </button>
                 )}
@@ -229,26 +229,26 @@ export function CheckoutPage() {
           {/* Summary */}
           <aside className="lg:col-span-5">
             <div className="sticky top-24 space-y-4">
-              <h2 className="text-[var(--text-primary)] font-bold text-base font-mono uppercase border-b border-[var(--border-theme)] pb-3">Order Summary ({cart.length})</h2>
+              <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Order Summary ({cart.length})</h2>
               <div className="space-y-3 max-h-60 overflow-y-auto pr-1 scrollbar-none">
                 {cart.map(({ product, quantity }) => (
                   <div key={product.id} className="flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] shrink-0" />
+                      <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded bg-(--bg-surface-secondary) border border-(--border-theme) shrink-0" />
                       <div className="min-w-0">
-                        <span className="text-[var(--text-primary)] font-medium truncate block">{product.name}</span>
-                        <span className="font-mono text-[var(--text-secondary)] text-[10px]">Qty: {quantity}</span>
+                        <span className="text-(--text-primary) font-medium truncate block">{product.name}</span>
+                        <span className="font-mono text-(--text-secondary) text-[10px]">Qty: {quantity}</span>
                       </div>
                     </div>
-                    <span className="font-mono text-[var(--text-primary)] font-bold shrink-0">${(product.price * quantity).toFixed(2)}</span>
+                    <span className="font-mono text-(--text-primary) font-bold shrink-0">${(product.price * quantity).toFixed(2)}</span>
                   </div>
                 ))}
               </div>
-              <div className="space-y-2 pt-3 border-t border-[var(--border-theme)] text-xs font-mono">
-                <div className="flex justify-between text-[var(--text-secondary)]"><span>Subtotal</span><span className="text-[var(--text-primary)]">${cartSubtotal.toFixed(2)}</span></div>
-                <div className="flex justify-between text-[var(--text-secondary)]"><span>Shipping</span><span className={shippingCost === 0 ? 'text-[var(--color-stock-green)]' : 'text-[var(--text-primary)]'}>{shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}</span></div>
-                <div className="flex justify-between text-[var(--text-secondary)]"><span>Tax (8%)</span><span className="text-[var(--text-primary)]">${tax.toFixed(2)}</span></div>
-                <div className="flex justify-between text-base font-bold text-[var(--text-primary)] pt-2 border-t border-[var(--border-theme)]"><span>Total</span><span className="text-[var(--accent-blue)]">${total.toFixed(2)}</span></div>
+              <div className="space-y-2 pt-3 border-t border-(--border-theme) text-xs font-mono">
+                <div className="flex justify-between text-(--text-secondary)"><span>Subtotal</span><span className="text-(--text-primary)">${cartSubtotal.toFixed(2)}</span></div>
+                <div className="flex justify-between text-(--text-secondary)"><span>Shipping</span><span className={shippingCost === 0 ? 'text-(--color-stock-green)' : 'text-(--text-primary)'}>{shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}</span></div>
+                <div className="flex justify-between text-(--text-secondary)"><span>Tax (8%)</span><span className="text-(--text-primary)">${tax.toFixed(2)}</span></div>
+                <div className="flex justify-between text-base font-bold text-(--text-primary) pt-2 border-t border-(--border-theme)"><span>Total</span><span className="text-(--accent-blue)">${total.toFixed(2)}</span></div>
               </div>
             </div>
           </aside>

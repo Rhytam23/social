@@ -28,7 +28,7 @@ export function ProductCard({
       {/* ── Main Product Image Area ── */}
       <Link
         to={`/products/${product.slug}`}
-        className="product-card-img-area relative w-full h-48 md:h-52 bg-white dark:bg-[var(--bg-surface-secondary)] rounded-xl flex items-center justify-center p-4 overflow-hidden shrink-0"
+        className="product-card-img-area relative w-full h-48 md:h-52 bg-white dark:bg-(--bg-surface-secondary) rounded-xl flex items-center justify-center p-4 overflow-hidden shrink-0"
       >
         {!imageError ? (
           <img
@@ -42,8 +42,8 @@ export function ProductCard({
             loading="lazy"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-[var(--bg-surface-secondary)] relative z-10 text-[var(--text-muted)] rounded-xl">
-            <Icon name="memory" size={44} className="text-[var(--accent-blue)]" />
+          <div className="w-full h-full flex items-center justify-center bg-(--bg-surface-secondary) relative z-10 text-(--text-muted) rounded-xl">
+            <Icon name="memory" size={44} className="text-(--accent-blue)" />
           </div>
         )}
 
@@ -65,8 +65,8 @@ export function ProductCard({
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             className={`w-7 h-7 flex items-center justify-center rounded-md border transition-all duration-150 ${
               isWishlisted
-                ? 'bg-[var(--bg-surface)] border-rose-500/50 text-rose-500'
-                : 'bg-[var(--bg-surface)]/90 border-[var(--border-theme)] text-[var(--text-secondary)] hover:text-rose-500 hover:border-rose-500/30'
+                ? 'bg-(--bg-surface) border-rose-500/50 text-rose-500'
+                : 'bg-(--bg-surface)/90 border-(--border-theme) text-(--text-secondary) hover:text-rose-500 hover:border-rose-500/30'
             }`}
           >
             <Icon name="favorite" size={14} filled={isWishlisted} />
@@ -82,8 +82,8 @@ export function ProductCard({
             aria-label={comparing ? 'Remove from comparison' : 'Add to comparison'}
             className={`w-7 h-7 flex items-center justify-center rounded-md border transition-all duration-150 ${
               comparing
-                ? 'bg-[var(--bg-surface)] border-[var(--accent-blue)] text-[var(--accent-blue)]'
-                : 'bg-[var(--bg-surface)]/90 border-[var(--border-theme)] text-[var(--text-secondary)] hover:text-[var(--accent-blue)]'
+                ? 'bg-(--bg-surface) border-(--accent-blue) text-(--accent-blue)'
+                : 'bg-(--bg-surface)/90 border-(--border-theme) text-(--text-secondary) hover:text-(--accent-blue)'
             }`}
           >
             <Icon name="balance" size={14} />
@@ -96,7 +96,7 @@ export function ProductCard({
         <div>
           {/* Brand & Stock */}
           <div className="flex items-center justify-between gap-2 mb-1">
-            <span className="text-[11px] font-bold text-[var(--accent-blue)] uppercase">
+            <span className="text-[11px] font-bold text-(--accent-blue) uppercase">
               {product.brand}
             </span>
             <StockBadge status={product.stockStatus} />
@@ -104,7 +104,7 @@ export function ProductCard({
 
           {/* Title */}
           <Link to={`/products/${product.slug}`} className="group/link block mb-1.5">
-            <h3 className="product-card-title text-[var(--text-primary)] text-sm font-bold leading-snug group-hover/link:text-[var(--accent-blue)] transition-colors line-clamp-2">
+            <h3 className="product-card-title text-(--text-primary) text-sm font-bold leading-snug group-hover/link:text-(--accent-blue) transition-colors line-clamp-2">
               {product.name}
             </h3>
           </Link>
@@ -129,7 +129,7 @@ export function ProductCard({
             onClick={() => onAddToCart(product)}
             disabled={product.stockStatus === 'out-of-stock'}
             aria-label={`Add ${product.name} to cart`}
-            className="w-full h-9 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
+            className="w-full h-9 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-semibold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
           >
             <Icon name="add_shopping_cart" size={16} />
             <span>Add to Cart</span>

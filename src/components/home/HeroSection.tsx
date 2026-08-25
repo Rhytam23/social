@@ -99,7 +99,7 @@ export function HeroSection() {
         onMouseLeave={() => setIsPaused(false)}
       >
         {/* Slide Content */}
-        <div className="relative min-h-[340px] sm:min-h-[380px] lg:min-h-[420px]">
+        <div className="relative min-h-85 sm:min-h-95 lg:min-h-105">
           {SLIDES.map((s, i) => (
             <div
               key={s.id}
@@ -120,21 +120,21 @@ export function HeroSection() {
                     {s.badge}
                   </span>
 
-                  <h2 className="font-bold tracking-tight leading-[1.1] text-[var(--text-primary)] text-2xl sm:text-3xl lg:text-4xl xl:text-[2.75rem]">
+                  <h2 className="font-bold tracking-tight leading-[1.1] text-(--text-primary) text-2xl sm:text-3xl lg:text-4xl xl:text-[2.75rem]">
                     {s.headline}
                   </h2>
-                  <span className="text-[var(--accent-blue)] font-bold text-lg sm:text-xl lg:text-2xl xl:text-[1.75rem] mt-1 block">
+                  <span className="text-(--accent-blue) font-bold text-lg sm:text-xl lg:text-2xl xl:text-[1.75rem] mt-1 block">
                     {s.headlineAccent}
                   </span>
 
-                  <p className="text-[var(--text-secondary)] text-sm sm:text-[15px] leading-relaxed mt-3 mb-6 max-w-md">
+                  <p className="text-(--text-secondary) text-sm sm:text-[15px] leading-relaxed mt-3 mb-6 max-w-md">
                     {s.description}
                   </p>
 
                   <div className="flex flex-wrap items-center gap-3">
                     <Link
                       to={s.primaryCta.href}
-                      className="h-11 px-7 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                      className="h-11 px-7 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       {s.primaryCta.label}
                       <Icon name="arrow_forward" size={16} />
@@ -143,7 +143,7 @@ export function HeroSection() {
                     {s.secondaryCta && (
                       <Link
                         to={s.secondaryCta.href}
-                        className="h-11 px-6 border border-[var(--border-theme)] hover:border-[var(--text-primary)] text-[var(--text-primary)] bg-[var(--bg-surface-secondary)] text-xs font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
+                        className="h-11 px-6 border border-(--border-theme) hover:border-(--text-primary) text-(--text-primary) bg-(--bg-surface-secondary) text-xs font-semibold rounded-lg flex items-center gap-2 transition-colors cursor-pointer"
                       >
                         {s.secondaryCta.label}
                       </Link>
@@ -156,7 +156,7 @@ export function HeroSection() {
                   <img
                     src={s.image}
                     alt={s.headline}
-                    className="w-full max-w-[480px] xl:max-w-[540px] aspect-[4/3] object-cover rounded-xl select-none"
+                    className="w-full max-w-120 xl:max-w-135 aspect-4/3 object-cover rounded-xl select-none"
                     draggable={false}
                   />
                 </div>
@@ -191,13 +191,13 @@ export function PromotionalCard({
   accentColor = '#007aff',
 }: PromotionalCardProps) {
   return (
-    <div className="relative rounded-2xl overflow-hidden bg-[#16171d] flex flex-col justify-end group min-h-65 sm:min-h-70 p-6 shadow-xl hover:shadow-2xl transition-all duration-300">
+    <div className="relative rounded-2xl overflow-hidden bg-(--bg-surface-secondary) flex flex-col justify-end group min-h-65 sm:min-h-70 p-6 shadow-xl hover:shadow-2xl transition-all duration-300 border border-(--border-theme)">
       <div
         className="absolute inset-0 bg-cover bg-center group-hover:scale-105 transition-transform duration-700"
         style={{ backgroundImage: `url('${image}')` }}
       />
-      <div className="absolute inset-0 bg-linear-to-r from-[#0d0e12] via-[#0d0e12]/80 to-transparent z-1" />
-      <div className="absolute inset-0 bg-linear-to-t from-[#0d0e12] via-transparent to-transparent z-1" />
+      <div className="absolute inset-0 bg-linear-to-r from-(--bg-surface) via-(--bg-surface)/80 to-transparent z-1" />
+      <div className="absolute inset-0 bg-linear-to-t from-(--bg-surface) via-transparent to-transparent z-1" />
 
       <div className="relative z-10">
         {badge && (
@@ -208,11 +208,11 @@ export function PromotionalCard({
             {badge}
           </span>
         )}
-        <h3 className="text-white font-bold text-lg sm:text-xl leading-snug mb-1">{title}</h3>
-        <p className="text-outline text-xs mb-4 line-clamp-2">{subtitle}</p>
+        <h3 className="text-(--text-primary) font-bold text-lg sm:text-xl leading-snug mb-1">{title}</h3>
+        <p className="text-(--text-secondary) text-xs mb-4 line-clamp-2">{subtitle}</p>
         <Link
           to={ctaHref}
-          className="inline-flex items-center gap-1.5 font-mono text-xs tracking-wider text-white hover:text-[#adc6ff] transition-colors font-bold group-hover:translate-x-1 cursor-pointer"
+          className="inline-flex items-center gap-1.5 font-mono text-xs tracking-wider text-(--accent-blue) hover:underline transition-colors font-bold group-hover:translate-x-1 cursor-pointer"
         >
           <span>{ctaLabel}</span>
           <Icon name="arrow_forward" size={14} />

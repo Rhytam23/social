@@ -29,7 +29,7 @@ function CategoryTile({ category }: { category: CategoryCard }) {
   return (
     <Link
       to={category.href}
-      className="group relative flex flex-col justify-between overflow-hidden rounded-xl bg-[var(--bg-surface)] border border-[var(--border-theme)] hover:border-[var(--accent-blue)] transition-all p-5 min-h-[160px]"
+      className="group relative flex flex-col justify-between overflow-hidden rounded-xl bg-(--bg-surface) border border-(--border-theme) hover:border-(--accent-blue) transition-all p-5 min-h-40"
     >
       {!imgError ? (
         <>
@@ -40,21 +40,21 @@ function CategoryTile({ category }: { category: CategoryCard }) {
             onError={() => setImgError(true)}
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[var(--bg-surface)] via-[var(--bg-surface)]/80 to-transparent z-1" />
+          <div className="absolute inset-0 bg-linear-to-t from-(--bg-surface) via-(--bg-surface)/80 to-transparent z-1" />
 
           <div className="relative z-10 flex justify-between items-start">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-md text-xs font-semibold text-[var(--accent-blue)]">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-(--bg-surface-secondary) border border-(--border-theme) rounded-md text-xs font-semibold text-(--accent-blue)">
               <Icon name={iconName} size={14} />
               <span>{category.itemCount} items</span>
             </span>
           </div>
 
           <div className="relative z-10 mt-auto pt-4">
-            <h3 className="text-base font-bold text-[var(--text-primary)] group-hover:text-[var(--accent-blue)] transition-colors">
+            <h3 className="text-base font-bold text-(--text-primary) group-hover:text-(--accent-blue) transition-colors">
               {category.title}
             </h3>
             {category.startingPrice && (
-              <p className="text-xs text-[var(--text-secondary)] mt-1 font-medium">
+              <p className="text-xs text-(--text-secondary) mt-1 font-medium">
                 From ${category.startingPrice}
               </p>
             )}
@@ -62,14 +62,14 @@ function CategoryTile({ category }: { category: CategoryCard }) {
         </>
       ) : (
         <div className="relative z-10 flex flex-col justify-between h-full">
-          <div className="w-10 h-10 rounded-lg bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] flex items-center justify-center text-[var(--accent-blue)] mb-4">
+          <div className="w-10 h-10 rounded-lg bg-(--bg-surface-secondary) border border-(--border-theme) flex items-center justify-center text-(--accent-blue) mb-4">
             <Icon name={iconName} size={20} />
           </div>
           <div>
-            <h3 className="text-base font-bold text-[var(--text-primary)] group-hover:text-[var(--accent-blue)] transition-colors">
+            <h3 className="text-base font-bold text-(--text-primary) group-hover:text-(--accent-blue) transition-colors">
               {category.title}
             </h3>
-            <p className="text-xs text-[var(--text-secondary)] mt-1 font-medium">
+            <p className="text-xs text-(--text-secondary) mt-1 font-medium">
               {category.itemCount} products
             </p>
           </div>
@@ -84,10 +84,10 @@ export function CategorySection({ categories }: CategorySectionProps) {
     <section>
       <div className="flex items-end justify-between mb-5">
         <div>
-          <h2 className="text-[var(--text-primary)] font-bold text-xl tracking-tight">Browse by Category</h2>
-          <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-0.5">Explore component categories and pre-built systems</p>
+          <h2 className="text-(--text-primary) font-bold text-xl tracking-tight">Browse by Category</h2>
+          <p className="text-(--text-secondary) text-xs md:text-sm mt-0.5">Explore component categories and pre-built systems</p>
         </div>
-        <Link to="/categories" className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1">
+        <Link to="/categories" className="text-xs font-semibold text-(--accent-blue) hover:underline flex items-center gap-1">
           <span>All Categories</span>
           <Icon name="arrow_forward" size={14} />
         </Link>

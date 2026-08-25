@@ -36,12 +36,12 @@ interface BadgeProps {
 
 export function Badge({ children, variant = 'primary', className = '' }: BadgeProps) {
   const variantClasses: Record<string, string> = {
-    primary: 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] border border-[var(--accent-blue)]/20',
-    orange: 'bg-[var(--accent-orange)]/15 text-[var(--accent-orange)] border border-[var(--accent-orange)]/30 font-bold',
-    green: 'bg-[var(--color-stock-green-val)]/15 text-[var(--color-stock-green-val)] border border-[var(--color-stock-green-val)]/30 font-bold',
-    yellow: 'bg-[var(--color-stock-yellow-val)]/15 text-[var(--color-stock-yellow-val)] border border-[var(--color-stock-yellow-val)]/30 font-bold',
-    red: 'bg-[var(--color-stock-red-val)]/15 text-[var(--color-stock-red-val)] border border-[var(--color-stock-red-val)]/30 font-bold',
-    outline: 'border border-[var(--border-theme)] text-[var(--text-secondary)]',
+    primary: 'bg-(--accent-blue)/10 text-(--accent-blue) border border-(--accent-blue)/20',
+    orange: 'bg-(--accent-orange)/15 text-(--accent-orange) border border-(--accent-orange)/30 font-bold',
+    green: 'bg-(--color-stock-green-val)/15 text-(--color-stock-green-val) border border-(--color-stock-green-val)/30 font-bold',
+    yellow: 'bg-(--color-stock-yellow-val)/15 text-(--color-stock-yellow-val) border border-(--color-stock-yellow-val)/30 font-bold',
+    red: 'bg-(--color-stock-red-val)/15 text-(--color-stock-red-val) border border-(--color-stock-red-val)/30 font-bold',
+    outline: 'border border-(--border-theme) text-(--text-secondary)',
   }
 
   return (
@@ -103,13 +103,13 @@ export function Button({
   const baseClasses = 'inline-flex items-center justify-center gap-2 font-sans text-xs font-semibold tracking-wide transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed select-none rounded-lg'
 
   const variantClasses: Record<string, string> = {
-    primary: 'bg-[var(--accent-blue)] text-white hover:bg-[var(--accent-blue-hover)] active:scale-[0.98] shadow-xs',
-    secondary: 'bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] hover:border-[var(--text-secondary)] active:scale-[0.98]',
-    tertiary: 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-secondary)]',
-    ghost: 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-surface-secondary)]',
-    outline: 'bg-transparent border border-[var(--border-theme)] text-[var(--text-primary)] hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)] active:scale-[0.98]',
+    primary: 'bg-(--accent-blue) text-white hover:bg-(--accent-blue-hover) active:scale-[0.98] shadow-xs',
+    secondary: 'bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) hover:border-(--text-secondary) active:scale-[0.98]',
+    tertiary: 'bg-transparent text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--bg-surface-secondary)',
+    ghost: 'bg-transparent text-(--text-secondary) hover:text-(--text-primary) hover:bg-(--bg-surface-secondary)',
+    outline: 'bg-transparent border border-(--border-theme) text-(--text-primary) hover:border-(--accent-blue) hover:text-(--accent-blue) active:scale-[0.98]',
     destructive: 'bg-rose-500/10 hover:bg-rose-500 border border-rose-500/20 text-rose-500 hover:text-white font-semibold transition-colors active:scale-[0.98]',
-    icon: 'bg-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)] p-1.5 rounded-lg hover:bg-[var(--bg-surface-secondary)]',
+    icon: 'bg-transparent text-(--text-secondary) hover:text-(--text-primary) p-1.5 rounded-lg hover:bg-(--bg-surface-secondary)',
   }
 
   const sizeClasses: Record<string, string> = {
@@ -156,7 +156,7 @@ export function StarRating({ rating, count, showCount = true, size = 'sm' }: Sta
         {stars.map((type, i) => (
           <span
             key={i}
-            className={`material-symbols-outlined ${type === 'empty' ? 'text-[var(--border-subtle)]' : 'text-amber-400'}`}
+            className={`material-symbols-outlined ${type === 'empty' ? 'text-(--border-subtle)' : 'text-amber-400'}`}
             style={{
               fontSize: iconSize,
               fontVariationSettings: `'FILL' ${type === 'full' ? 1 : 0}, 'wght' 400, 'GRAD' 0, 'opsz' ${iconSize}`,
@@ -167,7 +167,7 @@ export function StarRating({ rating, count, showCount = true, size = 'sm' }: Sta
         ))}
       </div>
       {showCount && count !== undefined && (
-        <span className="text-[var(--text-muted)] font-mono text-[11px]">({count.toLocaleString()})</span>
+        <span className="text-(--text-muted) font-mono text-[11px]">({count.toLocaleString()})</span>
       )}
     </div>
   )
@@ -191,11 +191,11 @@ export function Price({ price, previousPrice, discount, size = 'md' }: PriceProp
 
   return (
     <div className="flex items-baseline gap-2 flex-wrap">
-      <span className={`text-[var(--text-primary)] tracking-tight ${mainSizeClasses[size]}`}>
+      <span className={`text-(--text-primary) tracking-tight ${mainSizeClasses[size]}`}>
         ${price.toFixed(2)}
       </span>
       {previousPrice && (
-        <span className="text-xs text-[var(--text-muted)] line-through">
+        <span className="text-xs text-(--text-muted) line-through">
           ${previousPrice.toFixed(2)}
         </span>
       )}
@@ -209,7 +209,7 @@ export function Price({ price, previousPrice, discount, size = 'md' }: PriceProp
 // ─── Divider ──────────────────────────────────────────────────────────────────
 
 export function Divider({ className = '' }: { className?: string }) {
-  return <hr className={`border-[var(--border-theme)] ${className}`} />
+  return <hr className={`border-(--border-theme) ${className}`} />
 }
 
 // ─── Breadcrumbs ──────────────────────────────────────────────────────────────
@@ -221,19 +221,19 @@ export interface Crumb {
 
 export function Breadcrumbs({ items, className = '' }: { items: Crumb[]; className?: string }) {
   return (
-    <nav aria-label="Breadcrumb" className={`flex items-center flex-wrap gap-1.5 text-xs text-[var(--text-secondary)] ${className}`}>
+    <nav aria-label="Breadcrumb" className={`flex items-center flex-wrap gap-1.5 text-xs text-(--text-secondary) ${className}`}>
       {items.map((crumb, i) => {
         const isLast = i === items.length - 1
         return (
           <span key={`${crumb.label}-${i}`} className="flex items-center gap-1.5">
             {crumb.href && !isLast ? (
-              <Link to={crumb.href} className="hover:text-[var(--text-primary)] transition-colors">
+              <Link to={crumb.href} className="hover:text-(--text-primary) transition-colors">
                 {crumb.label}
               </Link>
             ) : (
-              <span className={isLast ? 'text-[var(--text-primary)] font-medium' : ''}>{crumb.label}</span>
+              <span className={isLast ? 'text-(--text-primary) font-medium' : ''}>{crumb.label}</span>
             )}
-            {!isLast && <Icon name="chevron_right" size={14} className="text-[var(--text-muted)]" />}
+            {!isLast && <Icon name="chevron_right" size={14} className="text-(--text-muted)" />}
           </span>
         )
       })}
@@ -253,10 +253,10 @@ interface EmptyStateProps {
 
 export function EmptyState({ icon = 'inbox', title, message, action, className = '' }: EmptyStateProps) {
   return (
-    <div className={`bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-10 text-center flex flex-col items-center ${className}`}>
-      <Icon name={icon} size={40} className="text-[var(--text-muted)] mb-3" />
-      <h3 className="text-[var(--text-primary)] font-semibold text-base mb-1">{title}</h3>
-      {message && <p className="text-[var(--text-secondary)] text-xs md:text-sm max-w-[420px] w-full mx-auto leading-relaxed mb-5">{message}</p>}
+    <div className={`bg-(--bg-surface) border border-(--border-theme) rounded-xl p-10 text-center flex flex-col items-center ${className}`}>
+      <Icon name={icon} size={40} className="text-(--text-muted) mb-3" />
+      <h3 className="text-(--text-primary) font-semibold text-base mb-1">{title}</h3>
+      {message && <p className="text-(--text-secondary) text-xs md:text-sm max-w-[420px] w-full mx-auto leading-relaxed mb-5">{message}</p>}
       {action}
     </div>
   )
@@ -265,7 +265,7 @@ export function EmptyState({ icon = 'inbox', title, message, action, className =
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`bg-[var(--bg-surface-secondary)] rounded-lg animate-pulse ${className}`} />
+  return <div className={`bg-(--bg-surface-secondary) rounded-lg animate-pulse ${className}`} />
 }
 
 // ─── SectionHeader ────────────────────────────────────────────────────────────
@@ -281,13 +281,13 @@ export function SectionHeader({ title, subtitle, ctaLabel, ctaHref }: SectionHea
   return (
     <div className="flex items-end justify-between mb-5 gap-4">
       <div>
-        <h2 className="text-[var(--text-primary)] font-bold text-xl tracking-tight">{title}</h2>
-        {subtitle && <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-0.5">{subtitle}</p>}
+        <h2 className="text-(--text-primary) font-bold text-xl tracking-tight">{title}</h2>
+        {subtitle && <p className="text-(--text-secondary) text-xs md:text-sm mt-0.5">{subtitle}</p>}
       </div>
       {ctaLabel && ctaHref && (
         <Link
           to={ctaHref}
-          className="text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1 shrink-0"
+          className="text-xs font-semibold text-(--accent-blue) hover:underline flex items-center gap-1 shrink-0"
         >
           <span>{ctaLabel}</span>
           <Icon name="arrow_forward" size={14} />

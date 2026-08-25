@@ -51,25 +51,25 @@ export function GamingPCsPage() {
       <div className="container-max px-4 md:px-6 py-6">
 
         {/* Header Navigation */}
-        <nav className="flex items-center gap-2 text-xs font-mono text-[var(--text-secondary)] mb-4">
-          <Link to="/" className="hover:text-[var(--text-primary)]">HOME</Link>
+        <nav className="flex items-center gap-2 text-xs font-mono text-(--text-secondary) mb-4">
+          <Link to="/" className="hover:text-(--text-primary)">HOME</Link>
           <Icon name="chevron_right" size={12} />
-          <span className="text-[var(--accent-blue)]">GAMING PCS & PREBUILTS</span>
+          <span className="text-(--accent-blue)">GAMING PCS & PREBUILTS</span>
         </nav>
 
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-[var(--text-primary)] font-bold text-2xl md:text-3xl tracking-tight mb-1">
+            <h1 className="text-(--text-primary) font-bold text-2xl md:text-3xl tracking-tight mb-1">
               Custom Prebuilt Gaming PCs
             </h1>
-            <p className="text-[var(--text-secondary)] text-xs md:text-sm max-w-xl">
+            <p className="text-(--text-secondary) text-xs md:text-sm max-w-xl">
               Fully assembled, cable-managed, and 72-hour stress-tested gaming computers backed by our 3-Year Warranty.
             </p>
           </div>
 
           <Link
             to="/builder"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg shadow-xs self-start md:self-auto"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-semibold rounded-lg shadow-xs self-start md:self-auto"
           >
             <Icon name="memory" size={16} />
             <span>Custom PC Builder</span>
@@ -77,7 +77,7 @@ export function GamingPCsPage() {
         </div>
 
         {/* Filters Bar */}
-        <div className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-4 mb-8">
+        <div className="bg-(--bg-surface) border border-(--border-theme) rounded-xl p-4 mb-8">
           {/* Performance Tier Tabs */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-1">
             {TIERS.map((tier) => (
@@ -86,8 +86,8 @@ export function GamingPCsPage() {
                 onClick={() => setActiveTier(tier.id)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
                   activeTier === tier.id
-                    ? 'bg-[var(--accent-blue)] text-white'
-                    : 'bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-theme)]'
+                    ? 'bg-(--accent-blue) text-white'
+                    : 'bg-(--bg-surface-secondary) text-(--text-secondary) hover:text-(--text-primary) border border-(--border-theme)'
                 }`}
               >
                 {tier.label}
@@ -96,9 +96,9 @@ export function GamingPCsPage() {
           </div>
 
           {/* Secondary Filters */}
-          <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-[var(--border-theme)]">
+          <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-(--border-theme)">
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase font-semibold">GPU:</span>
+              <span className="font-mono text-[10px] text-(--text-secondary) uppercase font-semibold">GPU:</span>
               <div className="flex flex-wrap gap-1.5">
                 {gpuOptions.map((g) => (
                   <button
@@ -106,8 +106,8 @@ export function GamingPCsPage() {
                     onClick={() => setGpuFilter(g)}
                     className={`px-2.5 py-1 rounded-md font-mono text-[10px] border transition-colors cursor-pointer ${
                       gpuFilter === g
-                        ? 'bg-[var(--accent-blue)]/10 border-[var(--accent-blue)] text-[var(--accent-blue)] font-bold'
-                        : 'bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        ? 'bg-(--accent-blue)/10 border-(--accent-blue) text-(--accent-blue) font-bold'
+                        : 'bg-(--bg-surface-secondary) border-(--border-theme) text-(--text-secondary) hover:text-(--text-primary)'
                     }`}
                   >
                     {g}
@@ -116,7 +116,7 @@ export function GamingPCsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase font-semibold">CPU:</span>
+              <span className="font-mono text-[10px] text-(--text-secondary) uppercase font-semibold">CPU:</span>
               <div className="flex flex-wrap gap-1.5">
                 {cpuOptions.map((c) => (
                   <button
@@ -124,8 +124,8 @@ export function GamingPCsPage() {
                     onClick={() => setCpuFilter(c)}
                     className={`px-2.5 py-1 rounded-md font-mono text-[10px] border transition-colors cursor-pointer ${
                       cpuFilter === c
-                        ? 'bg-[var(--accent-blue)]/10 border-[var(--accent-blue)] text-[var(--accent-blue)] font-bold'
-                        : 'bg-[var(--bg-surface-secondary)] border-[var(--border-theme)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                        ? 'bg-(--accent-blue)/10 border-(--accent-blue) text-(--accent-blue) font-bold'
+                        : 'bg-(--bg-surface-secondary) border-(--border-theme) text-(--text-secondary) hover:text-(--text-primary)'
                     }`}
                   >
                     {c}
@@ -134,11 +134,11 @@ export function GamingPCsPage() {
               </div>
             </div>
             <div className="flex items-center gap-2 ml-auto">
-              <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase font-semibold">Sort:</span>
+              <span className="font-mono text-[10px] text-(--text-secondary) uppercase font-semibold">Sort:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
-                className="bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] font-mono text-[11px] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--accent-blue)]"
+                className="bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-[11px] rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-(--accent-blue)"
               >
                 <option value="featured">Featured</option>
                 <option value="price-asc">Price: Low to High</option>
@@ -174,17 +174,17 @@ export function GamingPCsPage() {
             return (
               <article
                 key={pc.id}
-                className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl hover:border-[var(--text-secondary)] transition-all duration-200 flex flex-col justify-between overflow-hidden group shadow-sm"
+                className="bg-(--bg-surface) border border-(--border-theme) rounded-xl hover:border-(--text-secondary) transition-all duration-200 flex flex-col justify-between overflow-hidden group shadow-sm"
               >
                 {/* Header */}
-                <div className="p-4 bg-[var(--bg-surface-secondary)] border-b border-[var(--border-theme)] flex items-center justify-between">
-                  <span className="font-mono text-[10px] text-[var(--accent-blue)] font-bold tracking-wider bg-[var(--accent-blue)]/10 px-2 py-0.5 rounded-md border border-[var(--accent-blue)]/20">
+                <div className="p-4 bg-(--bg-surface-secondary) border-b border-(--border-theme) flex items-center justify-between">
+                  <span className="font-mono text-[10px] text-(--accent-blue) font-bold tracking-wider bg-(--accent-blue)/10 px-2 py-0.5 rounded-md border border-(--accent-blue)/20">
                     {pc.performanceTier}
                   </span>
                   <button
                     type="button"
                     onClick={() => toggleWishlist(pc.id)}
-                    className={`p-1 transition-colors cursor-pointer ${wishlisted ? 'text-rose-500' : 'text-[var(--text-secondary)] hover:text-rose-500'}`}
+                    className={`p-1 transition-colors cursor-pointer ${wishlisted ? 'text-rose-500' : 'text-(--text-secondary) hover:text-rose-500'}`}
                     aria-label="Wishlist"
                   >
                     <Icon name="favorite" size={18} filled={wishlisted} />
@@ -192,7 +192,7 @@ export function GamingPCsPage() {
                 </div>
 
                 {/* Image */}
-                <Link to={`/gaming-pc/${pc.id}`} className="relative bg-[var(--bg-surface-secondary)] overflow-hidden block" style={{ aspectRatio: '16/10' }}>
+                <Link to={`/gaming-pc/${pc.id}`} className="relative bg-(--bg-surface-secondary) overflow-hidden block" style={{ aspectRatio: '16/10' }}>
                   <img
                     src={pc.image}
                     alt={pc.name}
@@ -205,7 +205,7 @@ export function GamingPCsPage() {
                 <div className="p-5 flex-1 flex flex-col justify-between">
                   <div>
                     <Link to={`/gaming-pc/${pc.id}`}>
-                      <h2 className="text-[var(--text-primary)] font-bold text-base leading-snug group-hover:text-[var(--accent-blue)] transition-colors mb-2">
+                      <h2 className="text-(--text-primary) font-bold text-base leading-snug group-hover:text-(--accent-blue) transition-colors mb-2">
                         {pc.name}
                       </h2>
                     </Link>
@@ -213,33 +213,33 @@ export function GamingPCsPage() {
                     <StarRating rating={pc.rating} count={pc.reviewCount} />
 
                     {/* Specs Table */}
-                    <div className="mt-4 bg-[var(--bg-surface-secondary)] rounded-lg p-3 border border-[var(--border-theme)] space-y-2 text-xs font-mono">
+                    <div className="mt-4 bg-(--bg-surface-secondary) rounded-lg p-3 border border-(--border-theme) space-y-2 text-xs font-mono">
                       <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-secondary)] flex items-center gap-1.5"><Icon name="memory" size={14} className="text-[var(--accent-blue)]" /> CPU</span>
-                        <span className="text-[var(--text-primary)] font-semibold truncate max-w-[160px] text-right">{pc.cpu}</span>
+                        <span className="text-(--text-secondary) flex items-center gap-1.5"><Icon name="memory" size={14} className="text-(--accent-blue)" /> CPU</span>
+                        <span className="text-(--text-primary) font-semibold truncate max-w-[160px] text-right">{pc.cpu}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-secondary)] flex items-center gap-1.5"><Icon name="videogame_asset" size={14} className="text-[var(--accent-orange)]" /> GPU</span>
-                        <span className="text-[var(--text-primary)] font-semibold truncate max-w-[160px] text-right">{pc.gpu}</span>
+                        <span className="text-(--text-secondary) flex items-center gap-1.5"><Icon name="videogame_asset" size={14} className="text-(--accent-orange)" /> GPU</span>
+                        <span className="text-(--text-primary) font-semibold truncate max-w-[160px] text-right">{pc.gpu}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-secondary)] flex items-center gap-1.5"><Icon name="storage" size={14} className="text-[var(--color-stock-green)]" /> RAM</span>
-                        <span className="text-[var(--text-primary)] font-semibold">{pc.ram}</span>
+                        <span className="text-(--text-secondary) flex items-center gap-1.5"><Icon name="storage" size={14} className="text-(--color-stock-green)" /> RAM</span>
+                        <span className="text-(--text-primary) font-semibold">{pc.ram}</span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[var(--text-secondary)] flex items-center gap-1.5"><Icon name="hard_drive" size={14} className="text-amber-400" /> SSD</span>
-                        <span className="text-[var(--text-primary)] font-semibold truncate max-w-[160px] text-right">{pc.storage}</span>
+                        <span className="text-(--text-secondary) flex items-center gap-1.5"><Icon name="hard_drive" size={14} className="text-amber-400" /> SSD</span>
+                        <span className="text-(--text-primary) font-semibold truncate max-w-[160px] text-right">{pc.storage}</span>
                       </div>
                     </div>
 
                     {/* FPS Benchmarks */}
-                    <div className="mt-4 p-3 bg-[var(--bg-surface-secondary)] rounded-lg border border-[var(--border-theme)]">
-                      <div className="text-[11px] font-mono text-[var(--text-secondary)] mb-2 font-semibold uppercase">Average Gaming Benchmarks</div>
+                    <div className="mt-4 p-3 bg-(--bg-surface-secondary) rounded-lg border border-(--border-theme)">
+                      <div className="text-[11px] font-mono text-(--text-secondary) mb-2 font-semibold uppercase">Average Gaming Benchmarks</div>
                       <div className="space-y-1.5">
                         {pc.fpsBenchmarks.map((b) => (
                           <div key={b.game} className="flex items-center justify-between text-xs">
-                            <span className="text-[var(--text-secondary)] text-[11px]">{b.game}</span>
-                            <span className="font-mono text-[var(--accent-blue)] font-bold">{b.fps4K} FPS (4K)</span>
+                            <span className="text-(--text-secondary) text-[11px]">{b.game}</span>
+                            <span className="font-mono text-(--accent-blue) font-bold">{b.fps4K} FPS (4K)</span>
                           </div>
                         ))}
                       </div>
@@ -247,12 +247,12 @@ export function GamingPCsPage() {
                   </div>
 
                   {/* Pricing and Actions */}
-                  <div className="mt-6 pt-4 border-t border-[var(--border-theme)] flex items-center justify-between gap-3">
+                  <div className="mt-6 pt-4 border-t border-(--border-theme) flex items-center justify-between gap-3">
                     <Price price={pc.price} previousPrice={pc.previousPrice} discount={pc.discount} size="md" />
                     <div className="flex items-center gap-2">
                       <Link
                         to={`/gaming-pc/${pc.id}`}
-                        className="px-3 py-2 border border-[var(--border-theme)] hover:border-[var(--text-secondary)] text-[var(--text-primary)] text-xs font-sans rounded-lg font-semibold transition-colors bg-[var(--bg-surface-secondary)]"
+                        className="px-3 py-2 border border-(--border-theme) hover:border-(--text-secondary) text-(--text-primary) text-xs font-sans rounded-lg font-semibold transition-colors bg-(--bg-surface-secondary)"
                       >
                         Specs
                       </Link>

@@ -17,7 +17,7 @@ export function AdminDashboard() {
         title="Dashboard"
         subtitle="Store performance overview · Real-time storefront telemetry"
         action={
-          <Link to="/admin/products" className="px-3.5 py-2 bg-[var(--accent-blue)] text-white font-mono text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer">
+          <Link to="/admin/products" className="px-3.5 py-2 bg-(--accent-blue) text-white font-mono text-xs font-bold rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer">
             <Icon name="add" size={15} /> MANAGE CATALOG
           </Link>
         }
@@ -35,15 +35,15 @@ export function AdminDashboard() {
 
       {/* Charts row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <div className="lg:col-span-2 bg-[var(--bg-surface-secondary)] rounded-xl p-5">
+        <div className="lg:col-span-2 bg-(--bg-surface-secondary) rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[var(--text-primary)] font-bold text-sm">Revenue Trend</h2>
-            <span className="font-mono text-[10px] text-[var(--color-stock-green)] flex items-center gap-1"><Icon name="trending_up" size={13} /> +11.2% MoM</span>
+            <h2 className="text-(--text-primary) font-bold text-sm">Revenue Trend</h2>
+            <span className="font-mono text-[10px] text-(--color-stock-green) flex items-center gap-1"><Icon name="trending_up" size={13} /> +11.2% MoM</span>
           </div>
           <LineChart data={revenueSeries} format={(v) => `$${Math.round(v / 1000)}k`} />
         </div>
-        <div className="bg-[var(--bg-surface-secondary)] rounded-xl p-5 flex flex-col justify-between">
-          <h2 className="text-[var(--text-primary)] font-bold text-sm mb-4">Revenue by Category</h2>
+        <div className="bg-(--bg-surface-secondary) rounded-xl p-5 flex flex-col justify-between">
+          <h2 className="text-(--text-primary) font-bold text-sm mb-4">Revenue by Category</h2>
           <div className="flex-1 flex items-center justify-center">
             <DonutChart data={categoryRevenue} size={180} />
           </div>
@@ -52,27 +52,27 @@ export function AdminDashboard() {
 
       {/* Recent orders + top products */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2 bg-[var(--bg-surface-secondary)] rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-[var(--border-theme)]">
-            <h2 className="text-[var(--text-primary)] font-bold text-sm">Recent Orders</h2>
-            <Link to="/admin/orders" className="font-mono text-[11px] text-[var(--accent-blue)] hover:underline flex items-center gap-1">VIEW ALL <Icon name="chevron_right" size={13} /></Link>
+        <div className="lg:col-span-2 bg-(--bg-surface-secondary) rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-(--border-theme)">
+            <h2 className="text-(--text-primary) font-bold text-sm">Recent Orders</h2>
+            <Link to="/admin/orders" className="font-mono text-[11px] text-(--accent-blue) hover:underline flex items-center gap-1">VIEW ALL <Icon name="chevron_right" size={13} /></Link>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs min-w-[520px]">
               <thead>
-                <tr className="font-mono text-[10px] text-[var(--text-secondary)] uppercase border-b border-[var(--border-theme)]">
+                <tr className="font-mono text-[10px] text-(--text-secondary) uppercase border-b border-(--border-theme)">
                   <th className="text-left p-3 font-semibold">Order</th>
                   <th className="text-left p-3 font-semibold">Customer</th>
                   <th className="text-right p-3 font-semibold">Amount</th>
                   <th className="text-center p-3 font-semibold">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border-theme)]">
+              <tbody className="divide-y divide-(--border-theme)">
                 {orders.slice(0, 6).map((o) => (
-                  <tr key={o.id} className="hover:bg-[var(--bg-surface-tertiary)] transition-colors">
-                    <td className="p-3 font-mono text-[var(--accent-blue)] font-bold">#{o.id}</td>
-                    <td className="p-3 text-[var(--text-secondary)]">{o.customerName || o.shippingAddress?.name || 'Customer'}</td>
-                    <td className="p-3 text-right font-mono text-[var(--text-primary)] font-bold">${(o.total || 0).toFixed(2)}</td>
+                  <tr key={o.id} className="hover:bg-(--bg-surface-tertiary) transition-colors">
+                    <td className="p-3 font-mono text-(--accent-blue) font-bold">#{o.id}</td>
+                    <td className="p-3 text-(--text-secondary)">{o.customerName || o.shippingAddress?.name || 'Customer'}</td>
+                    <td className="p-3 text-right font-mono text-(--text-primary) font-bold">${(o.total || 0).toFixed(2)}</td>
                     <td className="p-3 text-center"><Pill status={o.status} /></td>
                   </tr>
                 ))}
@@ -81,21 +81,21 @@ export function AdminDashboard() {
           </div>
         </div>
 
-        <div className="bg-[var(--bg-surface-secondary)] rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between p-4 border-b border-[var(--border-theme)]">
-            <h2 className="text-[var(--text-primary)] font-bold text-sm">Top Products</h2>
-            <Link to="/admin/products" className="font-mono text-[11px] text-[var(--accent-blue)] hover:underline flex items-center gap-1">ALL <Icon name="chevron_right" size={13} /></Link>
+        <div className="bg-(--bg-surface-secondary) rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between p-4 border-b border-(--border-theme)">
+            <h2 className="text-(--text-primary) font-bold text-sm">Top Products</h2>
+            <Link to="/admin/products" className="font-mono text-[11px] text-(--accent-blue) hover:underline flex items-center gap-1">ALL <Icon name="chevron_right" size={13} /></Link>
           </div>
-          <div className="divide-y divide-[var(--border-theme)]">
+          <div className="divide-y divide-(--border-theme)">
             {topProducts.map((p, i) => (
-              <div key={p.id} className="flex items-center gap-3 p-3 hover:bg-[var(--bg-surface-tertiary)] transition-colors">
-                <span className="font-mono text-xs text-[var(--text-secondary)] w-4">{i + 1}</span>
-                <img src={p.image} alt="" className="w-9 h-9 object-cover rounded bg-[var(--bg-surface-tertiary)] shrink-0" />
+              <div key={p.id} className="flex items-center gap-3 p-3 hover:bg-(--bg-surface-tertiary) transition-colors">
+                <span className="font-mono text-xs text-(--text-secondary) w-4">{i + 1}</span>
+                <img src={p.image} alt="" className="w-9 h-9 object-cover rounded bg-(--bg-surface-tertiary) shrink-0" />
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-[var(--text-primary)] text-[11px] font-semibold truncate">{p.name}</h3>
-                  <span className="font-mono text-[10px] text-[var(--text-secondary)]">{p.reviewCount.toLocaleString()} sold</span>
+                  <h3 className="text-(--text-primary) text-[11px] font-semibold truncate">{p.name}</h3>
+                  <span className="font-mono text-[10px] text-(--text-secondary)">{p.reviewCount.toLocaleString()} sold</span>
                 </div>
-                <span className="font-mono text-[11px] text-[var(--text-primary)] font-bold shrink-0">${p.price.toFixed(0)}</span>
+                <span className="font-mono text-[11px] text-(--text-primary) font-bold shrink-0">${p.price.toFixed(0)}</span>
               </div>
             ))}
           </div>

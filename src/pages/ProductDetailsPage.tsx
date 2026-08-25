@@ -44,9 +44,9 @@ export function ProductDetailsPage() {
   if (!product) {
     return (
       <main className="flex-1 container-max px-4 py-16 text-center">
-        <Icon name="search_off" size={48} className="text-[var(--text-secondary)] mb-4" />
-        <h1 className="text-[var(--text-primary)] font-bold text-2xl mb-2">Product Not Found</h1>
-        <p className="text-[var(--text-secondary)] mb-6">The hardware model you are looking for may have been moved or discontinued.</p>
+        <Icon name="search_off" size={48} className="text-(--text-secondary) mb-4" />
+        <h1 className="text-(--text-primary) font-bold text-2xl mb-2">Product Not Found</h1>
+        <p className="text-(--text-secondary) mb-6">The hardware model you are looking for may have been moved or discontinued.</p>
         <Link to="/products">
           <Button variant="primary" size="lg">
             Browse All Products
@@ -77,20 +77,20 @@ export function ProductDetailsPage() {
       <div className="container-max px-4 md:px-6 py-6">
 
         {/* Breadcrumb Navigation */}
-        <nav className="flex items-center gap-2 text-xs font-mono text-[var(--text-secondary)] mb-6 flex-wrap">
-          <Link to="/" className="hover:text-[var(--text-primary)] transition-colors">HOME</Link>
+        <nav className="flex items-center gap-2 text-xs font-mono text-(--text-secondary) mb-6 flex-wrap">
+          <Link to="/" className="hover:text-(--text-primary) transition-colors">HOME</Link>
           <Icon name="chevron_right" size={12} />
-          <Link to="/products" className="hover:text-[var(--text-primary)] transition-colors">PRODUCTS</Link>
+          <Link to="/products" className="hover:text-(--text-primary) transition-colors">PRODUCTS</Link>
           <Icon name="chevron_right" size={12} />
-          <Link to={`/products?category=${encodeURIComponent(product.category)}`} className="hover:text-[var(--text-primary)] transition-colors uppercase">
+          <Link to={`/products?category=${encodeURIComponent(product.category)}`} className="hover:text-(--text-primary) transition-colors uppercase">
             {product.category}
           </Link>
           <Icon name="chevron_right" size={12} />
-          <span className="text-[var(--accent-blue)] truncate max-w-[200px]">{product.brand}</span>
+          <span className="text-(--accent-blue) truncate max-w-[200px]">{product.brand}</span>
         </nav>
 
         {/* Top Product Section (Gallery + Purchase Info) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-12 border-b border-[var(--border-theme)]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pb-12 border-b border-(--border-theme)">
 
           {/* Left: Product Gallery (7 cols) */}
           <div className="lg:col-span-7 flex flex-col-reverse md:flex-row gap-4">
@@ -102,8 +102,8 @@ export function ProductDetailsPage() {
                     key={i}
                     type="button"
                     onClick={() => setSelectedImage(img)}
-                    className={`w-16 h-16 rounded-lg border overflow-hidden bg-[var(--bg-surface-secondary)] shrink-0 transition-all cursor-pointer ${
-                      (selectedImage || product.image) === img ? 'border-[var(--accent-blue)] ring-1 ring-[var(--accent-blue)]' : 'border-[var(--border-theme)] opacity-70 hover:opacity-100'
+                    className={`w-16 h-16 rounded-lg border overflow-hidden bg-(--bg-surface-secondary) shrink-0 transition-all cursor-pointer ${
+                      (selectedImage || product.image) === img ? 'border-(--accent-blue) ring-1 ring-(--accent-blue)' : 'border-(--border-theme) opacity-70 hover:opacity-100'
                     }`}
                   >
                     <img src={img} alt={`Thumb ${i + 1}`} className="w-full h-full object-cover" />
@@ -113,7 +113,7 @@ export function ProductDetailsPage() {
             )}
 
             {/* Main Image Display */}
-            <div className="flex-1 relative bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-xl overflow-hidden flex items-center justify-center p-6 min-h-[340px] sm:min-h-[440px] shadow-sm">
+            <div className="flex-1 relative bg-(--bg-surface-secondary) border border-(--border-theme) rounded-xl overflow-hidden flex items-center justify-center p-6 min-h-[340px] sm:min-h-[440px] shadow-sm">
               {!mainImgError ? (
                 <img
                   src={selectedImage || product.image}
@@ -122,9 +122,9 @@ export function ProductDetailsPage() {
                   onError={() => setMainImgError(true)}
                 />
               ) : (
-                <div className="flex flex-col items-center justify-center text-[var(--text-secondary)] py-12">
-                  <Icon name="memory" size={64} className="text-[var(--accent-blue)]/40 mb-3" />
-                  <span className="font-mono text-xs text-[var(--text-secondary)]">HARDWARE SHOWCASE</span>
+                <div className="flex flex-col items-center justify-center text-(--text-secondary) py-12">
+                  <Icon name="memory" size={64} className="text-(--accent-blue)/40 mb-3" />
+                  <span className="font-mono text-xs text-(--text-secondary)">HARDWARE SHOWCASE</span>
                 </div>
               )}
               <div className="absolute top-4 left-4 flex flex-col gap-1.5 z-10">
@@ -139,27 +139,27 @@ export function ProductDetailsPage() {
             <div>
               {/* Brand & Stock */}
               <div className="flex items-center justify-between gap-2 mb-2">
-                <span className="font-mono text-xs text-[var(--accent-blue)] uppercase font-bold tracking-wider">{product.brand}</span>
+                <span className="font-mono text-xs text-(--accent-blue) uppercase font-bold tracking-wider">{product.brand}</span>
                 <StockBadge status={product.stockStatus} />
               </div>
 
               {/* Title */}
-              <h1 className="text-[var(--text-primary)] font-bold text-xl md:text-2xl leading-snug tracking-tight mb-3">
+              <h1 className="text-(--text-primary) font-bold text-xl md:text-2xl leading-snug tracking-tight mb-3">
                 {product.name}
               </h1>
 
               {/* Rating & Reviews */}
-              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-[var(--border-theme)]">
+              <div className="flex items-center gap-3 mb-4 pb-4 border-b border-(--border-theme)">
                 <StarRating rating={product.rating} count={product.reviewCount} size="md" />
-                <span className="text-[var(--text-secondary)] text-xs">| SKU: <span className="font-mono text-[var(--text-primary)]">{product.sku || product.id.toUpperCase()}</span></span>
+                <span className="text-(--text-secondary) text-xs">| SKU: <span className="font-mono text-(--text-primary)">{product.sku || product.id.toUpperCase()}</span></span>
               </div>
 
               {/* Pricing Box */}
-              <div className="bg-[var(--bg-surface)] p-4 rounded-xl border border-[var(--border-theme)] mb-5">
+              <div className="bg-(--bg-surface) p-4 rounded-xl border border-(--border-theme) mb-5">
                 <div className="flex items-baseline gap-3 mb-1">
                   <Price price={product.price} previousPrice={product.previousPrice} discount={product.discount} size="lg" />
                 </div>
-                <div className="text-[11px] font-mono text-[var(--color-stock-green)] flex items-center gap-1.5 mt-1 font-semibold">
+                <div className="text-[11px] font-mono text-(--color-stock-green) flex items-center gap-1.5 mt-1 font-semibold">
                   <Icon name="check_circle" size={14} /> Available for instant dispatch & tracking
                 </div>
               </div>
@@ -167,9 +167,9 @@ export function ProductDetailsPage() {
               {/* Key Specs Quick Pill Grid */}
               <div className="grid grid-cols-2 gap-2 mb-6">
                 {product.specifications.slice(0, 4).map((spec) => (
-                  <div key={spec.label} className="p-2.5 bg-[var(--bg-surface-secondary)] rounded-lg border border-[var(--border-theme)] text-xs">
-                    <span className="text-[var(--text-secondary)] font-mono text-[10px] block uppercase font-semibold">{spec.label}</span>
-                    <span className="text-[var(--text-primary)] font-semibold truncate block mt-0.5">{spec.value}</span>
+                  <div key={spec.label} className="p-2.5 bg-(--bg-surface-secondary) rounded-lg border border-(--border-theme) text-xs">
+                    <span className="text-(--text-secondary) font-mono text-[10px] block uppercase font-semibold">{spec.label}</span>
+                    <span className="text-(--text-primary) font-semibold truncate block mt-0.5">{spec.value}</span>
                   </div>
                 ))}
               </div>
@@ -177,20 +177,20 @@ export function ProductDetailsPage() {
               {/* Quantity + Add to Cart Actions */}
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
                 {/* Quantity input */}
-                <div className="flex items-center justify-between border border-[var(--border-theme)] rounded-xl bg-[var(--bg-surface-secondary)] px-2 py-1.5 shrink-0">
+                <div className="flex items-center justify-between border border-(--border-theme) rounded-xl bg-(--bg-surface-secondary) px-2 py-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                    className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                    className="p-1 text-(--text-secondary) hover:text-(--text-primary) transition-colors cursor-pointer"
                     aria-label="Decrease quantity"
                   >
                     <Icon name="remove" size={16} />
                   </button>
-                  <span className="font-mono text-sm px-4 font-bold text-[var(--text-primary)]">{quantity}</span>
+                  <span className="font-mono text-sm px-4 font-bold text-(--text-primary)">{quantity}</span>
                   <button
                     type="button"
                     onClick={() => setQuantity((q) => q + 1)}
-                    className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
+                    className="p-1 text-(--text-secondary) hover:text-(--text-primary) transition-colors cursor-pointer"
                     aria-label="Increase quantity"
                   >
                     <Icon name="add" size={16} />
@@ -215,7 +215,7 @@ export function ProductDetailsPage() {
                   onClick={() => toggleWishlist(product.id)}
                   aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
                   className={`p-3 rounded-xl border transition-colors flex items-center justify-center shrink-0 cursor-pointer ${
-                    isWishlisted ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'border-[var(--border-theme)] bg-[var(--bg-surface-secondary)] text-[var(--text-secondary)] hover:text-rose-500'
+                    isWishlisted ? 'bg-rose-500/10 border-rose-500/30 text-rose-500' : 'border-(--border-theme) bg-(--bg-surface-secondary) text-(--text-secondary) hover:text-rose-500'
                   }`}
                 >
                   <Icon name="favorite" size={20} filled={isWishlisted} />
@@ -246,15 +246,15 @@ export function ProductDetailsPage() {
             </div>
 
             {/* Guarantee / Delivery Checklist */}
-            <div className="pt-4 border-t border-[var(--border-theme)] space-y-2 text-xs font-sans text-[var(--text-secondary)]">
-              <Link to="/shipping-policy" className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-                <Icon name="local_shipping" size={16} className="text-[var(--accent-blue)]" /> Express Shipping & Dispatch Details
+            <div className="pt-4 border-t border-(--border-theme) space-y-2 text-xs font-sans text-(--text-secondary)">
+              <Link to="/shipping-policy" className="flex items-center gap-2 text-(--text-secondary) hover:text-(--text-primary) transition-colors">
+                <Icon name="local_shipping" size={16} className="text-(--accent-blue)" /> Express Shipping & Dispatch Details
               </Link>
-              <Link to="/terms" className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-                <Icon name="verified" size={16} className="text-[var(--color-stock-green)]" /> Official Manufacturer Warranty Terms
+              <Link to="/terms" className="flex items-center gap-2 text-(--text-secondary) hover:text-(--text-primary) transition-colors">
+                <Icon name="verified" size={16} className="text-(--color-stock-green)" /> Official Manufacturer Warranty Terms
               </Link>
-              <Link to="/return-policy" className="flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
-                <Icon name="history" size={16} className="text-[var(--color-stock-yellow-val)]" /> Store Return & RMA Guidelines
+              <Link to="/return-policy" className="flex items-center gap-2 text-(--text-secondary) hover:text-(--text-primary) transition-colors">
+                <Icon name="history" size={16} className="text-(--color-stock-yellow-val)" /> Store Return & RMA Guidelines
               </Link>
             </div>
           </div>
@@ -262,70 +262,70 @@ export function ProductDetailsPage() {
 
         {/* Detailed Tabs: Specs, Overview, Reviews */}
         <div className="mt-12">
-          <div className="flex border-b border-[var(--border-theme)] gap-6 mb-6">
+          <div className="flex border-b border-(--border-theme) gap-6 mb-6">
             <button
               type="button"
               onClick={() => setActiveTab('specs')}
               className={`pb-3 font-sans text-xs font-semibold tracking-wider transition-colors relative cursor-pointer ${
-                activeTab === 'specs' ? 'text-[var(--accent-blue)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                activeTab === 'specs' ? 'text-(--accent-blue)' : 'text-(--text-secondary) hover:text-(--text-primary)'
               }`}
             >
               Technical Specifications
-              {activeTab === 'specs' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-blue)]" />}
+              {activeTab === 'specs' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-blue)" />}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
               className={`pb-3 font-sans text-xs font-semibold tracking-wider transition-colors relative cursor-pointer ${
-                activeTab === 'overview' ? 'text-[var(--accent-blue)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                activeTab === 'overview' ? 'text-(--accent-blue)' : 'text-(--text-secondary) hover:text-(--text-primary)'
               }`}
             >
               Product Overview
-              {activeTab === 'overview' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-blue)]" />}
+              {activeTab === 'overview' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-blue)" />}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('reviews')}
               className={`pb-3 font-sans text-xs font-semibold tracking-wider transition-colors relative cursor-pointer ${
-                activeTab === 'reviews' ? 'text-[var(--accent-blue)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                activeTab === 'reviews' ? 'text-(--accent-blue)' : 'text-(--text-secondary) hover:text-(--text-primary)'
               }`}
             >
               Reviews ({product.reviewCount})
-              {activeTab === 'reviews' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-blue)]" />}
+              {activeTab === 'reviews' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-blue)" />}
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('questions')}
               className={`pb-3 font-sans text-xs font-semibold tracking-wider transition-colors relative cursor-pointer ${
-                activeTab === 'questions' ? 'text-[var(--accent-blue)]' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                activeTab === 'questions' ? 'text-(--accent-blue)' : 'text-(--text-secondary) hover:text-(--text-primary)'
               }`}
             >
               Q&amp;A
-              {activeTab === 'questions' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--accent-blue)]" />}
+              {activeTab === 'questions' && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-blue)" />}
             </button>
           </div>
 
           {/* Tab 1: Full Technical Specifications Table */}
           {activeTab === 'specs' && (
-            <div className="bg-[var(--bg-surface)] rounded-xl border border-[var(--border-theme)] overflow-hidden">
+            <div className="bg-(--bg-surface) rounded-xl border border-(--border-theme) overflow-hidden">
               <table className="w-full text-sm text-left border-collapse">
                 <tbody>
                   {product.specifications.map((spec, i) => (
-                    <tr key={spec.label} className={i % 2 === 0 ? 'bg-[var(--bg-surface)]' : 'bg-[var(--bg-surface-secondary)]'}>
-                      <th className="py-3 px-4 font-mono text-xs text-[var(--text-secondary)] font-semibold w-1/3 border-b border-[var(--border-theme)]">
+                    <tr key={spec.label} className={i % 2 === 0 ? 'bg-(--bg-surface)' : 'bg-(--bg-surface-secondary)'}>
+                      <th className="py-3 px-4 font-mono text-xs text-(--text-secondary) font-semibold w-1/3 border-b border-(--border-theme)">
                         {spec.label}
                       </th>
-                      <td className="py-3 px-4 text-[var(--text-primary)] font-mono text-xs border-b border-[var(--border-theme)]">
+                      <td className="py-3 px-4 text-(--text-primary) font-mono text-xs border-b border-(--border-theme)">
                         {spec.value}
                       </td>
                     </tr>
                   ))}
                   {product.wattage !== undefined && (
-                    <tr className="bg-[var(--bg-surface-secondary)]">
-                      <th className="py-3 px-4 font-mono text-xs text-[var(--text-secondary)] font-semibold border-b border-[var(--border-theme)]">
+                    <tr className="bg-(--bg-surface-secondary)">
+                      <th className="py-3 px-4 font-mono text-xs text-(--text-secondary) font-semibold border-b border-(--border-theme)">
                         Estimated Peak Wattage
                       </th>
-                      <td className="py-3 px-4 text-[var(--accent-blue)] font-mono text-xs font-bold border-b border-[var(--border-theme)]">
+                      <td className="py-3 px-4 text-(--accent-blue) font-mono text-xs font-bold border-b border-(--border-theme)">
                         {product.wattage} Watts
                       </td>
                     </tr>
@@ -337,8 +337,8 @@ export function ProductDetailsPage() {
 
           {/* Tab 2: Overview & Description */}
           {activeTab === 'overview' && (
-            <div className="bg-[var(--bg-surface)] p-6 rounded-xl border border-[var(--border-theme)] text-[var(--text-secondary)] leading-relaxed space-y-4">
-              <p className="text-base text-[var(--text-primary)] font-medium">
+            <div className="bg-(--bg-surface) p-6 rounded-xl border border-(--border-theme) text-(--text-secondary) leading-relaxed space-y-4">
+              <p className="text-base text-(--text-primary) font-medium">
                 {product.description || `${product.name} is built for gamers and professionals demanding high performance and thermal reliability.`}
               </p>
               <p>
@@ -346,7 +346,7 @@ export function ProductDetailsPage() {
               </p>
               <div className="flex flex-wrap gap-2 pt-2">
                 {product.tags?.map((tag) => (
-                  <span key={tag} className="px-3 py-1 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-md text-xs font-mono text-[var(--accent-blue)]">
+                  <span key={tag} className="px-3 py-1 bg-(--bg-surface-secondary) border border-(--border-theme) rounded-md text-xs font-mono text-(--accent-blue)">
                     #{tag}
                   </span>
                 ))}
@@ -379,14 +379,14 @@ export function ProductDetailsPage() {
                     content: 'Everything arrived in pristine condition, securely packaged with authentic factory seals. Works flawlessly out of the box.',
                   }
                 ]).map((rev) => (
-                  <div key={rev.id} className="p-4 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-theme)]">
+                  <div key={rev.id} className="p-4 bg-(--bg-surface) rounded-xl border border-(--border-theme)">
                     <div className="flex items-center justify-between mb-2">
                       <StarRating rating={rev.rating} showCount={false} />
-                      <span className="text-[11px] font-mono text-[var(--text-secondary)]">{rev.date}</span>
+                      <span className="text-[11px] font-mono text-(--text-secondary)">{rev.date}</span>
                     </div>
-                    <h4 className="text-[var(--text-primary)] font-bold text-sm mb-1">{rev.title}</h4>
-                    <p className="text-[var(--text-secondary)] text-xs leading-relaxed mb-3">{rev.content}</p>
-                    <div className="text-[11px] font-mono text-[var(--color-stock-green)] flex items-center gap-1 font-semibold">
+                    <h4 className="text-(--text-primary) font-bold text-sm mb-1">{rev.title}</h4>
+                    <p className="text-(--text-secondary) text-xs leading-relaxed mb-3">{rev.content}</p>
+                    <div className="text-[11px] font-mono text-(--color-stock-green) flex items-center gap-1 font-semibold">
                       <Icon name="verified" size={12} /> {rev.author}
                     </div>
                   </div>
@@ -394,32 +394,32 @@ export function ProductDetailsPage() {
               </div>
 
               {/* Add a Review Form */}
-              <div className="p-6 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-theme)]">
-                <h3 className="text-[var(--text-primary)] font-bold text-base mb-3">Write a Customer Review</h3>
+              <div className="p-6 bg-(--bg-surface) rounded-xl border border-(--border-theme)">
+                <h3 className="text-(--text-primary) font-bold text-base mb-3">Write a Customer Review</h3>
                 {reviewSubmitted ? (
-                  <div className="p-4 bg-[var(--color-stock-green)]/10 border border-[var(--color-stock-green)]/20 rounded-lg text-[var(--color-stock-green)] text-xs font-mono">
+                  <div className="p-4 bg-(--color-stock-green)/10 border border-(--color-stock-green)/20 rounded-lg text-(--color-stock-green) text-xs font-mono">
                     Thank you! Your verified review has been submitted for moderation.
                   </div>
                 ) : (
                   <form onSubmit={handleReviewSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-mono text-[var(--text-secondary)] block mb-1 uppercase font-semibold">Your Name</label>
+                        <label className="text-xs font-mono text-(--text-secondary) block mb-1 uppercase font-semibold">Your Name</label>
                         <input
                           type="text"
                           required
                           value={newReviewAuthor}
                           onChange={(e) => setNewReviewAuthor(e.target.value)}
                           placeholder="e.g. Sarah J."
-                          className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
+                          className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg px-3 py-2 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)"
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-mono text-[var(--text-secondary)] block mb-1 uppercase font-semibold">Rating</label>
+                        <label className="text-xs font-mono text-(--text-secondary) block mb-1 uppercase font-semibold">Rating</label>
                         <select
                           value={newReviewRating}
                           onChange={(e) => setNewReviewRating(Number(e.target.value))}
-                          className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
+                          className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg px-3 py-2 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)"
                         >
                           <option value="5">★★★★★ 5 Stars (Excellent)</option>
                           <option value="4">★★★★☆ 4 Stars (Good)</option>
@@ -430,24 +430,24 @@ export function ProductDetailsPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-xs font-mono text-[var(--text-secondary)] block mb-1 uppercase font-semibold">Review Title</label>
+                      <label className="text-xs font-mono text-(--text-secondary) block mb-1 uppercase font-semibold">Review Title</label>
                       <input
                         type="text"
                         value={newReviewTitle}
                         onChange={(e) => setNewReviewTitle(e.target.value)}
                         placeholder="Brief summary of your experience"
-                        className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
+                        className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg px-3 py-2 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-mono text-[var(--text-secondary)] block mb-1 uppercase font-semibold">Detailed Feedback</label>
+                      <label className="text-xs font-mono text-(--text-secondary) block mb-1 uppercase font-semibold">Detailed Feedback</label>
                       <textarea
                         required
                         rows={3}
                         value={newReviewContent}
                         onChange={(e) => setNewReviewContent(e.target.value)}
                         placeholder="Describe performance, noise levels, temps, and installation..."
-                        className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]"
+                        className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg px-3 py-2 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)"
                       />
                     </div>
                     <Button type="submit" variant="primary" size="md">
@@ -467,23 +467,23 @@ export function ProductDetailsPage() {
                 { q: 'What warranty period is included?', a: 'This product ships with a full 3-year manufacturer warranty, plus our 30-day no-hassle return policy.', by: 'PREMIUM PC Support', when: 'Aug 2, 2026', votes: 18 },
                 { q: 'Does it come with all required cables?', a: 'Yes — all necessary cables and mounting hardware are included in the retail box.', by: 'Verified Owner', when: 'Jul 21, 2026', votes: 11 },
               ].map((item, i) => (
-                <div key={i} className="p-4 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-theme)]">
+                <div key={i} className="p-4 bg-(--bg-surface) rounded-xl border border-(--border-theme)">
                   <div className="flex items-start gap-2 mb-2">
-                    <span className="font-mono text-xs text-[var(--accent-blue)] font-bold shrink-0">Q:</span>
-                    <p className="text-[var(--text-primary)] text-sm font-medium">{item.q}</p>
+                    <span className="font-mono text-xs text-(--accent-blue) font-bold shrink-0">Q:</span>
+                    <p className="text-(--text-primary) text-sm font-medium">{item.q}</p>
                   </div>
                   <div className="flex items-start gap-2 pl-1">
-                    <span className="font-mono text-xs text-[var(--color-stock-green)] font-bold shrink-0">A:</span>
-                    <p className="text-[var(--text-secondary)] text-xs leading-relaxed">{item.a}</p>
+                    <span className="font-mono text-xs text-(--color-stock-green) font-bold shrink-0">A:</span>
+                    <p className="text-(--text-secondary) text-xs leading-relaxed">{item.a}</p>
                   </div>
-                  <div className="flex items-center gap-4 mt-3 pt-2 border-t border-[var(--border-theme)] text-[11px] font-mono text-[var(--text-secondary)]">
+                  <div className="flex items-center gap-4 mt-3 pt-2 border-t border-(--border-theme) text-[11px] font-mono text-(--text-secondary)">
                     <span>{item.by} · {item.when}</span>
                     <span className="flex items-center gap-1 ml-auto"><Icon name="thumb_up" size={13} /> {item.votes} helpful</span>
                   </div>
                 </div>
               ))}
-              <div className="p-5 bg-[var(--bg-surface)] rounded-xl border border-[var(--border-theme)] flex flex-col sm:flex-row items-center gap-3 justify-between">
-                <span className="text-[var(--text-primary)] text-sm">Have a question about this product?</span>
+              <div className="p-5 bg-(--bg-surface) rounded-xl border border-(--border-theme) flex flex-col sm:flex-row items-center gap-3 justify-between">
+                <span className="text-(--text-primary) text-sm">Have a question about this product?</span>
                 <Button variant="primary" size="md">
                   Ask a Question
                 </Button>
@@ -494,24 +494,24 @@ export function ProductDetailsPage() {
 
         {/* Frequently Bought Together */}
         {fbtItems.length > 0 && (
-          <div className="mt-16 pt-12 border-t border-[var(--border-theme)]">
-            <h3 className="text-[var(--text-primary)] font-bold text-lg mb-6">Frequently Bought Together</h3>
-            <div className="bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-5 flex flex-col lg:flex-row items-center gap-5">
+          <div className="mt-16 pt-12 border-t border-(--border-theme)">
+            <h3 className="text-(--text-primary) font-bold text-lg mb-6">Frequently Bought Together</h3>
+            <div className="bg-(--bg-surface) border border-(--border-theme) rounded-xl p-5 flex flex-col lg:flex-row items-center gap-5">
               <div className="flex items-center gap-3 flex-wrap justify-center flex-1">
                 {fbtBundle.map((p, i) => (
                   <div key={p.id} className="flex items-center gap-3">
                     <Link to={`/products/${p.slug}`} className="w-24 text-center group">
-                      <img src={p.image} alt={p.name} className="w-24 h-24 object-cover rounded-lg bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] mb-1.5" />
-                      <span className="text-[10px] text-[var(--text-secondary)] line-clamp-2 group-hover:text-[var(--accent-blue)]">{p.name}</span>
-                      <span className="font-mono text-[11px] text-[var(--text-primary)] font-bold block mt-0.5">${p.price.toFixed(2)}</span>
+                      <img src={p.image} alt={p.name} className="w-24 h-24 object-cover rounded-lg bg-(--bg-surface-secondary) border border-(--border-theme) mb-1.5" />
+                      <span className="text-[10px] text-(--text-secondary) line-clamp-2 group-hover:text-(--accent-blue)">{p.name}</span>
+                      <span className="font-mono text-[11px] text-(--text-primary) font-bold block mt-0.5">${p.price.toFixed(2)}</span>
                     </Link>
-                    {i < fbtBundle.length - 1 && <Icon name="add" size={18} className="text-[var(--text-secondary)] shrink-0" />}
+                    {i < fbtBundle.length - 1 && <Icon name="add" size={18} className="text-(--text-secondary) shrink-0" />}
                   </div>
                 ))}
               </div>
-              <div className="text-center lg:text-right lg:border-l lg:border-[var(--border-theme)] lg:pl-5 shrink-0">
-                <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase block font-semibold">Bundle Total ({fbtBundle.length} items)</span>
-                <span className="text-[var(--text-primary)] font-bold text-2xl block my-1">${fbtTotal.toFixed(2)}</span>
+              <div className="text-center lg:text-right lg:border-l lg:border-(--border-theme) lg:pl-5 shrink-0">
+                <span className="font-mono text-[10px] text-(--text-secondary) uppercase block font-semibold">Bundle Total ({fbtBundle.length} items)</span>
+                <span className="text-(--text-primary) font-bold text-2xl block my-1">${fbtTotal.toFixed(2)}</span>
                 <Button
                   variant="primary"
                   size="md"
@@ -527,13 +527,13 @@ export function ProductDetailsPage() {
 
         {/* Related Products Section */}
         {relatedProducts.length > 0 && (
-          <div className="mt-16 pt-12 border-t border-[var(--border-theme)]">
+          <div className="mt-16 pt-12 border-t border-(--border-theme)">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-[var(--text-primary)] font-bold text-lg">Related Hardware & Compatible Options</h3>
-                <p className="text-[var(--text-secondary)] text-xs mt-0.5">Explore popular items in {product.category}</p>
+                <h3 className="text-(--text-primary) font-bold text-lg">Related Hardware & Compatible Options</h3>
+                <p className="text-(--text-secondary) text-xs mt-0.5">Explore popular items in {product.category}</p>
               </div>
-              <Link to={`/products?category=${encodeURIComponent(product.category)}`} className="font-sans text-xs font-semibold text-[var(--accent-blue)] hover:underline flex items-center gap-1">
+              <Link to={`/products?category=${encodeURIComponent(product.category)}`} className="font-sans text-xs font-semibold text-(--accent-blue) hover:underline flex items-center gap-1">
                 View All <Icon name="chevron_right" size={14} />
               </Link>
             </div>

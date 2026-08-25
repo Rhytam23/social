@@ -11,14 +11,14 @@ interface AccordionSectionProps {
 
 function FooterAccordion({ title, children, isOpen, onToggle }: AccordionSectionProps) {
   return (
-    <div className="border-b border-[var(--border-theme)] py-3 md:border-none md:py-0">
+    <div className="border-b border-(--border-theme) py-3 md:border-none md:py-0">
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between font-mono text-xs font-bold tracking-wider text-[var(--text-primary)] uppercase border-l-2 border-[var(--accent-blue)] pl-2.5 md:cursor-default text-left cursor-pointer"
+        className="w-full flex items-center justify-between font-mono text-xs font-bold tracking-wider text-(--text-primary) uppercase border-l-2 border-(--accent-blue) pl-2.5 md:cursor-default text-left cursor-pointer"
       >
         <span>{title}</span>
-        <span className="md:hidden text-[var(--text-secondary)]">
+        <span className="md:hidden text-(--text-secondary)">
           <Icon name={isOpen ? 'expand_less' : 'expand_more'} size={18} />
         </span>
       </button>
@@ -79,13 +79,13 @@ export function Footer() {
   ]
 
   return (
-    <footer className="bg-[var(--bg-surface)] border-t border-[var(--border-theme)] pt-12 pb-8 mt-auto">
+    <footer className="bg-(--bg-surface) border-t border-(--border-theme) pt-12 pb-8 mt-auto">
       <div className="container-max px-4 md:px-8">
         {/* Newsletter Section */}
-        <div className="pb-10 mb-10 border-b border-[var(--border-theme)] flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+        <div className="pb-10 mb-10 border-b border-(--border-theme) flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
           <div>
-            <h3 className="text-[var(--text-primary)] font-bold text-lg">Stay Updated</h3>
-            <p className="text-[var(--text-secondary)] text-xs md:text-sm mt-0.5">
+            <h3 className="text-(--text-primary) font-bold text-lg">Stay Updated</h3>
+            <p className="text-(--text-secondary) text-xs md:text-sm mt-0.5">
               Subscribe to get notified about hardware restocks and exclusive component deals.
             </p>
           </div>
@@ -98,11 +98,11 @@ export function Footer() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email address"
                 required
-                className="px-3.5 py-2 text-xs bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-primary)] rounded-lg focus:outline-none focus:border-[var(--accent-blue)] w-full sm:w-72"
+                className="px-3.5 py-2 text-xs bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) rounded-lg focus:outline-none focus:border-(--accent-blue) w-full sm:w-72"
               />
               <button
                 type="submit"
-                className="px-4 py-2 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-semibold rounded-lg shrink-0 transition-all cursor-pointer"
+                className="px-4 py-2 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-semibold rounded-lg shrink-0 transition-all cursor-pointer"
               >
                 Subscribe
               </button>
@@ -121,7 +121,7 @@ export function Footer() {
             <ul className="space-y-2">
               {customerServiceLinks.map((link) => (
                 <li key={link.label}>
-                  <Link to={link.href} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                  <Link to={link.href} className="text-xs text-(--text-secondary) hover:text-(--text-primary) transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -133,7 +133,7 @@ export function Footer() {
             <ul className="space-y-2">
               {hardwareBuildsLinks.map((link) => (
                 <li key={link.label}>
-                  <Link to={link.href} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                  <Link to={link.href} className="text-xs text-(--text-secondary) hover:text-(--text-primary) transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -145,7 +145,7 @@ export function Footer() {
             <ul className="space-y-2">
               {dealsShoppingLinks.map((link) => (
                 <li key={link.label}>
-                  <Link to={link.href} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                  <Link to={link.href} className="text-xs text-(--text-secondary) hover:text-(--text-primary) transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -157,7 +157,7 @@ export function Footer() {
             <ul className="space-y-2">
               {legalLinks.map((link) => (
                 <li key={link.label}>
-                  <Link to={link.href} className="text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors">
+                  <Link to={link.href} className="text-xs text-(--text-secondary) hover:text-(--text-primary) transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -167,11 +167,11 @@ export function Footer() {
         </div>
 
         {/* Payment & Copyright Bar */}
-        <div className="border-t border-[var(--border-theme)] mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[var(--text-secondary)]">
+        <div className="border-t border-(--border-theme) mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-(--text-secondary)">
           <p>© {new Date().getFullYear()} Premium PC Store. All rights reserved.</p>
           <div className="flex items-center gap-2">
             {['Visa', 'Mastercard', 'PayPal', 'Apple Pay'].map((pay) => (
-              <span key={pay} className="px-2 py-0.5 bg-[var(--bg-surface-secondary)] border border-[var(--border-theme)] text-[var(--text-muted)] text-[10px] rounded font-mono">
+              <span key={pay} className="px-2 py-0.5 bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-muted) text-[10px] rounded font-mono">
                 {pay}
               </span>
             ))}
