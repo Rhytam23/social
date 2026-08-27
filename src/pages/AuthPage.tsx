@@ -7,9 +7,6 @@ import { useShop } from '../context/ShopContext'
 type Mode = 'login' | 'register' | 'forgot'
 type AuthMethod = 'otp' | 'password'
 
-const inputClass = 'w-full bg-[#121317] border border-[#414755] rounded p-3 text-sm text-white focus:outline-none focus:border-[#007aff] placeholder:text-[#8b90a0]'
-const labelClass = 'text-[11px] font-mono text-[#8b90a0] block mb-1.5 uppercase tracking-wider'
-
 const BENEFITS = [
   { icon: 'package_2', text: 'Track orders & manage returns' },
   { icon: 'favorite', text: 'Save wishlists across devices' },
@@ -140,48 +137,77 @@ export function AuthPage({ mode }: { mode: Mode }) {
   }
 
   return (
-    <main className="flex-1 w-full">
-      <div className="container-max px-4 md:px-6 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-5xl mx-auto items-stretch">
-          {/* Brand panel */}
-          <div className="hidden lg:flex flex-col justify-between rounded border border-[#414755] bg-gradient-to-br from-[#16171d] to-[#1a1b1f] p-8 relative overflow-hidden">
-            <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(#007aff 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-            <div className="relative z-10">
-              <span className="font-black text-2xl text-white tracking-tighter">PREMIUM PC</span>
-              <p className="text-[#8b90a0] text-sm mt-4 leading-relaxed max-w-xs">
+    <main className="flex-1 w-full bg-[var(--bg-primary)]">
+      <div className="container-max px-4 md:px-6 py-12 md:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-12 max-w-5xl mx-auto items-center">
+          {/* Left section: Directly on page background without promotional card container */}
+          <div className="lg:col-span-5 flex flex-col justify-center space-y-8 pr-0 lg:pr-4">
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] font-mono text-xs font-semibold mb-4">
+                <span>PREMIUM PC PLATFORM</span>
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">
+                Build & Order High-Performance Rigs
+              </h2>
+              <p className="text-[var(--text-secondary)] text-sm mt-3 leading-relaxed">
                 Join thousands of enthusiasts building and buying premium hardware with confidence.
               </p>
             </div>
-            <ul className="relative z-10 space-y-3 mt-8">
+
+            <ul className="space-y-4">
               {BENEFITS.map((b) => (
-                <li key={b.text} className="flex items-center gap-3 text-sm text-[#c1c6d7]">
-                  <span className="w-8 h-8 rounded bg-[#007aff15] border border-[#007aff30] flex items-center justify-center text-[#007aff] shrink-0">
-                    <Icon name={b.icon} size={16} />
+                <li key={b.text} className="flex items-center gap-3.5 text-sm text-[var(--text-primary)]">
+                  <span className="w-9 h-9 rounded-lg bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] flex items-center justify-center shrink-0">
+                    <Icon name={b.icon} size={18} />
                   </span>
-                  {b.text}
+                  <span className="font-medium">{b.text}</span>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Form panel */}
-          <div className="bg-[#1a1b1f] border border-[#414755] rounded p-6 sm:p-8">
-            <div className="lg:hidden mb-6"><span className="font-black text-xl text-white tracking-tighter">PREMIUM PC</span></div>
+          {/* Right section: Clean Form Panel with semantic theme variables */}
+          <div className="lg:col-span-7 bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-6 sm:p-10 shadow-sm">
+            <div className="lg:hidden mb-6">
+              <span className="font-extrabold text-xl text-[var(--text-primary)] tracking-tight">PREMIUM PC</span>
+            </div>
 
             {/* Navigation Tabs */}
             {mode !== 'forgot' && (
-              <div className="flex gap-1 bg-[#121317] border border-[#292a2e] rounded p-1 mb-6">
-                <Link to="/login" onClick={() => setStep('email')} className={`flex-1 text-center py-2 rounded font-mono text-xs font-bold transition-colors ${mode === 'login' ? 'bg-[#007aff] text-white' : 'text-[#8b90a0] hover:text-white'}`}>SIGN IN</Link>
-                <Link to="/register" onClick={() => setStep('email')} className={`flex-1 text-center py-2 rounded font-mono text-xs font-bold transition-colors ${mode === 'register' ? 'bg-[#007aff] text-white' : 'text-[#8b90a0] hover:text-white'}`}>REGISTER</Link>
+              <div className="flex gap-1 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg p-1 mb-8">
+                <Link
+                  to="/login"
+                  onClick={() => setStep('email')}
+                  className={`flex-1 text-center py-2.5 rounded-md font-mono text-xs font-bold transition-all ${
+                    mode === 'login'
+                      ? 'bg-[var(--accent-blue)] text-white shadow-sm'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  SIGN IN
+                </Link>
+                <Link
+                  to="/register"
+                  onClick={() => setStep('email')}
+                  className={`flex-1 text-center py-2.5 rounded-md font-mono text-xs font-bold transition-all ${
+                    mode === 'register'
+                      ? 'bg-[var(--accent-blue)] text-white shadow-sm'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  REGISTER
+                </Link>
               </div>
             )}
 
-            <h1 className="text-white font-bold text-xl tracking-tight mb-1">{titles[mode]}</h1>
-            <p className="text-[#8b90a0] text-xs mb-6">
+            <h1 className="text-[var(--text-primary)] font-bold text-xl sm:text-2xl tracking-tight mb-1.5">{titles[mode]}</h1>
+            <p className="text-[var(--text-secondary)] text-xs sm:text-sm mb-8">
               {step === 'otp' ? (
-                <span>We sent a 6-digit verification code to <strong className="text-white">{email}</strong>.</span>
+                <span>We sent a 6-digit verification code to <strong className="text-[var(--text-primary)]">{email}</strong>.</span>
               ) : (
-                mode === 'login' && 'Enter your email to receive an instant OTP verification code.'
+                mode === 'login'
+                  ? 'Enter your email to receive an instant OTP verification code.'
+                  : 'It only takes a minute to get started with your account.'
               )}
             </p>
 
@@ -189,12 +215,12 @@ export function AuthPage({ mode }: { mode: Mode }) {
             {authMethod === 'otp' && mode !== 'forgot' ? (
               step === 'email' ? (
                 // Step 1: Send OTP Form
-                <form onSubmit={handleSendOtp} className="space-y-4">
+                <form onSubmit={handleSendOtp} className="space-y-5">
                   {mode === 'register' && (
                     <div>
-                      <label className={labelClass}>Full Name</label>
+                      <label className="text-xs font-mono text-[var(--text-secondary)] block mb-2 uppercase tracking-wider font-semibold">Full Name</label>
                       <input
-                        className={inputClass}
+                        className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg p-3.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
                         placeholder="Alex Rider"
                         value={fullName}
                         onChange={(e) => setFullName(e.target.value)}
@@ -203,10 +229,10 @@ export function AuthPage({ mode }: { mode: Mode }) {
                     </div>
                   )}
                   <div>
-                    <label className={labelClass}>Email Address</label>
+                    <label className="text-xs font-mono text-[var(--text-secondary)] block mb-2 uppercase tracking-wider font-semibold">Email Address</label>
                     <input
                       type="email"
-                      className={inputClass}
+                      className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg p-3.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
                       placeholder="you@example.com"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -217,7 +243,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="w-full py-3.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-mono text-xs font-bold rounded-lg transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm"
                   >
                     {loading ? 'SENDING OTP...' : 'SEND OTP CODE'}
                     <Icon name="arrow_forward" size={16} />
@@ -227,7 +253,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                     <button
                       type="button"
                       onClick={() => setAuthMethod('password')}
-                      className="text-[11px] font-mono text-[#adc6ff] hover:text-white underline"
+                      className="text-xs font-mono text-[var(--accent-blue)] hover:underline font-medium"
                     >
                       Use Password Instead
                     </button>
@@ -237,14 +263,14 @@ export function AuthPage({ mode }: { mode: Mode }) {
                 // Step 2: 6-Digit OTP Verification Form
                 <form onSubmit={handleVerifyOtp} className="space-y-6">
                   {demoCode && (
-                    <div className="p-3 bg-[#007aff15] border border-[#007aff40] rounded text-xs text-[#adc6ff] font-mono text-center">
-                      🔑 <strong>Demo Mode OTP Code</strong>: <span className="text-white font-bold text-sm tracking-wider ml-1">{demoCode}</span>
+                    <div className="p-3.5 bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/30 rounded-lg text-xs text-[var(--text-secondary)] font-mono text-center">
+                      🔑 <strong>Demo Mode OTP Code</strong>: <span className="text-[var(--text-primary)] font-bold text-sm tracking-wider ml-1">{demoCode}</span>
                     </div>
                   )}
 
                   <div>
-                    <label className={labelClass}>Enter 6-Digit OTP Code</label>
-                    <div className="flex gap-2 justify-between mt-2">
+                    <label className="text-xs font-mono text-[var(--text-secondary)] block mb-2 uppercase tracking-wider font-semibold">Enter 6-Digit OTP Code</label>
+                    <div className="flex gap-2 sm:gap-3 justify-between mt-2">
                       {otpDigits.map((digit, idx) => (
                         <input
                           key={idx}
@@ -254,7 +280,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                           value={digit}
                           onChange={(e) => handleDigitChange(idx, e.target.value)}
                           onKeyDown={(e) => handleKeyDown(idx, e)}
-                          className="w-12 h-14 bg-[#121317] border border-[#414755] focus:border-[#007aff] text-center font-mono text-xl font-bold text-white rounded focus:outline-none transition-colors"
+                          className="w-11 h-14 sm:w-14 sm:h-16 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] focus:border-[var(--accent-blue)] text-center font-mono text-xl font-bold text-[var(--text-primary)] rounded-lg focus:outline-none transition-colors"
                         />
                       ))}
                     </div>
@@ -263,7 +289,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors disabled:opacity-50"
+                    className="w-full py-3.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-mono text-xs font-bold rounded-lg transition-colors disabled:opacity-50 shadow-sm"
                   >
                     {loading ? 'VERIFYING...' : 'VERIFY & SIGN IN'}
                   </button>
@@ -272,7 +298,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                     <button
                       type="button"
                       onClick={() => setStep('email')}
-                      className="text-[#8b90a0] hover:text-white flex items-center gap-1"
+                      className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1"
                     >
                       ← Change Email
                     </button>
@@ -280,7 +306,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                       type="button"
                       disabled={resendCooldown > 0}
                       onClick={handleSendOtp}
-                      className="text-[#adc6ff] hover:text-white disabled:opacity-40"
+                      className="text-[var(--accent-blue)] hover:underline disabled:opacity-40"
                     >
                       {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}
                     </button>
@@ -288,13 +314,13 @@ export function AuthPage({ mode }: { mode: Mode }) {
                 </form>
               )
             ) : (
-              // Password Login / Reset Fallback
-              <form onSubmit={handlePasswordSubmit} className="space-y-4">
+              // Password Login / Registration Fallback
+              <form onSubmit={handlePasswordSubmit} className="space-y-5">
                 {mode === 'register' && (
                   <div>
-                    <label className={labelClass}>Full Name</label>
+                    <label className="text-xs font-mono text-[var(--text-secondary)] block mb-2 uppercase tracking-wider font-semibold">Full Name</label>
                     <input
-                      className={inputClass}
+                      className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg p-3.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
                       placeholder="Alex Rider"
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
@@ -303,10 +329,10 @@ export function AuthPage({ mode }: { mode: Mode }) {
                   </div>
                 )}
                 <div>
-                  <label className={labelClass}>Email Address</label>
+                  <label className="text-xs font-mono text-[var(--text-secondary)] block mb-2 uppercase tracking-wider font-semibold">Email Address</label>
                   <input
                     type="email"
-                    className={inputClass}
+                    className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg p-3.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
                     placeholder="you@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -316,13 +342,13 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
                 {mode !== 'forgot' && (
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="text-[11px] font-mono text-[#8b90a0] uppercase tracking-wider">Password</label>
-                      {mode === 'login' && <Link to="/forgot-password" className="text-[10px] font-mono text-[#adc6ff] hover:text-white">Forgot?</Link>}
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-mono text-[var(--text-secondary)] uppercase tracking-wider font-semibold">Password</label>
+                      {mode === 'login' && <Link to="/forgot-password" className="text-xs font-mono text-[var(--accent-blue)] hover:underline">Forgot?</Link>}
                     </div>
                     <input
                       type="password"
-                      className={inputClass}
+                      className="w-full bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg p-3.5 text-sm text-[var(--text-primary)] placeholder-[var(--text-muted)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
                       placeholder="••••••••"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -334,7 +360,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors disabled:opacity-50"
+                  className="w-full py-3.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-mono text-xs font-bold rounded-lg transition-colors disabled:opacity-50 shadow-sm"
                 >
                   {loading ? 'PROCESSING...' : mode === 'login' ? 'SIGN IN WITH PASSWORD' : 'CREATE ACCOUNT'}
                 </button>
@@ -344,13 +370,41 @@ export function AuthPage({ mode }: { mode: Mode }) {
                     <button
                       type="button"
                       onClick={() => setAuthMethod('otp')}
-                      className="text-[11px] font-mono text-[#adc6ff] hover:text-white underline"
+                      className="text-xs font-mono text-[var(--accent-blue)] hover:underline font-medium"
                     >
                       ← Switch to Email OTP Authentication
                     </button>
                   </div>
                 )}
               </form>
+            )}
+
+            {mode !== 'forgot' && (
+              <>
+                <div className="flex items-center gap-3 my-6">
+                  <div className="flex-1 h-px bg-[var(--border-theme)]" />
+                  <span className="font-mono text-[11px] text-[var(--text-muted)] uppercase tracking-wider">OR CONTINUE WITH</span>
+                  <div className="flex-1 h-px bg-[var(--border-theme)]" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Google', 'GitHub'].map((provider) => (
+                    <button
+                      key={provider}
+                      type="button"
+                      onClick={() => navigate('/account')}
+                      className="py-3 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] hover:border-[var(--text-secondary)] text-[var(--text-primary)] font-mono text-xs rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
+                    >
+                      <Icon name={provider === 'Google' ? 'public' : 'code'} size={16} /> {provider}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {mode === 'forgot' && (
+              <Link to="/login" className="block text-center font-mono text-xs text-[var(--accent-blue)] hover:underline pt-4">
+                ← Back to sign in
+              </Link>
             )}
           </div>
         </div>
