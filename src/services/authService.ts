@@ -1,4 +1,4 @@
-import { apiClient, tokenStore } from './apiClient'
+import { apiClient } from './apiClient'
 
 export interface User {
   id: string
@@ -8,6 +8,9 @@ export interface User {
   phone: string | null
   role: 'customer' | 'admin' | 'staff' | 'manager'
   status: string
+  googleId?: string | null
+  githubId?: string | null
+  avatarUrl?: string | null
   createdAt: string
 }
 
@@ -18,20 +21,16 @@ export const authService = {
     firstName: string
     lastName: string
     phone?: string
-  }): Promise<{ user: User; token: string }> {
-    const result = await apiClient.post<{ user: User; token: string }>('/api/auth/register', data, { auth: false })
-    tokenStore.set(result.token)
-    return result
+  }): Promise<{ user: User }> {
+    return apiClient.post<{ user: User }>('/api/auth/register', data)
   },
 
-  async login(email: string, password: string): Promise<{ user: User; token: string }> {
-    const result = await apiClient.post<{ user: User; token: string }>('/api/auth/login', { email, password }, { auth: false })
-    tokenStore.set(result.token)
-    return result
+  async login(email: string, password: string): Promise<{ user: User }> {
+    return apiClient.post<{ user: User }>('/api/auth/login', { email, password })
   },
 
   async logout(): Promise<void> {
-    tokenStore.clear()
+    await apiClient.post('/api/auth/logout')
   },
 
   async getMe(): Promise<User> {
@@ -49,16 +48,10 @@ export const authService = {
   },
 
   async sendOtp(email: string, purpose: 'login' | 'register' | 'reset_password' = 'login'): Promise<{ message: string; email: string; expiresAt: string; demoCode?: string }> {
-    return apiClient.post('/api/auth/send-otp', { email, purpose }, { auth: false })
+    return apiClient.post('/api/auth/send-otp', { email, purpose })
   },
 
-  async verifyOtp(email: string, code: string, purpose: 'login' | 'register' | 'reset_password' = 'login'): Promise<{ user: User; token: string }> {
-    const result = await apiClient.post<{ user: User; token: string }>('/api/auth/verify-otp', { email, code, purpose }, { auth: false })
-    tokenStore.set(result.token)
-    return result
-  },
-
-  isAuthenticated(): boolean {
-    return !!tokenStore.get()
+  async verifyOtp(email: string, code: string, purpose: 'login' | 'register' | 'reset_password' = 'login'): Promise<{ user: User }> {
+    return apiClient.post<{ user: User }>('/api/auth/verify-otp', { email, code, purpose })
   },
 }

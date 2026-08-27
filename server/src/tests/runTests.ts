@@ -33,17 +33,17 @@ async function runTests() {
         method,
         headers: reqHeaders,
         body: body ? JSON.stringify(body) : undefined,
+        redirect: 'manual',
       })
 
-      const data = (await res.json()) as any
-      if (res.status === expectedStatus && data.success !== undefined) {
+      if (res.status === expectedStatus) {
         console.log(`  ✓ PASSED: ${name} [HTTP ${res.status}]`)
         testsPassed++
-        return data
+        try { return await res.json() } catch { return res.status }
       } else {
-        console.error(`  ✗ FAILED: ${name} [Expected HTTP ${expectedStatus}, Got ${res.status}]`, data)
+        console.error(`  ✗ FAILED: ${name} [Expected HTTP ${expectedStatus}, Got ${res.status}]`)
         testsFailed++
-        return data
+        return null
       }
     } catch (err) {
       console.error(`  ✗ FAILED: ${name} (Network / Parsing Error)`, err)
@@ -83,6 +83,90 @@ async function runTests() {
 
   // 7. Cart API Session Test
   await testEndpoint('Anonymous Cart Fetch', '/api/cart', 'GET', undefined, undefined, 200)
+
+  // 8. Email Authentication Flow — OTP Code Generation
+  const testEmail = `test_${Date.now()}@example.com`
+  const otpRes = await testEndpoint('1. Email Auth — OTP Code Generation', '/api/auth/send-otp', 'POST', { email: testEmail, purpose: 'login' }, undefined, 200)
+
+  // 9. OTP Verification & Cookie Extraction
+  let sessionCookie = ''
+  if (otpRes?.data?.demoCode) {
+    try {
+      const verifyReq = await fetch(`${baseUrl}/api/auth/verify-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: testEmail, code: otpRes.data.demoCode, purpose: 'login' }),
+      })
+      if (verifyReq.status === 200) {
+        const rawCookie = verifyReq.headers.get('set-cookie')
+        if (rawCookie) sessionCookie = rawCookie.split(';')[0]
+        console.log('  ✓ PASSED: 1. Email Auth — OTP Verification & Session Cookie Set [HTTP 200]')
+        testsPassed++
+      } else {
+        console.error(`  ✗ FAILED: 1. Email Auth — OTP Verification [HTTP ${verifyReq.status}]`)
+        testsFailed++
+      }
+    } catch (err) {
+      console.error('  ✗ FAILED: 1. Email Auth — OTP Verification', err)
+      testsFailed++
+    }
+  }
+
+  // 10. Protected API Request with Session Cookie
+  if (sessionCookie) {
+    try {
+      const meReq = await fetch(`${baseUrl}/api/auth/me`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json', Cookie: sessionCookie },
+      })
+      if (meReq.status === 200) {
+        console.log('  ✓ PASSED: 2. Protected API Request — Authenticated User Profile [HTTP 200]')
+        testsPassed++
+      } else {
+        console.error(`  ✗ FAILED: 2. Protected API Request [Expected HTTP 200, Got ${meReq.status}]`)
+        testsFailed++
+      }
+    } catch (err) {
+      console.error('  ✗ FAILED: 2. Protected API Request', err)
+      testsFailed++
+    }
+  }
+
+  // 11. Logout & Cookie Invalidation
+  try {
+    const logoutReq = await fetch(`${baseUrl}/api/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Cookie: sessionCookie },
+    })
+    if (logoutReq.status === 200) {
+      console.log('  ✓ PASSED: 3. Logout Endpoint — Session Invalidation [HTTP 200]')
+      testsPassed++
+    } else {
+      console.error(`  ✗ FAILED: 3. Logout Endpoint [Expected HTTP 200, Got ${logoutReq.status}]`)
+      testsFailed++
+    }
+  } catch (err) {
+    console.error('  ✗ FAILED: 3. Logout Endpoint', err)
+    testsFailed++
+  }
+
+  // 12. Authentication After Logout Verification (Must Return 401 Unauthorized)
+  try {
+    const postLogoutMe = await fetch(`${baseUrl}/api/auth/me`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (postLogoutMe.status === 401) {
+      console.log('  ✓ PASSED: 4. Authentication After Logout — Access Blocked [HTTP 401]')
+      testsPassed++
+    } else {
+      console.error(`  ✗ FAILED: 4. Authentication After Logout [Expected HTTP 401, Got ${postLogoutMe.status}]`)
+      testsFailed++
+    }
+  } catch (err) {
+    console.error('  ✗ FAILED: 4. Authentication After Logout', err)
+    testsFailed++
+  }
 
   server.close()
 

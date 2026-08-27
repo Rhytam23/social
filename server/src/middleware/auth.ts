@@ -13,37 +13,73 @@ declare global {
   }
 }
 
-// ─── JWT Verify Middleware ────────────────────────────────────────────────────
+// ─── JWT Verify Middleware (Cookie Primary, Header Secondary) ─────────────────
+
+export function extractToken(req: Request): string | null {
+  // 1. Primary: HTTP-Only Session Cookie
+  if (req.cookies?.token) {
+    return req.cookies.token
+  }
+  // 2. Secondary: Bearer Authorization Header
+  const header = req.headers.authorization
+  if (header?.startsWith('Bearer ')) {
+    return header.slice(7)
+  }
+  return null
+}
 
 export function authenticate(req: Request, _res: Response, next: NextFunction): void {
-  const header = req.headers.authorization
-  if (!header?.startsWith('Bearer ')) {
-    throw new AuthError('Bearer token required')
+  const token = extractToken(req)
+  if (!token) {
+    throw new AuthError('Authentication session token required')
   }
 
-  const token = header.slice(7)
   try {
     const payload = jwt.verify(token, config.jwt.secret) as JwtPayload
     req.user = payload
     next()
   } catch {
-    throw new AuthError('Invalid or expired token')
+    throw new AuthError('Invalid or expired authentication session')
   }
 }
 
 // ─── Optional Auth (sets req.user if token present, does not reject) ──────────
 
 export function optionalAuth(req: Request, _res: Response, next: NextFunction): void {
-  const header = req.headers.authorization
-  if (header?.startsWith('Bearer ')) {
+  const token = extractToken(req)
+  if (token) {
     try {
-      const payload = jwt.verify(header.slice(7), config.jwt.secret) as JwtPayload
+      const payload = jwt.verify(token, config.jwt.secret) as JwtPayload
       req.user = payload
     } catch {
       // Token present but invalid — treat as anonymous
     }
   }
   next()
+}
+
+// ─── Cookie Helpers ────────────────────────────────────────────────────────────
+
+export function setAuthCookie(res: Response, token: string): void {
+  const isProduction = config.env === 'production'
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  })
+}
+
+export function clearAuthCookie(res: Response): void {
+  const isProduction = config.env === 'production'
+  res.cookie('token', '', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 0,
+  })
 }
 
 // ─── Role Guard ───────────────────────────────────────────────────────────────

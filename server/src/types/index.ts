@@ -16,6 +16,8 @@ export interface User {
   status: UserStatus
   emailVerified: boolean
   avatarUrl: string | null
+  googleId?: string | null
+  githubId?: string | null
   createdAt: string
   updatedAt: string
 }

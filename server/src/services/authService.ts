@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { query, queryOne } from '../db/client'
 import { config } from '../config'
 import { generateToken } from '../middleware/auth'
@@ -160,15 +161,26 @@ export const authService = {
 
   async sendOTP(email: string, purpose: string = 'login'): Promise<{ email: string; expiresAt: string; code: string }> {
     const cleanEmail = email.toLowerCase().trim()
+
+    // 1. Rate limiting check: Max 3 OTP requests in 15 minutes
+    const rateCheck = await queryOne<{ count: string }>(
+      `SELECT COUNT(*) FROM otp_codes WHERE email = $1 AND created_at > (NOW() - INTERVAL '15 minutes')`,
+      [cleanEmail]
+    )
+    if (parseInt(rateCheck?.count ?? '0', 10) >= 3) {
+      throw new AuthError('Too many OTP requests. Please wait 15 minutes before requesting a new code.')
+    }
+
     const code = Math.floor(100000 + Math.random() * 900000).toString()
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex')
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
 
     // Delete older OTP codes for same email & purpose
     await query('DELETE FROM otp_codes WHERE email = $1 AND purpose = $2', [cleanEmail, purpose])
 
     await query(
-      'INSERT INTO otp_codes (email, code, purpose, expires_at) VALUES ($1, $2, $3, $4)',
-      [cleanEmail, code, purpose, expiresAt.toISOString()]
+      'INSERT INTO otp_codes (email, code_hash, purpose, expires_at) VALUES ($1, $2, $3, $4)',
+      [cleanEmail, codeHash, purpose, expiresAt.toISOString()]
     )
 
     console.log(`[OTP] Generated 6-digit code for ${cleanEmail}: ${code}`)
@@ -178,14 +190,33 @@ export const authService = {
 
   async verifyOTP(email: string, code: string, purpose: string = 'login'): Promise<{ user: User; token: string }> {
     const cleanEmail = email.toLowerCase().trim()
+    const codeHash = crypto.createHash('sha256').update(code).digest('hex')
 
-    const otpRow = await queryOne<{ id: string }>(
-      'SELECT id FROM otp_codes WHERE email = $1 AND code = $2 AND purpose = $3 AND expires_at > NOW()',
-      [cleanEmail, code, purpose]
+    const otpRow = await queryOne<{ id: string; attempts: number; max_attempts: number }>(
+      'SELECT id, attempts, max_attempts FROM otp_codes WHERE email = $1 AND purpose = $2 AND expires_at > NOW()',
+      [cleanEmail, purpose]
     )
 
     if (!otpRow) {
       throw new AuthError('Invalid or expired OTP code. Please request a new code.')
+    }
+
+    // Check attempt limits
+    if (otpRow.attempts >= otpRow.max_attempts) {
+      await query('DELETE FROM otp_codes WHERE id = $1', [otpRow.id])
+      throw new AuthError('Maximum verification attempts exceeded. Please request a new OTP code.')
+    }
+
+    // Verify hash match
+    const validMatch = await queryOne<{ id: string }>(
+      'SELECT id FROM otp_codes WHERE id = $1 AND code_hash = $2',
+      [otpRow.id, codeHash]
+    )
+
+    if (!validMatch) {
+      // Increment attempt counter
+      await query('UPDATE otp_codes SET attempts = attempts + 1 WHERE id = $1', [otpRow.id])
+      throw new AuthError('Invalid OTP code. Please check your code and try again.')
     }
 
     // Remove used OTP

@@ -34,6 +34,13 @@ const TermsPage = lazy(() => import('./pages/policies/TermsPage').then((m) => ({
 const ShippingPolicyPage = lazy(() => import('./pages/policies/ShippingPolicyPage').then((m) => ({ default: m.ShippingPolicyPage })))
 const ReturnPolicyPage = lazy(() => import('./pages/policies/ReturnPolicyPage').then((m) => ({ default: m.ReturnPolicyPage })))
 const AboutPage = lazy(() => import('./pages/policies/AboutPage').then((m) => ({ default: m.AboutPage })))
+const CookiePreferencesPage = lazy(() => import('./pages/policies/CookiePreferencesPage').then((m) => ({ default: m.CookiePreferencesPage })))
+const RefundPolicyPage = lazy(() => import('./pages/policies/RefundPolicyPage').then((m) => ({ default: m.RefundPolicyPage })))
+const PaymentFailedPage = lazy(() => import('./pages/PaymentFailedPage').then((m) => ({ default: m.PaymentFailedPage })))
+const PasswordResetPage = lazy(() => import('./pages/PasswordResetPage').then((m) => ({ default: m.PasswordResetPage })))
+const AccessDeniedPage = lazy(() => import('./pages/AccessDeniedPage').then((m) => ({ default: m.AccessDeniedPage })))
+const EmailVerificationPage = lazy(() => import('./pages/EmailVerificationPage').then((m) => ({ default: m.EmailVerificationPage })))
+const MaintenancePage = lazy(() => import('./pages/MaintenancePage').then((m) => ({ default: m.MaintenancePage })))
 import { PageSkeleton } from './components/ui/SkeletonLoader'
 
 // ─── Scroll to top on route navigation ────────────────────────────────────────
@@ -158,12 +165,19 @@ function AppContent() {
           <Route path="/orders" element={<OrderTrackingPage />} />
           <Route path="/track-order" element={<OrderTrackingPage />} />
 
-          {/* Auth */}
+          {/* Auth & Security */}
           <Route path="/login" element={<AuthPage mode="login" />} />
           <Route path="/register" element={<AuthPage mode="register" />} />
           <Route path="/forgot-password" element={<AuthPage mode="forgot" />} />
+          <Route path="/reset-password" element={<PasswordResetPage />} />
+          <Route path="/verify-email" element={<EmailVerificationPage />} />
+          <Route path="/access-denied" element={<AccessDeniedPage />} />
 
-          {/* Support / policies */}
+          {/* Checkout & System Status */}
+          <Route path="/payment-failed" element={<PaymentFailedPage />} />
+          <Route path="/maintenance" element={<MaintenancePage />} />
+
+          {/* Support & Policies */}
           <Route path="/support" element={<SupportPage />} />
           <Route path="/warranty" element={<SupportPage />} />
           <Route path="/b2b" element={<SupportPage />} />
@@ -172,6 +186,8 @@ function AppContent() {
           <Route path="/privacy" element={<PrivacyPolicyPage />} />
           <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
           <Route path="/return-policy" element={<ReturnPolicyPage />} />
+          <Route path="/refund-policy" element={<RefundPolicyPage />} />
+          <Route path="/cookie-preferences" element={<CookiePreferencesPage />} />
 
           {/* 404 */}
           <Route path="*" element={<NotFoundPage />} />

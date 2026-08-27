@@ -1,22 +1,6 @@
 import { config } from '../lib/config'
 import { ApiError, NetworkError } from '../lib/error'
 
-// ─── Token storage ────────────────────────────────────────────────────────────
-
-const TOKEN_KEY = 'premium_pc_token'
-
-export const tokenStore = {
-  get: (): string | null => {
-    try { return localStorage.getItem(TOKEN_KEY) } catch { return null }
-  },
-  set: (token: string): void => {
-    try { localStorage.setItem(TOKEN_KEY, token) } catch {}
-  },
-  clear: (): void => {
-    try { localStorage.removeItem(TOKEN_KEY) } catch {}
-  },
-}
-
 // ─── API Response shape ───────────────────────────────────────────────────────
 
 interface ApiResponse<T> {
@@ -25,7 +9,7 @@ interface ApiResponse<T> {
   error?: { code: string; message: string; errors?: Record<string, string[]> }
 }
 
-// ─── Core HTTP Client ─────────────────────────────────────────────────────────
+// ─── Core HTTP Client (Cookie Sessions Primary) ───────────────────────────────
 
 async function request<T>(
   method: string,
@@ -33,16 +17,10 @@ async function request<T>(
   body?: unknown,
   options: { signal?: AbortSignal; auth?: boolean } = {}
 ): Promise<T> {
-  const { auth = true } = options
   const url = `${config.api.baseUrl}${path}`
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-  }
-
-  if (auth) {
-    const token = tokenStore.get()
-    if (token) headers['Authorization'] = `Bearer ${token}`
   }
 
   let response: Response
@@ -50,7 +28,7 @@ async function request<T>(
     response = await fetch(url, {
       method,
       headers,
-      credentials: 'include', // send cookies (cart session)
+      credentials: 'include', // Send & receive HTTP-Only session cookies
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: options.signal,
     })

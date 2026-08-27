@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useState, useRef, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Icon } from '../components/ui'
 import { authService } from '../services/authService'
 import { useShop } from '../context/ShopContext'
+import { config } from '../lib/config'
 
 type Mode = 'login' | 'register' | 'forgot'
 type AuthMethod = 'otp' | 'password'
@@ -16,6 +17,7 @@ const BENEFITS = [
 
 export function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { showToast } = useShop()
 
   // State
@@ -31,6 +33,20 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
   // OTP input references for auto-focus
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // Check for OAuth errors in URL query string
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    if (errorParam) {
+      if (errorParam === 'google_cancelled') {
+        showToast('Google sign-in was cancelled or interrupted.', 'info')
+      } else if (errorParam === 'github_cancelled') {
+        showToast('GitHub sign-in was cancelled or interrupted.', 'info')
+      } else {
+        showToast(decodeURIComponent(errorParam), 'wishlist')
+      }
+    }
+  }, [searchParams, showToast])
 
   // Send OTP handler
   const handleSendOtp = async (e: React.FormEvent) => {
@@ -108,6 +124,12 @@ export function AuthPage({ mode }: { mode: Mode }) {
     } finally {
       setLoading(false)
     }
+  }
+
+  // OAuth Redirect Handlers
+  const handleOAuthRedirect = (provider: 'google' | 'github') => {
+    const targetUrl = `${config.api.baseUrl}/api/auth/${provider}`
+    window.location.href = targetUrl
   }
 
   // Handle individual OTP digit change
@@ -388,16 +410,20 @@ export function AuthPage({ mode }: { mode: Mode }) {
                   <div className="flex-1 h-px bg-[var(--border-theme)]" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  {['Google', 'GitHub'].map((provider) => (
-                    <button
-                      key={provider}
-                      type="button"
-                      onClick={() => navigate('/account')}
-                      className="py-3 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] hover:border-[var(--text-secondary)] text-[var(--text-primary)] font-mono text-xs rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
-                    >
-                      <Icon name={provider === 'Google' ? 'public' : 'code'} size={16} /> {provider}
-                    </button>
-                  ))}
+                  <button
+                    type="button"
+                    onClick={() => handleOAuthRedirect('google')}
+                    className="py-3 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] hover:border-[var(--text-secondary)] text-[var(--text-primary)] font-mono text-xs rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
+                  >
+                    <Icon name="public" size={16} /> Google
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleOAuthRedirect('github')}
+                    className="py-3 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] hover:border-[var(--text-secondary)] text-[var(--text-primary)] font-mono text-xs rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
+                  >
+                    <Icon name="code" size={16} /> GitHub
+                  </button>
                 </div>
               </>
             )}

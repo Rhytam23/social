@@ -42,6 +42,19 @@ export const config = {
     origin: optional_env('CORS_ORIGIN', 'http://localhost:5173'),
   },
 
+  frontendUrl: optional_env('FRONTEND_URL', 'http://localhost:5173'),
+
+  oauth: {
+    google: {
+      clientId: process.env['GOOGLE_CLIENT_ID'] || '',
+      clientSecret: process.env['GOOGLE_CLIENT_SECRET'] || '',
+    },
+    github: {
+      clientId: process.env['GITHUB_CLIENT_ID'] || '',
+      clientSecret: process.env['GITHUB_CLIENT_SECRET'] || '',
+    },
+  },
+
   pagination: {
     defaultPageSize: parseInt(optional_env('DEFAULT_PAGE_SIZE', '24'), 10),
     maxPageSize: parseInt(optional_env('MAX_PAGE_SIZE', '100'), 10),

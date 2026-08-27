@@ -74,6 +74,8 @@ export function Footer() {
     { label: 'About Us', href: '/about' },
     { label: 'Terms of Service', href: '/terms' },
     { label: 'Privacy Policy', href: '/privacy' },
+    { label: 'Refund & Cancellation', href: '/refund-policy' },
+    { label: 'Cookie Preferences', href: '/cookie-preferences' },
     { label: 'Shipping Information', href: '/shipping-policy' },
     { label: 'B2B & Business Sales', href: '/b2b' },
   ]
