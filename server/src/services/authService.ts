@@ -3,6 +3,7 @@ import { query, queryOne } from '../db/client'
 import { config } from '../config'
 import { generateToken } from '../middleware/auth'
 import { AuthError, ConflictError, NotFoundError } from '../middleware/errorHandler'
+import { emailService } from './emailService'
 import type { User, UserRole } from '../types'
 
 // ─── DB Row ────────────────────────────────────────────────────────────────────
@@ -171,6 +172,7 @@ export const authService = {
     )
 
     console.log(`[OTP] Generated 6-digit code for ${cleanEmail}: ${code}`)
+    await emailService.sendOtpEmail(cleanEmail, code)
     return { email: cleanEmail, expiresAt: expiresAt.toISOString(), code }
   },
 
