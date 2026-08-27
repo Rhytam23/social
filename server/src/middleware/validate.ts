@@ -54,6 +54,17 @@ export const loginSchema = z.object({
   password: z.string().min(1),
 })
 
+export const sendOtpSchema = z.object({
+  email: z.string().email('Invalid email address').toLowerCase(),
+  purpose: z.enum(['login', 'register', 'reset_password']).default('login'),
+})
+
+export const verifyOtpSchema = z.object({
+  email: z.string().email('Invalid email address').toLowerCase(),
+  code: z.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d{6}$/, 'OTP must be numeric'),
+  purpose: z.enum(['login', 'register', 'reset_password']).default('login'),
+})
+
 // ─── Product Schemas ──────────────────────────────────────────────────────────
 
 export const productListSchema = paginationSchema.extend({

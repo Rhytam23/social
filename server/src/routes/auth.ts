@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { authService } from '../services/authService'
 import { authenticate } from '../middleware/auth'
-import { validate, registerSchema, loginSchema } from '../middleware/validate'
+import { validate, registerSchema, loginSchema, sendOtpSchema, verifyOtpSchema } from '../middleware/validate'
 import { asyncRoute, success, created } from '../middleware/errorHandler'
 
 const router = Router()
@@ -23,6 +23,34 @@ router.post(
   asyncRoute(async (req, res) => {
     const { email, password } = req.body
     const { user, token } = await authService.login(email, password)
+    success(res, { user, token })
+  })
+)
+
+// POST /api/auth/send-otp
+router.post(
+  '/send-otp',
+  validate(sendOtpSchema),
+  asyncRoute(async (req, res) => {
+    const { email, purpose } = req.body
+    const result = await authService.sendOTP(email, purpose)
+    success(res, {
+      message: `OTP code generated and sent to ${email}`,
+      email: result.email,
+      expiresAt: result.expiresAt,
+      // Pass code in response for easy testing / demo
+      demoCode: result.code,
+    })
+  })
+)
+
+// POST /api/auth/verify-otp
+router.post(
+  '/verify-otp',
+  validate(verifyOtpSchema),
+  asyncRoute(async (req, res) => {
+    const { email, code, purpose } = req.body
+    const { user, token } = await authService.verifyOTP(email, code, purpose)
     success(res, { user, token })
   })
 )

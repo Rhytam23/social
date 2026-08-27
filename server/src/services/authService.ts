@@ -156,4 +156,62 @@ export const authService = {
     if (!row) throw new NotFoundError('User')
     return toUser(row)
   },
+
+  async sendOTP(email: string, purpose: string = 'login'): Promise<{ email: string; expiresAt: string; code: string }> {
+    const cleanEmail = email.toLowerCase().trim()
+    const code = Math.floor(100000 + Math.random() * 900000).toString()
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 minutes
+
+    // Delete older OTP codes for same email & purpose
+    await query('DELETE FROM otp_codes WHERE email = $1 AND purpose = $2', [cleanEmail, purpose])
+
+    await query(
+      'INSERT INTO otp_codes (email, code, purpose, expires_at) VALUES ($1, $2, $3, $4)',
+      [cleanEmail, code, purpose, expiresAt.toISOString()]
+    )
+
+    console.log(`[OTP] Generated 6-digit code for ${cleanEmail}: ${code}`)
+    return { email: cleanEmail, expiresAt: expiresAt.toISOString(), code }
+  },
+
+  async verifyOTP(email: string, code: string, purpose: string = 'login'): Promise<{ user: User; token: string }> {
+    const cleanEmail = email.toLowerCase().trim()
+
+    const otpRow = await queryOne<{ id: string }>(
+      'SELECT id FROM otp_codes WHERE email = $1 AND code = $2 AND purpose = $3 AND expires_at > NOW()',
+      [cleanEmail, code, purpose]
+    )
+
+    if (!otpRow) {
+      throw new AuthError('Invalid or expired OTP code. Please request a new code.')
+    }
+
+    // Remove used OTP
+    await query('DELETE FROM otp_codes WHERE id = $1', [otpRow.id])
+
+    // Find existing user or create user if registering via OTP
+    let row = await queryOne<UserRow>('SELECT * FROM users WHERE email = $1', [cleanEmail])
+
+    if (!row) {
+      // Auto-create user for new email registration
+      const randomPassword = await bcrypt.hash(`Otp_${Date.now()}_${Math.random()}`, config.security.bcryptRounds)
+      const namePart = cleanEmail.split('@')[0] ?? 'User'
+      const [newRow] = await query<UserRow>(
+        `INSERT INTO users (email, password_hash, first_name, last_name, email_verified)
+         VALUES ($1, $2, $3, $4, true)
+         RETURNING *`,
+        [cleanEmail, randomPassword, namePart, 'Customer']
+      )
+      row = newRow
+    } else {
+      // Mark email as verified if not yet
+      await query('UPDATE users SET email_verified = true WHERE id = $1', [row.id])
+    }
+
+    if (!row) throw new Error('Authentication failed')
+
+    const user = toUser(row)
+    const token = generateToken({ userId: user.id, email: user.email, role: user.role })
+    return { user, token }
+  },
 }

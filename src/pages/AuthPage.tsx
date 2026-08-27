@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../components/ui'
+import { authService } from '../services/authService'
+import { useShop } from '../context/ShopContext'
 
 type Mode = 'login' | 'register' | 'forgot'
+type AuthMethod = 'otp' | 'password'
 
 const inputClass = 'w-full bg-[#121317] border border-[#414755] rounded p-3 text-sm text-white focus:outline-none focus:border-[#007aff] placeholder:text-[#8b90a0]'
 const labelClass = 'text-[11px] font-mono text-[#8b90a0] block mb-1.5 uppercase tracking-wider'
@@ -16,17 +19,123 @@ const BENEFITS = [
 
 export function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate()
-  const [sent, setSent] = useState(false)
+  const { showToast } = useShop()
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // State
+  const [authMethod, setAuthMethod] = useState<AuthMethod>('otp')
+  const [step, setStep] = useState<'email' | 'otp'>('email')
+  const [email, setEmail] = useState('')
+  const [fullName, setFullName] = useState('')
+  const [password, setPassword] = useState('')
+  const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', ''])
+  const [loading, setLoading] = useState(false)
+  const [demoCode, setDemoCode] = useState<string | null>(null)
+  const [resendCooldown, setResendCooldown] = useState(0)
+
+  // OTP input references for auto-focus
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([])
+
+  // Send OTP handler
+  const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (mode === 'forgot') { setSent(true); return }
-    navigate('/account')
+    if (!email.trim()) return
+
+    setLoading(true)
+    try {
+      const res = await authService.sendOtp(email.trim(), mode === 'register' ? 'register' : 'login')
+      if (res.demoCode) {
+        setDemoCode(res.demoCode)
+      }
+      setStep('otp')
+      showToast(`OTP code sent to ${email}`, 'info')
+
+      // Start 60s resend timer
+      setResendCooldown(60)
+      const timer = setInterval(() => {
+        setResendCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+    } catch (err: any) {
+      showToast(err.message || 'Failed to send OTP code', 'wishlist')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Verify OTP handler
+  const handleVerifyOtp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const code = otpDigits.join('')
+    if (code.length !== 6) {
+      showToast('Please enter all 6 digits of your OTP code', 'wishlist')
+      return
+    }
+
+    setLoading(true)
+    try {
+      await authService.verifyOtp(email.trim(), code, mode === 'register' ? 'register' : 'login')
+      showToast('Successfully authenticated!', 'cart')
+      navigate('/account')
+    } catch (err: any) {
+      showToast(err.message || 'Invalid OTP code', 'wishlist')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Password login handler
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    try {
+      if (mode === 'register') {
+        const [firstName, ...rest] = fullName.split(' ')
+        await authService.register({
+          email: email.trim(),
+          password,
+          firstName: firstName || 'Valued',
+          lastName: rest.join(' ') || 'Customer',
+        })
+      } else {
+        await authService.login(email.trim(), password)
+      }
+      showToast('Welcome back!', 'cart')
+      navigate('/account')
+    } catch (err: any) {
+      showToast(err.message || 'Authentication failed', 'wishlist')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle individual OTP digit change
+  const handleDigitChange = (index: number, value: string) => {
+    if (!/^\d*$/.test(value)) return
+
+    const newDigits = [...otpDigits]
+    newDigits[index] = value.slice(-1)
+    setOtpDigits(newDigits)
+
+    // Auto-advance focus to next input
+    if (value && index < 5) {
+      otpInputRefs.current[index + 1]?.focus()
+    }
+  }
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus()
+    }
   }
 
   const titles: Record<Mode, string> = {
-    login: 'Sign in to your account',
-    register: 'Create your account',
+    login: step === 'otp' ? 'Enter 6-Digit OTP' : 'Sign in to your account',
+    register: step === 'otp' ? 'Verify your Email' : 'Create your account',
     forgot: 'Reset your password',
   }
 
@@ -59,36 +168,151 @@ export function AuthPage({ mode }: { mode: Mode }) {
           <div className="bg-[#1a1b1f] border border-[#414755] rounded p-6 sm:p-8">
             <div className="lg:hidden mb-6"><span className="font-black text-xl text-white tracking-tighter">PREMIUM PC</span></div>
 
-            {/* Tabs */}
+            {/* Navigation Tabs */}
             {mode !== 'forgot' && (
               <div className="flex gap-1 bg-[#121317] border border-[#292a2e] rounded p-1 mb-6">
-                <Link to="/login" className={`flex-1 text-center py-2 rounded font-mono text-xs font-bold transition-colors ${mode === 'login' ? 'bg-[#007aff] text-white' : 'text-[#8b90a0] hover:text-white'}`}>SIGN IN</Link>
-                <Link to="/register" className={`flex-1 text-center py-2 rounded font-mono text-xs font-bold transition-colors ${mode === 'register' ? 'bg-[#007aff] text-white' : 'text-[#8b90a0] hover:text-white'}`}>REGISTER</Link>
+                <Link to="/login" onClick={() => setStep('email')} className={`flex-1 text-center py-2 rounded font-mono text-xs font-bold transition-colors ${mode === 'login' ? 'bg-[#007aff] text-white' : 'text-[#8b90a0] hover:text-white'}`}>SIGN IN</Link>
+                <Link to="/register" onClick={() => setStep('email')} className={`flex-1 text-center py-2 rounded font-mono text-xs font-bold transition-colors ${mode === 'register' ? 'bg-[#007aff] text-white' : 'text-[#8b90a0] hover:text-white'}`}>REGISTER</Link>
               </div>
             )}
 
             <h1 className="text-white font-bold text-xl tracking-tight mb-1">{titles[mode]}</h1>
             <p className="text-[#8b90a0] text-xs mb-6">
-              {mode === 'login' && 'Enter your credentials to access your dashboard.'}
-              {mode === 'register' && 'It only takes a minute to get started.'}
-              {mode === 'forgot' && 'We will email you a secure link to reset your password.'}
+              {step === 'otp' ? (
+                <span>We sent a 6-digit verification code to <strong className="text-white">{email}</strong>.</span>
+              ) : (
+                mode === 'login' && 'Enter your email to receive an instant OTP verification code.'
+              )}
             </p>
 
-            {sent ? (
-              <div className="text-center py-8">
-                <div className="w-14 h-14 bg-[#30d15820] text-[#30d158] rounded-full flex items-center justify-center mx-auto mb-4 border border-[#30d15840]">
-                  <Icon name="mark_email_read" size={28} />
-                </div>
-                <h2 className="text-white font-bold text-lg mb-1">Check your inbox</h2>
-                <p className="text-[#8b90a0] text-xs mb-6">A password reset link has been sent to your email address.</p>
-                <Link to="/login" className="px-5 py-2.5 bg-[#007aff] text-white font-mono text-xs rounded font-bold inline-block">BACK TO SIGN IN</Link>
-              </div>
+            {/* OTP Flow */}
+            {authMethod === 'otp' && mode !== 'forgot' ? (
+              step === 'email' ? (
+                // Step 1: Send OTP Form
+                <form onSubmit={handleSendOtp} className="space-y-4">
+                  {mode === 'register' && (
+                    <div>
+                      <label className={labelClass}>Full Name</label>
+                      <input
+                        className={inputClass}
+                        placeholder="Alex Rider"
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        required
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className={labelClass}>Email Address</label>
+                    <input
+                      type="email"
+                      className={inputClass}
+                      placeholder="you@example.com"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {loading ? 'SENDING OTP...' : 'SEND OTP CODE'}
+                    <Icon name="arrow_forward" size={16} />
+                  </button>
+
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setAuthMethod('password')}
+                      className="text-[11px] font-mono text-[#adc6ff] hover:text-white underline"
+                    >
+                      Use Password Instead
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                // Step 2: 6-Digit OTP Verification Form
+                <form onSubmit={handleVerifyOtp} className="space-y-6">
+                  {demoCode && (
+                    <div className="p-3 bg-[#007aff15] border border-[#007aff40] rounded text-xs text-[#adc6ff] font-mono text-center">
+                      🔑 <strong>Demo Mode OTP Code</strong>: <span className="text-white font-bold text-sm tracking-wider ml-1">{demoCode}</span>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className={labelClass}>Enter 6-Digit OTP Code</label>
+                    <div className="flex gap-2 justify-between mt-2">
+                      {otpDigits.map((digit, idx) => (
+                        <input
+                          key={idx}
+                          ref={(el) => { otpInputRefs.current[idx] = el }}
+                          type="text"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleDigitChange(idx, e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(idx, e)}
+                          className="w-12 h-14 bg-[#121317] border border-[#414755] focus:border-[#007aff] text-center font-mono text-xl font-bold text-white rounded focus:outline-none transition-colors"
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors disabled:opacity-50"
+                  >
+                    {loading ? 'VERIFYING...' : 'VERIFY & SIGN IN'}
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs font-mono pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setStep('email')}
+                      className="text-[#8b90a0] hover:text-white flex items-center gap-1"
+                    >
+                      ← Change Email
+                    </button>
+                    <button
+                      type="button"
+                      disabled={resendCooldown > 0}
+                      onClick={handleSendOtp}
+                      className="text-[#adc6ff] hover:text-white disabled:opacity-40"
+                    >
+                      {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend Code'}
+                    </button>
+                  </div>
+                </form>
+              )
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
+              // Password Login / Reset Fallback
+              <form onSubmit={handlePasswordSubmit} className="space-y-4">
                 {mode === 'register' && (
-                  <div><label className={labelClass}>Full Name</label><input className={inputClass} placeholder="Alex Rider" required /></div>
+                  <div>
+                    <label className={labelClass}>Full Name</label>
+                    <input
+                      className={inputClass}
+                      placeholder="Alex Rider"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                    />
+                  </div>
                 )}
-                <div><label className={labelClass}>Email Address</label><input type="email" className={inputClass} placeholder="you@example.com" required /></div>
+                <div>
+                  <label className={labelClass}>Email Address</label>
+                  <input
+                    type="email"
+                    className={inputClass}
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
 
                 {mode !== 'forgot' && (
                   <div>
@@ -96,49 +320,35 @@ export function AuthPage({ mode }: { mode: Mode }) {
                       <label className="text-[11px] font-mono text-[#8b90a0] uppercase tracking-wider">Password</label>
                       {mode === 'login' && <Link to="/forgot-password" className="text-[10px] font-mono text-[#adc6ff] hover:text-white">Forgot?</Link>}
                     </div>
-                    <input type="password" className={inputClass} placeholder="••••••••" required />
+                    <input
+                      type="password"
+                      className={inputClass}
+                      placeholder="••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
                   </div>
                 )}
 
-                {mode === 'register' && (
-                  <div><label className={labelClass}>Confirm Password</label><input type="password" className={inputClass} placeholder="••••••••" required /></div>
-                )}
-
-                {mode === 'login' && (
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-mono text-[#c1c6d7]">
-                    <input type="checkbox" className="w-4 h-4 rounded bg-[#121317] border-[#414755] accent-[#007aff]" /> Keep me signed in
-                  </label>
-                )}
-                {mode === 'register' && (
-                  <label className="flex items-start gap-2 cursor-pointer text-xs font-mono text-[#c1c6d7]">
-                    <input type="checkbox" required className="w-4 h-4 rounded bg-[#121317] border-[#414755] accent-[#007aff] mt-0.5" />
-                    <span>I agree to the <Link to="/terms" className="text-[#adc6ff] hover:text-white">Terms of Service</Link> and <Link to="/privacy" className="text-[#adc6ff] hover:text-white">Privacy Policy</Link></span>
-                  </label>
-                )}
-
-                <button type="submit" className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors">
-                  {mode === 'login' ? 'SIGN IN' : mode === 'register' ? 'CREATE ACCOUNT' : 'SEND RESET LINK'}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-3 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded transition-colors disabled:opacity-50"
+                >
+                  {loading ? 'PROCESSING...' : mode === 'login' ? 'SIGN IN WITH PASSWORD' : 'CREATE ACCOUNT'}
                 </button>
 
                 {mode !== 'forgot' && (
-                  <>
-                    <div className="flex items-center gap-3 py-1">
-                      <div className="flex-1 h-px bg-[#292a2e]" />
-                      <span className="font-mono text-[10px] text-[#8b90a0]">OR CONTINUE WITH</span>
-                      <div className="flex-1 h-px bg-[#292a2e]" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      {['Google', 'GitHub'].map((provider) => (
-                        <button key={provider} type="button" onClick={() => navigate('/account')} className="py-2.5 bg-[#121317] border border-[#414755] hover:border-[#8b90a0] text-white font-mono text-xs rounded transition-colors flex items-center justify-center gap-2">
-                          <Icon name={provider === 'Google' ? 'public' : 'code'} size={16} /> {provider}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {mode === 'forgot' && (
-                  <Link to="/login" className="block text-center font-mono text-xs text-[#adc6ff] hover:text-white pt-2">← Back to sign in</Link>
+                  <div className="pt-2 text-center">
+                    <button
+                      type="button"
+                      onClick={() => setAuthMethod('otp')}
+                      className="text-[11px] font-mono text-[#adc6ff] hover:text-white underline"
+                    >
+                      ← Switch to Email OTP Authentication
+                    </button>
+                  </div>
                 )}
               </form>
             )}

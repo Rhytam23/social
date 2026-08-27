@@ -48,6 +48,16 @@ export const authService = {
     await apiClient.put('/api/auth/password', { currentPassword, newPassword })
   },
 
+  async sendOtp(email: string, purpose: 'login' | 'register' | 'reset_password' = 'login'): Promise<{ message: string; email: string; expiresAt: string; demoCode?: string }> {
+    return apiClient.post('/api/auth/send-otp', { email, purpose }, { auth: false })
+  },
+
+  async verifyOtp(email: string, code: string, purpose: 'login' | 'register' | 'reset_password' = 'login'): Promise<{ user: User; token: string }> {
+    const result = await apiClient.post<{ user: User; token: string }>('/api/auth/verify-otp', { email, code, purpose }, { auth: false })
+    tokenStore.set(result.token)
+    return result
+  },
+
   isAuthenticated(): boolean {
     return !!tokenStore.get()
   },
