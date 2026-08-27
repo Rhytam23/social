@@ -5,9 +5,15 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "cd server && npm run dev",
+    "dev:all": "start /B cmd /c \"cd server && npm run dev\" && vite",
     "build": "tsc -b && vite build",
+    "build:server": "cd server && npm run build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server:migrate": "cd server && npm run migrate",
+    "server:seed": "cd server && npm run seed",
+    "test:server": "cd server && npm run test"
   },
   "dependencies": {
     "react": "^19.2.8",

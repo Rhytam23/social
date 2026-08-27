@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
 import type { Product, CartItem, BuilderCategoryKey, Order, CategoryCard, Brand, GamingPC, Customer, OrderStatus } from '../types'
+import { authService } from '../services/authService'
 import {
   allProducts as initialProducts,
   featuredCategories as initialCategories,
@@ -116,7 +117,7 @@ interface ShopContextType {
 
   // Admin Auth Protection
   isAdminLoggedIn: boolean
-  loginAsAdmin: (password: string) => boolean
+  loginAsAdmin: (password: string, email?: string) => Promise<boolean>
   logoutAdmin: () => void
 
   // UI Utilities
@@ -274,17 +275,23 @@ export function ShopProvider({ children }: { children: ReactNode }) {
     }
   })
 
-  const loginAsAdmin = (password: string) => {
-    if (password === 'admin123' || password === 'admin') {
-      setIsAdminLoggedIn(true)
-      try {
-        localStorage.setItem('premium_pc_admin_auth', 'true')
-      } catch {}
-      showToast('Authenticated as Store Administrator', 'info')
-      return true
+  const loginAsAdmin = async (password: string, email = 'admin@premiumpc.com'): Promise<boolean> => {
+    try {
+      const res = await authService.login(email, password)
+      if (res.user.role === 'admin' || res.user.role === 'staff' || res.user.role === 'manager') {
+        setIsAdminLoggedIn(true)
+        try {
+          localStorage.setItem('premium_pc_admin_auth', 'true')
+        } catch {}
+        showToast(`Authenticated as Administrator (${res.user.firstName})`, 'info')
+        return true
+      }
+      showToast('Account does not have admin permissions', 'info')
+      return false
+    } catch {
+      showToast('Invalid Administrator Credentials', 'info')
+      return false
     }
-    showToast('Invalid Administrator Password', 'info')
-    return false
   }
 
   const logoutAdmin = () => {

@@ -23,18 +23,12 @@ function AdminAuthGate() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const success = loginAsAdmin(password)
+    const success = await loginAsAdmin(password, email)
     if (!success) {
       setError(true)
     }
-  }
-
-  const fillDemo = () => {
-    setEmail('admin@premiumpc.com')
-    setPassword('admin123')
-    setError(false)
   }
 
   const fieldClass = 'w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg p-3 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue) placeholder:text-(--text-muted)'
@@ -56,7 +50,7 @@ function AdminAuthGate() {
 
         {error && (
           <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs flex items-center gap-2">
-            <Icon name="error" size={16} /> Invalid password. Try &quot;admin123&quot;.
+            <Icon name="error" size={16} /> Invalid administrator credentials. Check email and password.
           </div>
         )}
 
@@ -76,13 +70,6 @@ function AdminAuthGate() {
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className={labelClass}>Admin Password</label>
-              <button
-                type="button"
-                onClick={fillDemo}
-                className="text-xs text-(--accent-blue) hover:underline cursor-pointer"
-              >
-                Auto-fill Demo Password
-              </button>
             </div>
             <input
               type="password"

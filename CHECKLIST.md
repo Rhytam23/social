@@ -44,7 +44,7 @@ Last Updated: 2026-08-16
 - [x] Data (`src/data/products.ts` providing full hardware catalog)
 - [ ] APIs (`[D] DEMO ONLY` — Client state; `[P] PRODUCTION REQUIRED` for REST/GraphQL API)
 - [x] Authentication (Password-protected Admin gate + mock customer login/register)
-- [ ] Database (`[D] DEMO ONLY` — LocalStorage; `[P] PRODUCTION REQUIRED` for SQL/NoSQL DB)
+- [x] Database (Neon Cloud Serverless PostgreSQL populated with 13 tables & catalog seed)
 - [x] Admin (Full management panel with live storefront synchronization)
 - [x] Error handling (Graceful image fallbacks, 404 handler, input validation)
 
