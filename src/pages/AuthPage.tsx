@@ -137,16 +137,17 @@ export function AuthPage({ mode }: { mode: Mode }) {
   }
 
   return (
-    <main className="flex-1 w-full bg-[var(--bg-primary)]">
-      <div className="container-max px-4 md:px-6 py-12 md:py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-12 max-w-5xl mx-auto items-center">
-          {/* Left section: Directly on page background without promotional card container */}
-          <div className="lg:col-span-5 flex flex-col justify-center space-y-8 pr-0 lg:pr-4">
+    <main className="flex-1 w-full bg-[var(--bg-primary)] text-[var(--text-primary)]">
+      <div className="container-max px-4 md:px-6 py-10 md:py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 md:gap-14 max-w-5xl mx-auto items-center">
+          
+          {/* Left Section: Directly on page background without container */}
+          <div className="lg:col-span-5 flex flex-col justify-center space-y-8 pr-0 lg:pr-6">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] font-mono text-xs font-semibold mb-4">
                 <span>PREMIUM PC PLATFORM</span>
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight">
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-[var(--text-primary)] tracking-tight leading-tight">
                 Build & Order High-Performance Rigs
               </h2>
               <p className="text-[var(--text-secondary)] text-sm mt-3 leading-relaxed">
@@ -166,8 +167,8 @@ export function AuthPage({ mode }: { mode: Mode }) {
             </ul>
           </div>
 
-          {/* Right section: Clean Form Panel with semantic theme variables */}
-          <div className="lg:col-span-7 bg-[var(--bg-surface)] border border-[var(--border-theme)] rounded-xl p-6 sm:p-10 shadow-sm">
+          {/* Right Section: Form sitting directly on page background without outer card container */}
+          <div className="lg:col-span-7 flex flex-col justify-center py-2">
             <div className="lg:hidden mb-6">
               <span className="font-extrabold text-xl text-[var(--text-primary)] tracking-tight">PREMIUM PC</span>
             </div>
@@ -200,8 +201,8 @@ export function AuthPage({ mode }: { mode: Mode }) {
               </div>
             )}
 
-            <h1 className="text-[var(--text-primary)] font-bold text-xl sm:text-2xl tracking-tight mb-1.5">{titles[mode]}</h1>
-            <p className="text-[var(--text-secondary)] text-xs sm:text-sm mb-8">
+            <h1 className="text-[var(--text-primary)] font-bold text-2xl sm:text-3xl tracking-tight mb-2">{titles[mode]}</h1>
+            <p className="text-[var(--text-secondary)] text-sm mb-8">
               {step === 'otp' ? (
                 <span>We sent a 6-digit verification code to <strong className="text-[var(--text-primary)]">{email}</strong>.</span>
               ) : (
@@ -407,6 +408,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
               </Link>
             )}
           </div>
+
         </div>
       </div>
     </main>
