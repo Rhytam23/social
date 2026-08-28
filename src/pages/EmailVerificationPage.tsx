@@ -15,7 +15,6 @@ export function EmailVerificationPage() {
   const [step, setStep] = useState<'input' | 'otp' | 'success'>('otp')
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
-  const [demoCode, setDemoCode] = useState<string | null>(null)
   const [resendCooldown, setResendCooldown] = useState(0)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -34,8 +33,7 @@ export function EmailVerificationPage() {
     setLoading(true)
     setErrorMsg(null)
     try {
-      const res = await authService.sendOtp(email.trim(), 'login')
-      if (res.demoCode) setDemoCode(res.demoCode)
+      await authService.sendOtp(email.trim(), 'login')
       setStep('otp')
       showToast(`Verification code sent to ${email}`, 'info')
 
@@ -156,12 +154,6 @@ export function EmailVerificationPage() {
                 We sent a 6-digit code to <strong className="text-[var(--text-primary)]">{email || 'your email'}</strong>.
               </p>
             </div>
-
-            {demoCode && (
-              <div className="p-3.5 bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/30 rounded-lg text-xs text-[var(--text-secondary)] font-mono text-center">
-                🔑 <strong>Demo Verification Code</strong>: <span className="text-[var(--text-primary)] font-bold text-sm tracking-wider ml-1">{demoCode}</span>
-              </div>
-            )}
 
             {errorMsg && (
               <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-500 font-mono">

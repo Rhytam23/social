@@ -7,11 +7,13 @@ export interface PaginationParams {
   category?: string
   brand?: string
   search?: string
+  ids?: string[]
   minPrice?: number
   maxPrice?: number
   inStock?: boolean
   isFeatured?: boolean
   isNew?: boolean
+  hasDiscount?: boolean
   sort?: 'price_asc' | 'price_desc' | 'rating_desc' | 'name_asc' | 'newest' | 'featured'
 }
 
@@ -38,9 +40,13 @@ export interface ProductSummary {
   stockStatus: 'in-stock' | 'low-stock' | 'out-of-stock'
   stockAvailable: number
   categoryName?: string
+  categorySlug?: string
   brandName?: string
+  brandSlug?: string
   isFeatured: boolean
   isNew: boolean
+  wattage: number | null
+  performanceTier?: string | null
 }
 
 export interface ProductDetail extends ProductSummary {
@@ -48,9 +54,7 @@ export interface ProductDetail extends ProductSummary {
   specs: Array<{ label: string; value: string }>
   images: Array<{ url: string; altText: string | null; isPrimary: boolean }>
   tags?: string[]
-  wattage: number | null
-  categorySlug?: string
-  brandSlug?: string
+  benchmarks?: Array<{ game: string; fps1440p: number | null; fps4K: number | null }>
 }
 
 export interface ProductListResult {
@@ -63,6 +67,7 @@ function buildQuery(params: PaginationParams): string {
   if (params.page) q.set('page', String(params.page))
   if (params.limit) q.set('limit', String(params.limit))
   else q.set('limit', String(config.app.defaultPageSize))
+  if (params.ids?.length) q.set('ids', params.ids.join(','))
   if (params.category) q.set('category', params.category)
   if (params.brand) q.set('brand', params.brand)
   if (params.search) q.set('search', params.search)
@@ -71,6 +76,7 @@ function buildQuery(params: PaginationParams): string {
   if (params.inStock) q.set('inStock', 'true')
   if (params.isFeatured) q.set('isFeatured', 'true')
   if (params.isNew) q.set('isNew', 'true')
+  if (params.hasDiscount) q.set('hasDiscount', 'true')
   if (params.sort) q.set('sort', params.sort)
   return q.toString() ? `?${q.toString()}` : ''
 }

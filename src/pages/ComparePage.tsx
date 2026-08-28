@@ -1,48 +1,72 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon, Breadcrumbs, StarRating, EmptyState, Button } from '../components/ui'
-import { allProducts, getProductById } from '../data'
+import { ErrorState } from '../components/ui/ErrorState'
+import { useApi } from '../hooks/useApi'
+import { useDebounce } from '../hooks/useDebounce'
 import { useShop } from '../context/ShopContext'
-import type { Product } from '../types'
+import { useCart } from '../context/CartContext'
+import { productService, type ProductDetail, type ProductSummary } from '../services/productService'
+
+// Comparison needs full spec sheets, so each selected id is expanded to its
+// detail record (max 4 by design).
+async function loadCompared(ids: string[]): Promise<ProductDetail[]> {
+  if (ids.length === 0) return []
+  const list = await productService.list({ ids, limit: 4 })
+  return Promise.all(list.data.map((p) => productService.getBySlug(p.slug)))
+}
 
 export function ComparePage() {
-  const { compare, toggleCompare, clearCompare, addToCart } = useShop()
+  const { compare, toggleCompare, clearCompare, showToast } = useShop()
+  const { addItem } = useCart()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [imgErrors, setImgErrors] = useState<Record<string, boolean>>({})
+  const [pickable, setPickable] = useState<ProductSummary[]>([])
 
-  const products = useMemo(
-    () => compare.map((id) => getProductById(id)).filter((p): p is Product => Boolean(p)),
-    [compare]
-  )
+  const debouncedQuery = useDebounce(query, 250)
 
-  // Union of spec labels across compared products
+  const comparedFn = useCallback(() => loadCompared(compare), [compare])
+  const { data, loading, error, reload } = useApi(comparedFn, [compare.join(',')])
+  const products = useMemo(() => data ?? [], [data])
+
+  // Picker results come from the catalog API
+  useEffect(() => {
+    if (!pickerOpen) return
+    let active = true
+    productService
+      .list(debouncedQuery ? { search: debouncedQuery, limit: 20 } : { limit: 20 })
+      .then((res) => {
+        if (active) setPickable(res.data.filter((p) => !compare.includes(p.id)))
+      })
+      .catch(() => {
+        if (active) setPickable([])
+      })
+    return () => {
+      active = false
+    }
+  }, [pickerOpen, debouncedQuery, compare])
+
   const specLabels = useMemo(() => {
     const labels: string[] = []
     products.forEach((p) =>
-      p.specifications.forEach((s) => {
+      p.specs.forEach((s) => {
         if (!labels.includes(s.label)) labels.push(s.label)
       })
     )
     return labels
   }, [products])
 
-  const getSpec = (p: Product, label: string) => p.specifications.find((s) => s.label === label)?.value || '—'
-  const rowDiffers = (label: string) => {
-    const vals = products.map((p) => getSpec(p, label))
-    return new Set(vals).size > 1
-  }
+  const getSpec = (p: ProductDetail, label: string) => p.specs.find((s) => s.label === label)?.value || '—'
+  const rowDiffers = (label: string) => new Set(products.map((p) => getSpec(p, label))).size > 1
 
-  const pickable = allProducts.filter(
-    (p) =>
-      !compare.includes(p.id) &&
-      (query
-        ? p.name.toLowerCase().includes(query.toLowerCase()) || p.brand.toLowerCase().includes(query.toLowerCase())
-        : true)
-  )
-
-  const handleImgError = (id: string) => {
-    setImgErrors((prev) => ({ ...prev, [id]: true }))
+  const handleAdd = async (p: ProductDetail) => {
+    try {
+      await addItem(p.id, 1)
+      showToast('Added to cart', 'cart')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not add to cart', 'info')
+    }
   }
 
   return (
@@ -50,7 +74,6 @@ export function ComparePage() {
       <div className="container-max px-4 md:px-6 py-6">
         <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Compare Products' }]} className="mb-4" />
 
-        {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-(--border-theme)">
           <div>
             <h1 className="text-(--text-primary) font-bold text-2xl md:text-3xl tracking-tight">Product Comparison</h1>
@@ -61,37 +84,30 @@ export function ComparePage() {
           {products.length > 0 && (
             <div className="flex items-center gap-3 shrink-0">
               {products.length < 4 && (
-                <Button
-                  variant="outline"
-                  size="md"
-                  onClick={() => setPickerOpen(true)}
-                >
+                <Button variant="outline" size="md" onClick={() => setPickerOpen(true)}>
                   <Icon name="add" size={16} /> Add Product
                 </Button>
               )}
-              <Button
-                variant="tertiary"
-                size="md"
-                onClick={clearCompare}
-              >
+              <Button variant="tertiary" size="md" onClick={clearCompare}>
                 Clear All
               </Button>
             </div>
           )}
         </div>
 
-        {/* Empty State vs Comparison Matrix Table */}
-        {products.length === 0 ? (
+        {error ? (
+          <ErrorState message={error} onRetry={reload} />
+        ) : loading && compare.length > 0 ? (
+          <div className="h-64 bg-(--bg-surface) border border-(--border-theme) rounded-xl animate-pulse" />
+        ) : products.length === 0 ? (
           <div className="py-12 flex justify-center">
             <EmptyState
               icon="balance"
               title="No products selected for comparison"
-              message="Click the balance (compare) icon on any product card, listing, or catalog item to compare technical specifications side-by-side."
+              message="Click the compare icon on any product card to compare technical specifications side-by-side."
               action={
                 <Link to="/products">
-                  <Button variant="primary" size="lg" className="mt-2">
-                    Browse Products Catalog
-                  </Button>
+                  <Button variant="primary" size="lg" className="mt-2">BROWSE PRODUCTS CATALOG</Button>
                 </Link>
               }
             />
@@ -108,7 +124,10 @@ export function ComparePage() {
                     </span>
                   </th>
                   {products.map((p) => (
-                    <td key={p.id} className="p-4 align-top bg-(--bg-surface-secondary) border-r border-(--border-theme) min-w-[220px] max-w-[260px]">
+                    <td
+                      key={p.id}
+                      className="p-4 align-top bg-(--bg-surface-secondary) border-r border-(--border-theme) min-w-[220px] max-w-[260px]"
+                    >
                       <div className="relative">
                         <button
                           onClick={() => toggleCompare(p.id)}
@@ -119,12 +138,12 @@ export function ComparePage() {
                         </button>
                         <Link to={`/products/${p.slug}`} className="block group">
                           <div className="w-full aspect-[4/3] rounded-lg bg-(--bg-surface) overflow-hidden mb-3 border border-(--border-theme) group-hover:border-(--accent-blue) transition-colors">
-                            {!imgErrors[p.id] ? (
+                            {p.primaryImage && !imgErrors[p.id] ? (
                               <img
-                                src={p.image}
+                                src={p.primaryImage}
                                 alt={p.name}
                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                onError={() => handleImgError(p.id)}
+                                onError={() => setImgErrors((prev) => ({ ...prev, [p.id]: true }))}
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-(--text-secondary)">
@@ -133,7 +152,7 @@ export function ComparePage() {
                             )}
                           </div>
                           <span className="font-mono text-[10px] text-(--accent-blue) font-bold uppercase tracking-wider block mb-0.5">
-                            {p.brand}
+                            {p.brandName}
                           </span>
                           <h3 className="text-(--text-primary) text-xs font-bold leading-snug line-clamp-2 group-hover:text-(--accent-blue) transition-colors min-h-[32px]">
                             {p.name}
@@ -143,7 +162,6 @@ export function ComparePage() {
                     </td>
                   ))}
 
-                  {/* Empty Slot Card */}
                   {products.length < 4 && (
                     <td className="p-4 align-middle bg-(--bg-surface) border-r border-(--border-theme) min-w-[200px]">
                       <button
@@ -159,11 +177,12 @@ export function ComparePage() {
                   )}
                 </tr>
 
-                {/* Price Row */}
                 <CompareRow label="Retail Price">
                   {products.map((p) => (
                     <td key={p.id} className="p-4 align-top border-r border-(--border-theme)">
-                      <span className="text-(--text-primary) font-bold font-mono text-lg block">${p.price.toFixed(2)}</span>
+                      <span className="text-(--text-primary) font-bold font-mono text-lg block">
+                        ${p.price.toFixed(2)}
+                      </span>
                       {p.previousPrice && (
                         <span className="text-(--text-secondary) text-xs line-through font-mono">
                           ${p.previousPrice.toFixed(2)}
@@ -174,17 +193,19 @@ export function ComparePage() {
                   {products.length < 4 && <td className="border-r border-(--border-theme)" />}
                 </CompareRow>
 
-                {/* Rating Row */}
                 <CompareRow label="Customer Rating">
                   {products.map((p) => (
                     <td key={p.id} className="p-4 align-top border-r border-(--border-theme)">
-                      <StarRating rating={p.rating} count={p.reviewCount} />
+                      {p.reviewCount > 0 ? (
+                        <StarRating rating={p.rating} count={p.reviewCount} />
+                      ) : (
+                        <span className="font-mono text-[10px] text-(--text-muted)">NO REVIEWS</span>
+                      )}
                     </td>
                   ))}
                   {products.length < 4 && <td className="border-r border-(--border-theme)" />}
                 </CompareRow>
 
-                {/* Availability Row */}
                 <CompareRow label="Availability">
                   {products.map((p) => (
                     <td key={p.id} className="p-4 align-top border-r border-(--border-theme)">
@@ -193,8 +214,8 @@ export function ComparePage() {
                           p.stockStatus === 'in-stock'
                             ? 'bg-(--color-stock-green)/15 text-(--color-stock-green) border-(--color-stock-green)/30'
                             : p.stockStatus === 'low-stock'
-                            ? 'bg-(--color-stock-yellow-val)/15 text-(--color-stock-yellow-val) border-(--color-stock-yellow-val)/30'
-                            : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
+                              ? 'bg-(--color-stock-yellow-val)/15 text-(--color-stock-yellow-val) border-(--color-stock-yellow-val)/30'
+                              : 'bg-rose-500/15 text-rose-500 border-rose-500/30'
                         }`}
                       >
                         {p.stockStatus.replace('-', ' ').toUpperCase()}
@@ -204,17 +225,18 @@ export function ComparePage() {
                   {products.length < 4 && <td className="border-r border-(--border-theme)" />}
                 </CompareRow>
 
-                {/* Category Row */}
                 <CompareRow label="Category">
                   {products.map((p) => (
-                    <td key={p.id} className="p-4 align-top text-xs text-(--text-primary) font-medium border-r border-(--border-theme)">
-                      {p.category}
+                    <td
+                      key={p.id}
+                      className="p-4 align-top text-xs text-(--text-primary) font-medium border-r border-(--border-theme)"
+                    >
+                      {p.categoryName ?? '—'}
                     </td>
                   ))}
                   {products.length < 4 && <td className="border-r border-(--border-theme)" />}
                 </CompareRow>
 
-                {/* Dynamic Specifications Rows */}
                 {specLabels.map((label) => {
                   const differs = rowDiffers(label)
                   return (
@@ -234,7 +256,6 @@ export function ComparePage() {
                   )
                 })}
 
-                {/* Action CTA Row */}
                 <tr>
                   <th className="bg-(--bg-surface-secondary) p-4 text-left sticky left-0 z-20 border-r border-(--border-theme)">
                     <span className="font-mono text-[10px] text-(--text-secondary) uppercase font-bold tracking-wider">
@@ -247,7 +268,8 @@ export function ComparePage() {
                         variant="primary"
                         size="sm"
                         fullWidth
-                        onClick={() => addToCart(p)}
+                        disabled={p.stockStatus === 'out-of-stock'}
+                        onClick={() => void handleAdd(p)}
                       >
                         <Icon name="add_shopping_cart" size={14} /> Add to Cart
                       </Button>
@@ -273,7 +295,11 @@ export function ComparePage() {
           >
             <div className="p-4 bg-(--bg-surface-secondary) border-b border-(--border-theme) flex items-center justify-between">
               <h3 className="text-(--text-primary) font-bold text-base">Select Product to Compare</h3>
-              <button onClick={() => setPickerOpen(false)} className="text-(--text-secondary) hover:text-(--text-primary) cursor-pointer" aria-label="Close">
+              <button
+                onClick={() => setPickerOpen(false)}
+                className="text-(--text-secondary) hover:text-(--text-primary) cursor-pointer"
+                aria-label="Close"
+              >
                 <Icon name="close" size={20} />
               </button>
             </div>
@@ -284,30 +310,45 @@ export function ComparePage() {
                 <input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search catalog by name or brand..."
+                  placeholder="Search catalog by name or brand…"
+                  aria-label="Search products to compare"
                   className="w-full bg-transparent text-xs text-(--text-primary) focus:outline-none placeholder:text-(--text-secondary)"
                 />
               </div>
             </div>
 
             <div className="p-3 overflow-y-auto flex-1 space-y-2">
-              {pickable.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    toggleCompare(p.id)
-                    if (compare.length + 1 >= 4) setPickerOpen(false)
-                  }}
-                  className="w-full flex items-center gap-3 p-3 bg-(--bg-surface-secondary) border border-(--border-theme) hover:border-(--accent-blue) rounded-lg text-left transition-colors group cursor-pointer"
-                >
-                  <img src={p.image} alt="" className="w-11 h-11 object-cover rounded-md bg-(--bg-surface) shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <span className="font-mono text-[10px] text-(--accent-blue) uppercase font-bold">{p.brand}</span>
-                    <h4 className="text-(--text-primary) text-xs font-semibold truncate group-hover:text-(--accent-blue)">{p.name}</h4>
-                  </div>
-                  <span className="font-mono text-xs text-(--accent-blue) font-bold shrink-0">${p.price.toFixed(2)}</span>
-                </button>
-              ))}
+              {pickable.length === 0 ? (
+                <p className="text-center text-xs text-(--text-secondary) py-8">No products found.</p>
+              ) : (
+                pickable.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      toggleCompare(p.id)
+                      if (compare.length + 1 >= 4) setPickerOpen(false)
+                    }}
+                    className="w-full flex items-center gap-3 p-3 bg-(--bg-surface-secondary) border border-(--border-theme) hover:border-(--accent-blue) rounded-lg text-left transition-colors group cursor-pointer"
+                  >
+                    {p.primaryImage ? (
+                      <img src={p.primaryImage} alt="" className="w-11 h-11 object-cover rounded-md bg-(--bg-surface) shrink-0" />
+                    ) : (
+                      <span className="w-11 h-11 rounded-md bg-(--bg-surface) shrink-0 flex items-center justify-center">
+                        <Icon name="memory" size={20} className="text-(--accent-blue)" />
+                      </span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <span className="font-mono text-[10px] text-(--accent-blue) uppercase font-bold">{p.brandName}</span>
+                      <h4 className="text-(--text-primary) text-xs font-semibold truncate group-hover:text-(--accent-blue)">
+                        {p.name}
+                      </h4>
+                    </div>
+                    <span className="font-mono text-xs text-(--accent-blue) font-bold shrink-0">
+                      ${p.price.toFixed(2)}
+                    </span>
+                  </button>
+                ))
+              )}
             </div>
           </div>
         </div>

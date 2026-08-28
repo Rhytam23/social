@@ -7,14 +7,12 @@ import { AdminOrders } from './AdminOrders'
 import { AdminCustomers } from './AdminCustomers'
 import { AdminInventory } from './AdminInventory'
 import { AdminCategories } from './AdminCategories'
-import { AdminPromotions } from './AdminPromotions'
-import { AdminAnalytics } from './AdminAnalytics'
-import { AdminMedia } from './AdminMedia'
-import { AdminSettings } from './AdminSettings'
 import { AdminBrands } from './AdminBrands'
-import { AdminGamingPCs } from './AdminGamingPCs'
 import { NotFoundPage } from '../NotFoundPage'
 
+// Sections without a backend (promotions/coupons, media library, store
+// settings, hero campaign editor, and the previously hardcoded analytics page)
+// have been removed rather than shown with fabricated data.
 export default function AdminApp() {
   return (
     <Routes>
@@ -28,12 +26,6 @@ export default function AdminApp() {
         <Route path="inventory" element={<AdminInventory />} />
         <Route path="categories" element={<AdminCategories />} />
         <Route path="brands" element={<AdminBrands />} />
-        <Route path="gaming-pcs" element={<AdminGamingPCs />} />
-        <Route path="promotions" element={<AdminPromotions />} />
-        <Route path="hero" element={<AdminPromotions />} />
-        <Route path="analytics" element={<AdminAnalytics />} />
-        <Route path="media" element={<AdminMedia />} />
-        <Route path="settings" element={<AdminSettings />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

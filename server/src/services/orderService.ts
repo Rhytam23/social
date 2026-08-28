@@ -2,6 +2,7 @@ import { PoolClient } from 'pg'
 import { query, queryOne, withTransaction } from '../db/client'
 import { NotFoundError, AppError } from '../middleware/errorHandler'
 import { config } from '../config'
+import { emailService } from './emailService'
 import type { Cart, CartItem, Order, OrderLineItem, OrderTimelineEntry, CreateOrderDTO } from '../types'
 
 // ─── Cart Service ─────────────────────────────────────────────────────────────
@@ -137,6 +138,25 @@ export const cartService = {
   async clearCart(userId?: string, sessionId?: string): Promise<void> {
     const cartId = await findOrCreateCart(userId, sessionId)
     await query('DELETE FROM cart_items WHERE cart_id = $1', [cartId])
+  },
+
+  // Moves a guest (session) cart into the user's cart on login/registration.
+  // Quantities are combined, capped at the 99-per-item schema limit.
+  async mergeSessionCartIntoUser(sessionId: string, userId: string): Promise<void> {
+    const sessionCart = await queryOne<CartRow>('SELECT * FROM carts WHERE session_id = $1', [sessionId])
+    if (!sessionCart) return
+
+    const userCartId = await findOrCreateCart(userId, undefined)
+    if (sessionCart.id === userCartId) return
+
+    await query(
+      `INSERT INTO cart_items (cart_id, product_id, quantity)
+       SELECT $1, product_id, quantity FROM cart_items WHERE cart_id = $2
+       ON CONFLICT (cart_id, product_id)
+       DO UPDATE SET quantity = LEAST(99, cart_items.quantity + EXCLUDED.quantity)`,
+      [userCartId, sessionCart.id]
+    )
+    await query('DELETE FROM carts WHERE id = $1', [sessionCart.id])
   },
 }
 
@@ -374,15 +394,16 @@ export const orderService = {
     })
   },
 
-  async getById(id: string, userId?: string): Promise<Order> {
-    const whereExtra = userId ? 'AND o.user_id = $2' : ''
-    const args: unknown[] = [id]
-    if (userId) args.push(userId)
-
-    const row = await queryOne<OrderRow>(
-      `SELECT * FROM orders o WHERE o.id = $1 ${whereExtra}`, args
-    )
+  // Ownership rules: orders belonging to a user are only visible to that user
+  // (or to internal/admin callers passing bypassOwnership). Guest orders
+  // (user_id IS NULL) are retrievable by anyone holding the order UUID.
+  async getById(id: string, access?: { userId?: string; bypassOwnership?: boolean }): Promise<Order> {
+    const row = await queryOne<OrderRow>('SELECT * FROM orders o WHERE o.id = $1', [id])
     if (!row) throw new NotFoundError('Order')
+
+    if (!access?.bypassOwnership && row.user_id !== null && row.user_id !== access?.userId) {
+      throw new NotFoundError('Order')
+    }
 
     const [items, timeline] = await Promise.all([
       query<OrderItemRow>('SELECT * FROM order_items WHERE order_id = $1', [id]),
@@ -399,7 +420,8 @@ export const orderService = {
   async getByOrderNumber(orderNumber: string): Promise<Order> {
     const row = await queryOne<OrderRow>('SELECT * FROM orders WHERE order_number = $1', [orderNumber])
     if (!row) throw new NotFoundError('Order')
-    return this.getById(row.id)
+    // Caller (public tracking route) exposes only non-PII fields.
+    return this.getById(row.id, { bypassOwnership: true })
   },
 
   async listForUser(userId: string, params: { page: number; limit: number }): Promise<{ orders: Order[]; total: number }> {
@@ -414,23 +436,28 @@ export const orderService = {
       query<{ count: string }>('SELECT COUNT(*) FROM orders WHERE user_id = $1', [userId]),
     ])
 
-    const orders = await Promise.all(rows.map((r) => this.getById(r.id)))
+    const orders = await Promise.all(rows.map((r) => this.getById(r.id, { bypassOwnership: true })))
     return { orders, total: parseInt(countRows[0]?.count ?? '0', 10) }
   },
 
   async listAll(params: { page: number; limit: number; status?: string }): Promise<{ orders: Order[]; total: number }> {
     const { page, limit, status } = params
     const offset = (page - 1) * limit
-    const whereSQL = status ? 'WHERE status = $3' : ''
     const args: unknown[] = [limit, offset]
     if (status) args.push(status)
 
     const [rows, countRows] = await Promise.all([
-      query<OrderRow>(`SELECT * FROM orders ${whereSQL} ORDER BY created_at DESC LIMIT $1 OFFSET $2`, args),
-      query<{ count: string }>(`SELECT COUNT(*) FROM orders ${whereSQL}`, status ? [status] : []),
+      query<OrderRow>(
+        `SELECT * FROM orders ${status ? 'WHERE status = $3' : ''} ORDER BY created_at DESC LIMIT $1 OFFSET $2`,
+        args
+      ),
+      query<{ count: string }>(
+        `SELECT COUNT(*) FROM orders ${status ? 'WHERE status = $1' : ''}`,
+        status ? [status] : []
+      ),
     ])
 
-    const orders = await Promise.all(rows.map((r) => this.getById(r.id)))
+    const orders = await Promise.all(rows.map((r) => this.getById(r.id, { bypassOwnership: true })))
     return { orders, total: parseInt(countRows[0]?.count ?? '0', 10) }
   },
 
@@ -443,11 +470,106 @@ export const orderService = {
       'INSERT INTO order_timeline (order_id, status, description) VALUES ($1,$2,$3)',
       [orderId, status, description ?? `Status updated to ${status}`]
     )
-    return this.getById(orderId)
+    return this.getById(orderId, { bypassOwnership: true })
   },
 
   async updatePaymentStatus(orderId: string, paymentStatus: Order['paymentStatus']): Promise<Order> {
     await query('UPDATE orders SET payment_status = $1 WHERE id = $2', [paymentStatus, orderId])
-    return this.getById(orderId)
+    return this.getById(orderId, { bypassOwnership: true })
+  },
+
+  // ─── Payment lifecycle (idempotent by construction) ───────────────────────────
+
+  // Marks a pending order paid, deducts confirmed inventory, and appends the
+  // timeline entry — all in one transaction. Safe to call more than once: the
+  // payment_status='pending' guard makes replays no-ops.
+  async markPaid(orderId: string, description = 'Payment confirmed'): Promise<Order> {
+    const settled = await withTransaction(async (client: PoolClient) => {
+      const { rows: updated } = await client.query(
+        `UPDATE orders SET payment_status = 'paid'
+         WHERE id = $1 AND payment_status = 'pending'
+         RETURNING id`,
+        [orderId]
+      )
+      if (updated.length === 0) return false // already settled — idempotent no-op
+
+      const { rows: items } = await client.query<{ product_id: string; quantity: number }>(
+        'SELECT product_id, quantity FROM order_items WHERE order_id = $1 AND product_id IS NOT NULL',
+        [orderId]
+      )
+      for (const item of items) {
+        await client.query(
+          `UPDATE inventory
+           SET quantity_on_hand  = GREATEST(0, quantity_on_hand - $1),
+               quantity_reserved = GREATEST(0, quantity_reserved - $1)
+           WHERE product_id = $2`,
+          [item.quantity, item.product_id]
+        )
+      }
+
+      await client.query(
+        `INSERT INTO order_timeline (order_id, status, description) VALUES ($1, 'processing', $2)`,
+        [orderId, description]
+      )
+      return true
+    })
+
+    const result = await this.getById(orderId, { bypassOwnership: true })
+    if (settled) {
+      // Fire-and-forget — email failure must never block payment confirmation.
+      emailService.sendOrderConfirmation(result).catch((err) =>
+        console.error('[Order] Failed to send confirmation email:', err)
+      )
+    }
+    return result
+  },
+
+  // Marks a pending order failed/cancelled and releases inventory reservations.
+  // Guarded so a replayed webhook can never flip a paid order.
+  async markFailed(orderId: string, reason: string): Promise<Order> {
+    await withTransaction(async (client: PoolClient) => {
+      const { rows: updated } = await client.query(
+        `UPDATE orders SET payment_status = 'failed', status = 'cancelled'
+         WHERE id = $1 AND payment_status = 'pending'
+         RETURNING id`,
+        [orderId]
+      )
+      if (updated.length === 0) return
+
+      const { rows: items } = await client.query<{ product_id: string; quantity: number }>(
+        'SELECT product_id, quantity FROM order_items WHERE order_id = $1 AND product_id IS NOT NULL',
+        [orderId]
+      )
+      for (const item of items) {
+        await client.query(
+          `UPDATE inventory SET quantity_reserved = GREATEST(0, quantity_reserved - $1) WHERE product_id = $2`,
+          [item.quantity, item.product_id]
+        )
+      }
+
+      await client.query(
+        `INSERT INTO order_timeline (order_id, status, description) VALUES ($1, 'cancelled', $2)`,
+        [orderId, reason]
+      )
+    })
+    return this.getById(orderId, { bypassOwnership: true })
+  },
+
+  // Transitions a paid order to refunded (money movement happens in Stripe;
+  // this only syncs state on charge.refunded webhooks).
+  async markRefunded(orderId: string, description: string): Promise<Order> {
+    const updated = await query<{ id: string }>(
+      `UPDATE orders SET payment_status = 'refunded', status = 'refunded'
+       WHERE id = $1 AND payment_status = 'paid'
+       RETURNING id`,
+      [orderId]
+    )
+    if (updated.length > 0) {
+      await query(
+        `INSERT INTO order_timeline (order_id, status, description) VALUES ($1, 'refunded', $2)`,
+        [orderId, description]
+      )
+    }
+    return this.getById(orderId, { bypassOwnership: true })
   },
 }

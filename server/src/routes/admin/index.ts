@@ -6,8 +6,14 @@ import { brandService } from '../../services/brandService'
 import { inventoryService } from '../../services/inventoryService'
 import { orderService } from '../../services/orderService'
 import { authService } from '../../services/authService'
-import { validate, createProductSchema, paginationSchema } from '../../middleware/validate'
+import {
+  validate, createProductSchema, updateProductSchema, paginationSchema,
+  adminOrderListSchema, adminUserListSchema,
+  categoryBodySchema, categoryUpdateSchema, brandBodySchema, brandUpdateSchema,
+  inventoryAdjustSchema, uuidParamSchema, productIdParamSchema,
+} from '../../middleware/validate'
 import { asyncRoute, success, created, noContent } from '../../middleware/errorHandler'
+import { query } from '../../db/client'
 import { z } from 'zod'
 
 const router = Router()
@@ -23,21 +29,37 @@ router.get('/dashboard', requireStaff, asyncRoute(async (_req, res) => {
     { total: userCount },
     { pagination: { total: productCount } },
     lowStockRecords,
+    revenueRows,
+    statusRows,
   ] = await Promise.all([
     orderService.listAll({ page: 1, limit: 6 }),
     authService.listUsers({ page: 1, limit: 1 }),
     productService.list({ page: 1, limit: 1 }),
     inventoryService.listLowStock(),
+    // Revenue counts only orders that were actually paid.
+    query<{ paid_revenue: string; paid_orders: string }>(
+      `SELECT COALESCE(SUM(total), 0) AS paid_revenue, COUNT(*) AS paid_orders
+       FROM orders WHERE payment_status = 'paid'`
+    ),
+    query<{ status: string; count: string }>(
+      'SELECT status, COUNT(*) AS count FROM orders GROUP BY status ORDER BY status'
+    ),
   ])
 
-  const totalSales = recentOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+  const ordersByStatus = statusRows.map((r) => ({ status: r.status, count: parseInt(r.count, 10) }))
+  const pendingOrderCount = ordersByStatus
+    .filter((s) => s.status === 'processing' || s.status === 'assembling' || s.status === 'quality_check')
+    .reduce((sum, s) => sum + s.count, 0)
 
   success(res, {
     recentOrders,
     userCount,
     productCount,
     lowStockCount: lowStockRecords.length,
-    totalSales,
+    paidRevenue: parseFloat(revenueRows[0]?.paid_revenue ?? '0'),
+    paidOrderCount: parseInt(revenueRows[0]?.paid_orders ?? '0', 10),
+    pendingOrderCount,
+    ordersByStatus,
   })
 }))
 
@@ -54,12 +76,12 @@ router.post('/products', requireAdmin, validate(createProductSchema), asyncRoute
   created(res, { product })
 }))
 
-router.put('/products/:id', requireAdmin, asyncRoute(async (req, res) => {
+router.put('/products/:id', requireAdmin, validate(uuidParamSchema, 'params'), validate(updateProductSchema), asyncRoute(async (req, res) => {
   const product = await productService.update(req.params.id, req.body)
   success(res, { product })
 }))
 
-router.delete('/products/:id', requireAdmin, asyncRoute(async (req, res) => {
+router.delete('/products/:id', requireAdmin, validate(uuidParamSchema, 'params'), asyncRoute(async (req, res) => {
   await productService.delete(req.params.id)
   noContent(res)
 }))
@@ -71,17 +93,17 @@ router.get('/categories', requireStaff, asyncRoute(async (_req, res) => {
   success(res, { categories })
 }))
 
-router.post('/categories', requireAdmin, asyncRoute(async (req, res) => {
+router.post('/categories', requireAdmin, validate(categoryBodySchema), asyncRoute(async (req, res) => {
   const category = await categoryService.create(req.body)
   created(res, { category })
 }))
 
-router.put('/categories/:id', requireAdmin, asyncRoute(async (req, res) => {
+router.put('/categories/:id', requireAdmin, validate(uuidParamSchema, 'params'), validate(categoryUpdateSchema), asyncRoute(async (req, res) => {
   const category = await categoryService.update(req.params.id, req.body)
   success(res, { category })
 }))
 
-router.delete('/categories/:id', requireAdmin, asyncRoute(async (req, res) => {
+router.delete('/categories/:id', requireAdmin, validate(uuidParamSchema, 'params'), asyncRoute(async (req, res) => {
   await categoryService.delete(req.params.id)
   noContent(res)
 }))
@@ -93,17 +115,17 @@ router.get('/brands', requireStaff, asyncRoute(async (_req, res) => {
   success(res, { brands })
 }))
 
-router.post('/brands', requireAdmin, asyncRoute(async (req, res) => {
+router.post('/brands', requireAdmin, validate(brandBodySchema), asyncRoute(async (req, res) => {
   const brand = await brandService.create(req.body)
   created(res, { brand })
 }))
 
-router.put('/brands/:id', requireAdmin, asyncRoute(async (req, res) => {
+router.put('/brands/:id', requireAdmin, validate(uuidParamSchema, 'params'), validate(brandUpdateSchema), asyncRoute(async (req, res) => {
   const brand = await brandService.update(req.params.id, req.body)
   success(res, { brand })
 }))
 
-router.delete('/brands/:id', requireAdmin, asyncRoute(async (req, res) => {
+router.delete('/brands/:id', requireAdmin, validate(uuidParamSchema, 'params'), asyncRoute(async (req, res) => {
   await brandService.delete(req.params.id)
   noContent(res)
 }))
@@ -115,30 +137,30 @@ router.get('/inventory/low-stock', requireStaff, asyncRoute(async (_req, res) =>
   success(res, { records })
 }))
 
-router.get('/inventory/:productId', requireStaff, asyncRoute(async (req, res) => {
+router.get('/inventory/:productId', requireStaff, validate(productIdParamSchema, 'params'), asyncRoute(async (req, res) => {
   const record = await inventoryService.getByProductId(req.params.productId)
   success(res, { record })
 }))
 
-router.put('/inventory/:productId', requireAdmin, asyncRoute(async (req, res) => {
+router.put('/inventory/:productId', requireAdmin, validate(productIdParamSchema, 'params'), validate(inventoryAdjustSchema), asyncRoute(async (req, res) => {
   const record = await inventoryService.adjust(req.params.productId, req.body)
   success(res, { record })
 }))
 
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
-router.get('/orders', requireStaff, validate(paginationSchema, 'query'), asyncRoute(async (req, res) => {
+router.get('/orders', requireStaff, validate(adminOrderListSchema, 'query'), asyncRoute(async (req, res) => {
   const q = (req.query as unknown) as { page: number; limit: number; status?: string }
   const result = await orderService.listAll({ page: q.page, limit: q.limit, status: q.status })
   success(res, result)
 }))
 
-router.get('/orders/:id', requireStaff, asyncRoute(async (req, res) => {
-  const order = await orderService.getById(req.params.id)
+router.get('/orders/:id', requireStaff, validate(uuidParamSchema, 'params'), asyncRoute(async (req, res) => {
+  const order = await orderService.getById(req.params.id, { bypassOwnership: true })
   success(res, { order })
 }))
 
-router.put('/orders/:id/status', requireStaff, validate(z.object({
+router.put('/orders/:id/status', requireStaff, validate(uuidParamSchema, 'params'), validate(z.object({
   status: z.enum(['processing','assembling','quality_check','shipped','delivered','cancelled','refunded']),
   description: z.string().optional(),
 })), asyncRoute(async (req, res) => {
@@ -146,7 +168,7 @@ router.put('/orders/:id/status', requireStaff, validate(z.object({
   success(res, { order })
 }))
 
-router.put('/orders/:id/payment-status', requireAdmin, validate(z.object({
+router.put('/orders/:id/payment-status', requireAdmin, validate(uuidParamSchema, 'params'), validate(z.object({
   paymentStatus: z.enum(['pending','paid','failed','refunded']),
 })), asyncRoute(async (req, res) => {
   const order = await orderService.updatePaymentStatus(req.params.id, req.body.paymentStatus)
@@ -155,13 +177,13 @@ router.put('/orders/:id/payment-status', requireAdmin, validate(z.object({
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
-router.get('/users', requireAdmin, validate(paginationSchema, 'query'), asyncRoute(async (req, res) => {
+router.get('/users', requireAdmin, validate(adminUserListSchema, 'query'), asyncRoute(async (req, res) => {
   const q = (req.query as unknown) as { page: number; limit: number; role?: string }
   const result = await authService.listUsers({ page: q.page, limit: q.limit, role: q.role })
   success(res, result)
 }))
 
-router.put('/users/:id/status', requireAdmin, validate(z.object({
+router.put('/users/:id/status', requireAdmin, validate(uuidParamSchema, 'params'), validate(z.object({
   status: z.enum(['active','suspended','deleted']),
 })), asyncRoute(async (req, res) => {
   const user = await authService.updateUserStatus(req.params.id, req.body.status)

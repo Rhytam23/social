@@ -9,8 +9,10 @@
     "start": "node dist/index.js",
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
+    "export:catalog": "tsx scripts/exportCatalog.ts",
+    "seed:catalog": "tsx scripts/exportCatalog.ts && tsx src/db/seedCatalog.ts",
     "migrate:seed": "tsx src/db/migrate.ts && tsx src/db/seed.ts",
-    "test": "npx cross-env NO_AUTO_START=true tsx src/tests/runTests.ts",
+    "test": "npx cross-env NODE_ENV=test NO_AUTO_START=true tsx src/tests/runTests.ts",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

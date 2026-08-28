@@ -29,12 +29,14 @@ router.get(
   })
 )
 
-// GET /api/orders/:id — get specific order (user must own it)
+// GET /api/orders/:id — get specific order.
+// Orders owned by a user are only visible to that user; guest orders are
+// retrievable by anyone holding the order UUID (capability token).
 router.get(
   '/:id',
   optionalAuth,
   asyncRoute(async (req, res) => {
-    const order = await orderService.getById(req.params.id, req.user?.userId)
+    const order = await orderService.getById(req.params.id, { userId: req.user?.userId })
     success(res, { order })
   })
 )

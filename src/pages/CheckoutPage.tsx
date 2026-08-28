@@ -1,89 +1,276 @@
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Icon, Breadcrumbs } from '../components/ui'
-import { useShop } from '../context/ShopContext'
-import type { Order } from '../types'
+import { loadStripe, type Stripe } from '@stripe/stripe-js'
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
+import { Icon, Breadcrumbs, Button, EmptyState } from '../components/ui'
+import { useCart } from '../context/CartContext'
+import { useAuth } from '../context/AuthContext'
+import { orderService, type Order } from '../services/orderService'
+import { paymentService } from '../services/paymentService'
+import { config } from '../lib/config'
 
-const STEPS = ['Customer', 'Shipping', 'Payment', 'Review'] as const
+const STEPS = ['Customer', 'Shipping', 'Payment'] as const
 type Step = (typeof STEPS)[number]
 
-const inputClass = 'w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded p-2.5 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)'
-const labelClass = 'text-[11px] font-mono text-(--text-secondary) block mb-1'
+const inputClass =
+  'w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg px-3 py-2 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)'
+const labelClass = 'text-[11px] font-mono text-(--text-secondary) block mb-1 uppercase font-semibold'
+
+// Stripe is loaded once, and only when a publishable key is configured.
+const stripePromise: Promise<Stripe | null> | null = config.stripe.publishableKey
+  ? loadStripe(config.stripe.publishableKey)
+  : null
+
+interface CheckoutForm {
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  street: string
+  city: string
+  state: string
+  zip: string
+  country: string
+}
+
+/** Stripe Elements payment step — confirms the PaymentIntent, then asks our server to verify it. */
+function PaymentStep({
+  order,
+  paymentIntentId,
+  onPaid,
+  onFailed,
+}: {
+  order: Order
+  paymentIntentId: string
+  onPaid: (order: Order) => void
+  onFailed: (message: string) => void
+}) {
+  const stripe = useStripe()
+  const elements = useElements()
+  const [processing, setProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!stripe || !elements) return
+
+    setProcessing(true)
+    setError(null)
+
+    const { error: submitError } = await elements.submit()
+    if (submitError) {
+      setError(submitError.message ?? 'Please check your payment details.')
+      setProcessing(false)
+      return
+    }
+
+    const { error: confirmError } = await stripe.confirmPayment({
+      elements,
+      redirect: 'if_required',
+      confirmParams: {
+        return_url: `${window.location.origin}/checkout/confirmation?orderId=${order.id}`,
+      },
+    })
+
+    if (confirmError) {
+      setError(confirmError.message ?? 'Payment could not be completed.')
+      setProcessing(false)
+      onFailed(confirmError.message ?? 'Payment declined')
+      return
+    }
+
+    // Payment status is never trusted from the browser — the server re-checks
+    // it with Stripe (and the webhook confirms it independently).
+    try {
+      const result = await paymentService.verify(order.id, paymentIntentId)
+      if (result.verified) {
+        onPaid(result.order)
+      } else {
+        setError('Payment is still processing. You will receive confirmation once it settles.')
+        setProcessing(false)
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not verify payment')
+      setProcessing(false)
+    }
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">
+        Payment
+      </h2>
+
+      <div className="p-4 bg-(--bg-surface-secondary) rounded-lg border border-(--border-theme)">
+        <PaymentElement />
+      </div>
+
+      {error && (
+        <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-mono">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-start gap-2 text-[10px] font-mono text-(--text-secondary)">
+        <Icon name="lock" size={14} className="text-(--color-stock-green) shrink-0 mt-0.5" />
+        Card details are sent directly to Stripe and never touch our servers. The charged amount is calculated
+        server-side from your order.
+      </div>
+
+      <Button type="submit" variant="primary" size="lg" fullWidth disabled={!stripe || processing}>
+        {processing ? 'PROCESSING PAYMENT…' : `PAY $${order.total.toFixed(2)}`}
+      </Button>
+    </form>
+  )
+}
 
 export function CheckoutPage() {
   const navigate = useNavigate()
-  const { cart, cartSubtotal, clearCart, placeOrder } = useShop()
+  const { cart, subtotal, itemCount, refresh: refreshCart } = useCart()
+  const { user } = useAuth()
 
   const [stepIndex, setStepIndex] = useState(0)
-  const step: Step = STEPS[stepIndex]
   const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard')
-  const [paymentMethod, setPaymentMethod] = useState<'card' | 'paypal' | 'crypto'>('card')
+  const [order, setOrder] = useState<Order | null>(null)
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [checkoutError, setCheckoutError] = useState<string | null>(null)
+  const [paymentUnavailable, setPaymentUnavailable] = useState(false)
 
-  const [form, setForm] = useState({
-    firstName: 'Alex', lastName: 'Rider', email: 'alex.rider@example.com', phone: '+1 (555) 234-5678',
-    street: '742 Evergreen Terrace', city: 'Springfield', state: 'OR', zip: '97477', country: 'United States',
-    cardNumber: '•••• •••• •••• 4242', cardExp: '12/28', cardCvc: '•••',
+  const [form, setForm] = useState<CheckoutForm>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    street: '',
+    city: '',
+    state: '',
+    zip: '',
+    country: 'United States',
   })
-  const set = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
-  const shippingCost = shippingMethod === 'express' ? 19.99 : 0
-  const tax = cartSubtotal * 0.08
-  const total = cartSubtotal + shippingCost + tax
+  // Prefill contact fields from the signed-in account (never fabricated data).
+  useEffect(() => {
+    if (!user) return
+    setForm((prev) => ({
+      ...prev,
+      firstName: prev.firstName || user.firstName,
+      lastName: prev.lastName || user.lastName,
+      email: prev.email || user.email,
+      phone: prev.phone || (user.phone ?? ''),
+    }))
+  }, [user])
 
-  if (cart.length === 0) {
+  const step: Step = STEPS[stepIndex]
+  const items = cart?.items ?? []
+
+  const set = (key: keyof CheckoutForm, value: string) => setForm((f) => ({ ...f, [key]: value }))
+
+  const stepValid = useMemo(() => {
+    if (step === 'Customer') {
+      return (
+        form.firstName.trim().length > 0 &&
+        form.lastName.trim().length > 0 &&
+        /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email.trim())
+      )
+    }
+    if (step === 'Shipping') {
+      return (
+        form.street.trim().length > 0 &&
+        form.city.trim().length > 0 &&
+        form.state.trim().length > 0 &&
+        form.zip.trim().length > 0
+      )
+    }
+    return true
+  }, [step, form])
+
+  // Creates the real order, then opens a Stripe PaymentIntent for it.
+  const startPayment = async () => {
+    setSubmitting(true)
+    setCheckoutError(null)
+    setPaymentUnavailable(false)
+
+    try {
+      const created = await orderService.createOrder({
+        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        shippingName: `${form.firstName.trim()} ${form.lastName.trim()}`,
+        shippingStreet: form.street.trim(),
+        shippingCity: form.city.trim(),
+        shippingState: form.state.trim(),
+        shippingZip: form.zip.trim(),
+        shippingCountry: form.country.trim(),
+        shippingMethod,
+        paymentMethod: 'card',
+        customerEmail: form.email.trim(),
+        ...(form.phone.trim() ? { customerPhone: form.phone.trim() } : {}),
+      })
+      setOrder(created)
+
+      const intent = await paymentService.createIntent(created.id)
+      setClientSecret(intent.clientSecret)
+      setPaymentIntentId(intent.paymentIntentId)
+      setStepIndex(2)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Checkout failed'
+      // 503 from the payment gateway means Stripe is not configured on the server.
+      // Advance to the payment step regardless so the customer sees an explicit
+      // explanation rather than a silently stalled form.
+      if (/not configured|unconfigured|PAYMENT_UNCONFIGURED/i.test(message)) {
+        setPaymentUnavailable(true)
+        setStepIndex(2)
+      } else {
+        setCheckoutError(message)
+      }
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const handlePaid = async (paidOrder: Order) => {
+    await refreshCart()
+    navigate(`/checkout/confirmation?orderId=${paidOrder.id}`)
+  }
+
+  const handleFailed = (message: string) => {
+    navigate(`/payment-failed?reason=${encodeURIComponent(message)}`)
+  }
+
+  // Empty cart — nothing to check out
+  if (items.length === 0 && !order) {
     return (
-      <main className="flex-1 w-full py-16 text-center container-max px-4">
-        <Icon name="shopping_cart_off" size={48} className="text-(--text-secondary) mb-4 mx-auto" />
-        <h1 className="text-(--text-primary) font-bold text-2xl mb-3">No Items to Checkout</h1>
-        <p className="text-(--text-secondary) mb-6">Your shopping bag is currently empty.</p>
-        <Link to="/products" className="px-5 py-2.5 bg-(--accent-blue) text-white font-mono text-xs rounded font-bold inline-block cursor-pointer">BROWSE HARDWARE</Link>
+      <main className="flex-1 w-full py-16 container-max px-4">
+        <EmptyState
+          icon="shopping_cart"
+          title="Your cart is empty"
+          message="Add items to your cart before checking out."
+          action={
+            <Link to="/products">
+              <Button variant="primary" size="md">BROWSE PRODUCTS</Button>
+            </Link>
+          }
+        />
       </main>
     )
   }
 
-  const next = () => setStepIndex((i) => Math.min(STEPS.length - 1, i + 1))
-  const back = () => setStepIndex((i) => Math.max(0, i - 1))
-
-  const placeFinalOrder = () => {
-    const id = `ORD-${Math.floor(100000 + Math.random() * 900000)}`
-    const tracking = `TRK-PC-${Math.floor(10000000 + Math.random() * 90000000)}`
-    const now = new Date()
-    const order: Order = {
-      id,
-      date: now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-      status: 'Processing',
-      trackingNumber: tracking,
-      estimatedDelivery: shippingMethod === 'express' ? 'Next business day' : '2–3 business days',
-      items: cart,
-      subtotal: cartSubtotal,
-      shipping: shippingCost,
-      tax,
-      total,
-      shippingAddress: {
-        name: `${form.firstName} ${form.lastName}`, street: form.street, city: form.city,
-        state: form.state, zip: form.zip, country: form.country,
-      },
-      customerName: `${form.firstName} ${form.lastName}`,
-      customerEmail: form.email,
-      paymentMethod: paymentMethod === 'card' ? `Card ${form.cardNumber.slice(-4)}` : paymentMethod === 'paypal' ? 'PayPal' : 'Crypto (BTC/ETH)',
-      paymentStatus: 'Paid',
-      timeline: [
-        { status: 'Processing', date: 'Just now', completed: true, description: 'Order received and payment authorized' },
-        { status: 'Assembling', date: 'Pending', completed: false, description: 'Components allocated from warehouse' },
-        { status: 'Quality Check', date: 'Pending', completed: false, description: '72-hour burn-in verification' },
-        { status: 'Shipped', date: 'Pending', completed: false, description: 'Handed to courier' },
-        { status: 'Delivered', date: 'Pending', completed: false, description: 'Delivered to address' },
-      ],
+  const next = () => {
+    if (stepIndex === 1) {
+      void startPayment()
+      return
     }
-    placeOrder(order)
-    clearCart()
-    navigate('/checkout/confirmation', { state: { orderId: id } })
+    if (stepIndex < STEPS.length - 1) setStepIndex((i) => i + 1)
   }
+  const back = () => setStepIndex((i) => Math.max(0, i - 1))
 
   return (
     <main className="flex-1 w-full pb-16">
       <div className="container-max px-4 md:px-6 py-6">
-        <Breadcrumbs items={[{ label: 'Home', href: '/' }, { label: 'Cart', href: '/cart' }, { label: 'Checkout' }]} className="mb-4" />
+        <Breadcrumbs
+          items={[{ label: 'Home', href: '/' }, { label: 'Cart', href: '/cart' }, { label: 'Checkout' }]}
+          className="mb-4"
+        />
         <h1 className="text-(--text-primary) font-bold text-2xl tracking-tight mb-6">Secure Checkout</h1>
 
         {/* Stepper */}
@@ -91,19 +278,31 @@ export function CheckoutPage() {
           {STEPS.map((s, i) => (
             <div key={s} className="flex items-center shrink-0">
               <button
-                onClick={() => i < stepIndex && setStepIndex(i)}
-                className={`flex items-center gap-2 ${i <= stepIndex ? 'cursor-pointer' : 'cursor-default'}`}
+                onClick={() => i < stepIndex && !order && setStepIndex(i)}
+                className={`flex items-center gap-2 ${i < stepIndex && !order ? 'cursor-pointer' : 'cursor-default'}`}
               >
-                <span className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-[11px] font-bold border transition-colors ${
-                  i < stepIndex ? 'bg-(--color-stock-green) border-(--color-stock-green) text-white'
-                    : i === stepIndex ? 'bg-(--accent-blue) border-(--accent-blue) text-white'
-                    : 'bg-transparent border-(--border-theme) text-(--text-secondary)'
-                }`}>
+                <span
+                  className={`w-7 h-7 rounded-full flex items-center justify-center font-mono text-[11px] font-bold border transition-colors ${
+                    i < stepIndex
+                      ? 'bg-(--color-stock-green) border-(--color-stock-green) text-white'
+                      : i === stepIndex
+                        ? 'bg-(--accent-blue) border-(--accent-blue) text-white'
+                        : 'bg-transparent border-(--border-theme) text-(--text-secondary)'
+                  }`}
+                >
                   {i < stepIndex ? <Icon name="check" size={14} /> : i + 1}
                 </span>
-                <span className={`font-mono text-[11px] uppercase tracking-wider ${i <= stepIndex ? 'text-(--text-primary)' : 'text-(--text-secondary)'} hidden sm:inline`}>{s}</span>
+                <span
+                  className={`font-mono text-[11px] uppercase tracking-wider ${
+                    i <= stepIndex ? 'text-(--text-primary)' : 'text-(--text-secondary)'
+                  } hidden sm:inline`}
+                >
+                  {s}
+                </span>
               </button>
-              {i < STEPS.length - 1 && <div className={`w-8 sm:w-16 h-px mx-2 ${i < stepIndex ? 'bg-(--color-stock-green)' : 'bg-(--border-theme)'}`} />}
+              {i < STEPS.length - 1 && (
+                <div className={`w-8 sm:w-16 h-px mx-2 ${i < stepIndex ? 'bg-(--color-stock-green)' : 'bg-(--border-theme)'}`} />
+              )}
             </div>
           ))}
         </div>
@@ -114,36 +313,96 @@ export function CheckoutPage() {
             <div className="space-y-6">
               {step === 'Customer' && (
                 <div className="space-y-4">
-                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Contact Details</h2>
+                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">
+                    Contact Details
+                  </h2>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div><label className={labelClass}>FIRST NAME</label><input className={inputClass} value={form.firstName} onChange={(e) => set('firstName', e.target.value)} /></div>
-                    <div><label className={labelClass}>LAST NAME</label><input className={inputClass} value={form.lastName} onChange={(e) => set('lastName', e.target.value)} /></div>
+                    <div>
+                      <label className={labelClass} htmlFor="co-first">FIRST NAME</label>
+                      <input id="co-first" required className={inputClass} value={form.firstName} onChange={(e) => set('firstName', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={labelClass} htmlFor="co-last">LAST NAME</label>
+                      <input id="co-last" required className={inputClass} value={form.lastName} onChange={(e) => set('lastName', e.target.value)} />
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div><label className={labelClass}>EMAIL ADDRESS</label><input type="email" className={inputClass} value={form.email} onChange={(e) => set('email', e.target.value)} /></div>
-                    <div><label className={labelClass}>PHONE NUMBER</label><input type="tel" className={inputClass} value={form.phone} onChange={(e) => set('phone', e.target.value)} /></div>
+                    <div>
+                      <label className={labelClass} htmlFor="co-email">EMAIL ADDRESS</label>
+                      <input id="co-email" type="email" required className={inputClass} value={form.email} onChange={(e) => set('email', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={labelClass} htmlFor="co-phone">PHONE NUMBER (OPTIONAL)</label>
+                      <input id="co-phone" type="tel" className={inputClass} value={form.phone} onChange={(e) => set('phone', e.target.value)} />
+                    </div>
                   </div>
+                  {!user && (
+                    <p className="text-[11px] text-(--text-secondary)">
+                      Checking out as a guest.{' '}
+                      <Link to="/login?next=/checkout" className="text-(--accent-blue) hover:underline">
+                        Sign in
+                      </Link>{' '}
+                      to save this order to your account.
+                    </p>
+                  )}
                 </div>
               )}
 
               {step === 'Shipping' && (
                 <div className="space-y-4">
-                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Shipping Address</h2>
-                  <div><label className={labelClass}>STREET ADDRESS</label><input className={inputClass} value={form.street} onChange={(e) => set('street', e.target.value)} /></div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div><label className={labelClass}>CITY</label><input className={inputClass} value={form.city} onChange={(e) => set('city', e.target.value)} /></div>
-                    <div><label className={labelClass}>STATE</label><input className={inputClass} value={form.state} onChange={(e) => set('state', e.target.value)} /></div>
-                    <div><label className={labelClass}>ZIP</label><input className={inputClass} value={form.zip} onChange={(e) => set('zip', e.target.value)} /></div>
+                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">
+                    Shipping Address
+                  </h2>
+                  <div>
+                    <label className={labelClass} htmlFor="co-street">STREET ADDRESS</label>
+                    <input id="co-street" required className={inputClass} value={form.street} onChange={(e) => set('street', e.target.value)} />
                   </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className={labelClass} htmlFor="co-city">CITY</label>
+                      <input id="co-city" required className={inputClass} value={form.city} onChange={(e) => set('city', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={labelClass} htmlFor="co-state">STATE</label>
+                      <input id="co-state" required className={inputClass} value={form.state} onChange={(e) => set('state', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={labelClass} htmlFor="co-zip">ZIP</label>
+                      <input id="co-zip" required className={inputClass} value={form.zip} onChange={(e) => set('zip', e.target.value)} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={labelClass} htmlFor="co-country">COUNTRY</label>
+                    <input id="co-country" required className={inputClass} value={form.country} onChange={(e) => set('country', e.target.value)} />
+                  </div>
+
                   <div className="pt-2 space-y-3">
                     <span className="font-mono text-xs text-(--text-secondary) uppercase">Shipping Method</span>
-                    {([['standard', 'Standard Ground (2–3 days)', 'FREE'], ['express', 'Priority Overnight Air', '$19.99']] as const).map(([val, label, price]) => (
-                      <label key={val} className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-colors ${shippingMethod === val ? 'bg-(--accent-blue)/10 border-(--accent-blue)' : 'bg-(--bg-surface-secondary) border-(--border-theme)'}`}>
+                    {(
+                      [
+                        ['standard', 'Standard Ground (2–3 business days)'],
+                        ['express', 'Priority Overnight Air'],
+                      ] as const
+                    ).map(([val, label]) => (
+                      <label
+                        key={val}
+                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-colors ${
+                          shippingMethod === val
+                            ? 'bg-(--accent-blue)/10 border-(--accent-blue)'
+                            : 'bg-(--bg-surface-secondary) border-(--border-theme)'
+                        }`}
+                      >
                         <div className="flex items-center gap-3">
-                          <input type="radio" name="ship" checked={shippingMethod === val} onChange={() => setShippingMethod(val)} className="accent-(--accent-blue)" />
+                          <input
+                            type="radio"
+                            name="ship"
+                            checked={shippingMethod === val}
+                            onChange={() => setShippingMethod(val)}
+                            className="accent-(--accent-blue)"
+                          />
                           <span className="text-(--text-primary) font-bold text-xs">{label}</span>
                         </div>
-                        <span className={`font-mono text-xs font-bold ${price === 'FREE' ? 'text-(--color-stock-green)' : 'text-(--text-primary)'}`}>{price}</span>
+                        <span className="font-mono text-[10px] text-(--text-secondary)">Priced at checkout</span>
                       </label>
                     ))}
                   </div>
@@ -151,104 +410,140 @@ export function CheckoutPage() {
               )}
 
               {step === 'Payment' && (
-                <div className="space-y-4">
-                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Payment Method</h2>
-                  <div className="grid grid-cols-3 gap-3">
-                    {([['card', 'CREDIT CARD', 'credit_card'], ['paypal', 'PAYPAL', 'account_balance_wallet'], ['crypto', 'CRYPTO', 'currency_bitcoin']] as const).map(([val, label, icon]) => (
-                      <button key={val} type="button" onClick={() => setPaymentMethod(val)} className={`p-3 rounded border font-mono text-[10px] flex flex-col items-center gap-1.5 transition-colors cursor-pointer ${paymentMethod === val ? 'bg-(--accent-blue)/10 border-(--accent-blue) text-(--text-primary)' : 'bg-(--bg-surface-secondary) border-(--border-theme) text-(--text-secondary)'}`}>
-                        <Icon name={icon} size={20} /><span>{label}</span>
-                      </button>
-                    ))}
-                  </div>
-                  {paymentMethod === 'card' && (
-                    <div className="p-4 bg-(--bg-surface-secondary) rounded border border-(--border-theme) space-y-3">
-                      <div><label className={labelClass}>CARD NUMBER</label><input className={inputClass} value={form.cardNumber} onChange={(e) => set('cardNumber', e.target.value)} /></div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div><label className={labelClass}>EXPIRATION</label><input className={inputClass} value={form.cardExp} onChange={(e) => set('cardExp', e.target.value)} /></div>
-                        <div><label className={labelClass}>CVC</label><input className={inputClass} value={form.cardCvc} onChange={(e) => set('cardCvc', e.target.value)} /></div>
+                <>
+                  {paymentUnavailable ? (
+                    <div className="p-6 bg-(--bg-surface) border border-(--accent-orange)/30 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <Icon name="credit_card_off" size={24} className="text-(--accent-orange) shrink-0" />
+                        <div>
+                          <h2 className="text-(--text-primary) font-bold text-base mb-1">
+                            Online payment is not available
+                          </h2>
+                          <p className="text-(--text-secondary) text-xs leading-relaxed">
+                            Card payments are not configured for this store yet, so this order cannot be paid online.
+                            Your order has not been charged and no payment was taken. Please contact support to
+                            complete your purchase.
+                          </p>
+                          <Link to="/support" className="inline-block mt-3">
+                            <Button variant="outline" size="md">CONTACT SUPPORT</Button>
+                          </Link>
+                        </div>
                       </div>
                     </div>
-                  )}
-                  {paymentMethod !== 'card' && (
-                    <div className="p-4 bg-(--bg-surface-secondary) rounded border border-(--border-theme) text-xs text-(--text-secondary) font-mono">
-                      You will be redirected to {paymentMethod === 'paypal' ? 'PayPal' : 'the crypto gateway'} to complete payment securely. (Demo — no real payment.)
+                  ) : order && clientSecret && paymentIntentId && stripePromise ? (
+                    <Elements
+                      stripe={stripePromise}
+                      options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#007aff' } } }}
+                    >
+                      <PaymentStep
+                        order={order}
+                        paymentIntentId={paymentIntentId}
+                        onPaid={(o) => void handlePaid(o)}
+                        onFailed={handleFailed}
+                      />
+                    </Elements>
+                  ) : (
+                    <div className="p-6 bg-(--bg-surface) border border-(--border-theme) rounded-xl text-center">
+                      <span className="font-mono text-xs text-(--text-secondary)">Preparing secure payment…</span>
                     </div>
                   )}
+                </>
+              )}
+
+              {checkoutError && (
+                <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-mono">
+                  {checkoutError}
                 </div>
               )}
 
-              {step === 'Review' && (
-                <div className="space-y-4">
-                  <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Review & Confirm</h2>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                    <div className="bg-(--bg-surface-secondary) rounded border border-(--border-theme) p-3">
-                      <span className="font-mono text-[10px] text-(--text-secondary) uppercase block mb-1">Contact</span>
-                      <p className="text-(--text-primary)">{form.firstName} {form.lastName}</p>
-                      <p className="text-(--text-secondary)">{form.email}</p>
-                      <p className="text-(--text-secondary)">{form.phone}</p>
-                    </div>
-                    <div className="bg-(--bg-surface-secondary) rounded border border-(--border-theme) p-3">
-                      <span className="font-mono text-[10px] text-(--text-secondary) uppercase block mb-1">Ship To</span>
-                      <p className="text-(--text-primary)">{form.street}</p>
-                      <p className="text-(--text-secondary)">{form.city}, {form.state} {form.zip}</p>
-                      <p className="text-(--text-secondary)">{shippingMethod === 'express' ? 'Priority Overnight' : 'Standard Ground'}</p>
-                    </div>
-                    <div className="bg-(--bg-surface-secondary) rounded border border-(--border-theme) p-3 sm:col-span-2">
-                      <span className="font-mono text-[10px] text-(--text-secondary) uppercase block mb-1">Payment</span>
-                      <p className="text-(--text-primary) capitalize">{paymentMethod === 'card' ? `Credit Card ${form.cardNumber.slice(-4)}` : paymentMethod}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-2 text-[10px] font-mono text-(--text-secondary) pt-2">
-                    <Icon name="lock" size={14} className="text-(--color-stock-green) shrink-0 mt-0.5" />
-                    By placing this order you authorize PREMIUM PC to charge your selected payment method. This is a frontend demo — no real payment is processed.
-                  </div>
+              {/* Nav buttons — hidden once payment has started */}
+              {step !== 'Payment' && (
+                <div className="flex items-center justify-between mt-6 pt-4 border-t border-(--border-theme) font-sans">
+                  <button
+                    onClick={stepIndex === 0 ? () => navigate('/cart') : back}
+                    className="px-4 py-2.5 border border-(--border-theme) hover:border-(--text-primary) text-(--text-primary) text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Icon name="arrow_back" size={15} /> {stepIndex === 0 ? 'Back to Cart' : 'Back'}
+                  </button>
+                  <Button variant="primary" size="lg" disabled={!stepValid || submitting} onClick={next}>
+                    {submitting ? 'CREATING ORDER…' : stepIndex === 1 ? 'CONTINUE TO PAYMENT' : 'CONTINUE'}
+                    <Icon name="arrow_forward" size={15} />
+                  </Button>
                 </div>
               )}
-
-              {/* Nav buttons */}
-              <div className="flex items-center justify-between mt-6 pt-4 border-t border-(--border-theme) font-sans">
-                <button
-                  onClick={stepIndex === 0 ? () => navigate('/cart') : back}
-                  className="px-4 py-2.5 border border-(--border-theme) hover:border-(--text-primary) text-(--text-primary) text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Icon name="arrow_back" size={15} /> {stepIndex === 0 ? 'Back to Cart' : 'Back'}
-                </button>
-                {step !== 'Review' ? (
-                  <button onClick={next} className="px-5 py-2.5 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer">
-                    Continue <Icon name="arrow_forward" size={15} />
-                  </button>
-                ) : (
-                  <button onClick={placeFinalOrder} className="px-6 py-3 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer shadow-sm">
-                    <Icon name="lock" size={15} /> Place Order (${total.toFixed(2)})
-                  </button>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Summary */}
+          {/* Order summary */}
           <aside className="lg:col-span-5">
-            <div className="sticky top-24 space-y-4">
-              <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">Order Summary ({cart.length})</h2>
-              <div className="space-y-3 max-h-60 overflow-y-auto pr-1 scrollbar-none">
-                {cart.map(({ product, quantity }) => (
-                  <div key={product.id} className="flex items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img src={product.image} alt={product.name} className="w-10 h-10 object-cover rounded bg-(--bg-surface-secondary) border border-(--border-theme) shrink-0" />
-                      <div className="min-w-0">
-                        <span className="text-(--text-primary) font-medium truncate block">{product.name}</span>
-                        <span className="font-mono text-(--text-secondary) text-[10px]">Qty: {quantity}</span>
+            <div className="sticky top-24 space-y-4 bg-(--bg-surface) border border-(--border-theme) rounded-xl p-5">
+              <h2 className="text-(--text-primary) font-bold text-sm font-mono uppercase border-b border-(--border-theme) pb-3">
+                {order ? 'Order Summary' : 'Cart Summary'}
+              </h2>
+
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {(order ? order.items : items).map((item) => {
+                  const name = 'productName' in item ? item.productName : ''
+                  const qty = item.quantity
+                  const line = 'lineTotal' in item ? item.lineTotal : item.price * item.quantity
+                  const image = 'productImageUrl' in item ? item.productImageUrl : item.productImage
+                  return (
+                    <div key={item.id} className="flex items-center gap-3">
+                      {image ? (
+                        <img
+                          src={image}
+                          alt=""
+                          className="w-12 h-12 object-cover rounded-lg bg-(--bg-surface-secondary) border border-(--border-theme) shrink-0"
+                        />
+                      ) : (
+                        <span className="w-12 h-12 rounded-lg bg-(--bg-surface-secondary) border border-(--border-theme) shrink-0 flex items-center justify-center">
+                          <Icon name="memory" size={20} className="text-(--accent-blue)" />
+                        </span>
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <span className="text-(--text-primary) text-xs font-medium truncate block">{name}</span>
+                        <span className="text-(--text-secondary) text-[10px] font-mono">Qty {qty}</span>
                       </div>
+                      <span className="font-mono text-xs text-(--text-primary) shrink-0">${line.toFixed(2)}</span>
                     </div>
-                    <span className="font-mono text-(--text-primary) font-bold shrink-0">${(product.price * quantity).toFixed(2)}</span>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
-              <div className="space-y-2 pt-3 border-t border-(--border-theme) text-xs font-mono">
-                <div className="flex justify-between text-(--text-secondary)"><span>Subtotal</span><span className="text-(--text-primary)">${cartSubtotal.toFixed(2)}</span></div>
-                <div className="flex justify-between text-(--text-secondary)"><span>Shipping</span><span className={shippingCost === 0 ? 'text-(--color-stock-green)' : 'text-(--text-primary)'}>{shippingCost === 0 ? 'FREE' : `$${shippingCost.toFixed(2)}`}</span></div>
-                <div className="flex justify-between text-(--text-secondary)"><span>Tax (8%)</span><span className="text-(--text-primary)">${tax.toFixed(2)}</span></div>
-                <div className="flex justify-between text-base font-bold text-(--text-primary) pt-2 border-t border-(--border-theme)"><span>Total</span><span className="text-(--accent-blue)">${total.toFixed(2)}</span></div>
+
+              {/* Totals: server-computed once the order exists */}
+              <div className="space-y-2 pt-3 border-t border-(--border-theme) font-mono text-xs">
+                <div className="flex justify-between text-(--text-secondary)">
+                  <span>Subtotal</span>
+                  <span className="text-(--text-primary)">${(order?.subtotal ?? subtotal).toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-(--text-secondary)">
+                  <span>Shipping</span>
+                  <span className={order ? 'text-(--text-primary)' : 'text-(--text-secondary)'}>
+                    {order ? (order.shippingCost === 0 ? 'FREE' : `$${order.shippingCost.toFixed(2)}`) : 'At payment step'}
+                  </span>
+                </div>
+                <div className="flex justify-between text-(--text-secondary)">
+                  <span>Tax</span>
+                  <span className={order ? 'text-(--text-primary)' : 'text-(--text-secondary)'}>
+                    {order ? `$${order.taxAmount.toFixed(2)}` : 'At payment step'}
+                  </span>
+                </div>
+                <div className="flex justify-between pt-2 border-t border-(--border-theme) text-base font-bold text-(--text-primary)">
+                  <span>TOTAL</span>
+                  <span className="text-(--accent-blue)">
+                    ${(order?.total ?? subtotal).toFixed(2)}
+                  </span>
+                </div>
+                {!order && (
+                  <p className="text-[10px] text-(--text-muted) pt-1 leading-relaxed">
+                    Shipping and tax are calculated on our server when your order is created.
+                  </p>
+                )}
+                {order && (
+                  <p className="text-[10px] text-(--text-muted) pt-1 font-sans">
+                    Order {order.orderNumber} · {itemCount} item{itemCount === 1 ? '' : 's'}
+                  </p>
+                )}
               </div>
             </div>
           </aside>

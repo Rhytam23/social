@@ -47,11 +47,20 @@ export const authService = {
     await apiClient.put('/api/auth/password', { currentPassword, newPassword })
   },
 
-  async sendOtp(email: string, purpose: 'login' | 'register' | 'reset_password' = 'login'): Promise<{ message: string; email: string; expiresAt: string; demoCode?: string }> {
+  async sendOtp(
+    email: string,
+    purpose: 'login' | 'register' | 'reset_password' = 'login'
+  ): Promise<{ message: string; email: string; expiresAt: string }> {
     return apiClient.post('/api/auth/send-otp', { email, purpose })
   },
 
-  async verifyOtp(email: string, code: string, purpose: 'login' | 'register' | 'reset_password' = 'login'): Promise<{ user: User }> {
+  // Login/registration codes only — password-reset codes are consumed by resetPassword.
+  async verifyOtp(email: string, code: string, purpose: 'login' | 'register' = 'login'): Promise<{ user: User }> {
     return apiClient.post<{ user: User }>('/api/auth/verify-otp', { email, code, purpose })
+  },
+
+  /** Completes a password reset with a reset_password OTP. Does not sign the user in. */
+  async resetPassword(email: string, code: string, newPassword: string): Promise<void> {
+    await apiClient.post('/api/auth/reset-password', { email, code, newPassword })
   },
 }

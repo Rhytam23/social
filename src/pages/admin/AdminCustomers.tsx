@@ -1,103 +1,162 @@
-import { useState, useMemo } from 'react'
-import { Icon, EmptyState } from '../../components/ui'
+import { useState, useCallback } from 'react'
+import { EmptyState, Button } from '../../components/ui'
+import { ErrorState } from '../../components/ui/ErrorState'
 import { AdminPageHeader, StatCard, Pill } from './AdminLayout'
-import { adminCustomers } from '../../data'
+import { useApi } from '../../hooks/useApi'
+import { adminService } from '../../services/adminService'
 
-const STATUSES = ['All', 'VIP', 'Active', 'Inactive']
+const ROLES = ['', 'customer', 'staff', 'manager', 'admin'] as const
 
 export function AdminCustomers() {
-  const [query, setQuery] = useState('')
-  const [status, setStatus] = useState('All')
+  const [roleFilter, setRoleFilter] = useState<string>('')
+  const [page, setPage] = useState(1)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  const filtered = useMemo(() => adminCustomers.filter((c) => {
-    if (status !== 'All' && c.status !== status) return false
-    if (query && !(`${c.name} ${c.email} ${c.location}`.toLowerCase().includes(query.toLowerCase()))) return false
-    return true
-  }), [query, status])
+  const { data, loading, error, reload } = useApi(
+    useCallback(() => adminService.listUsers(page, 20, roleFilter || undefined), [page, roleFilter]),
+    [page, roleFilter]
+  )
 
-  const totalSpent = adminCustomers.reduce((s, c) => s + c.totalSpent, 0)
-  const vipCount = adminCustomers.filter((c) => c.status === 'VIP').length
+  const users = data?.users ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / 20))
+  const activeCount = users.filter((u) => u.status === 'active').length
+
+  const setStatus = async (id: string, status: 'active' | 'suspended') => {
+    setBusyId(id)
+    setActionError(null)
+    try {
+      await adminService.updateUserStatus(id, status)
+      reload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not update account status')
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   return (
     <div>
-      <AdminPageHeader title="Customers" subtitle={`${adminCustomers.length} registered customer accounts`} />
+      <AdminPageHeader
+        title="Customers"
+        subtitle={loading ? 'Loading accounts…' : `${total} registered account${total === 1 ? '' : 's'}`}
+      />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Customers" value={String(adminCustomers.length)} icon="group" color="var(--accent-blue)" />
-        <StatCard label="VIP Members" value={String(vipCount)} icon="workspace_premium" color="#a855f7" />
-        <StatCard label="Total Customer Spent" value={`$${Math.round(totalSpent).toLocaleString()}`} icon="payments" color="#16a34a" />
-        <StatCard label="Avg. Orders / Customer" value={(totalSpent / (adminCustomers.length || 1) / 150).toFixed(1)} icon="receipt_long" color="#eab308" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <StatCard label="Total Accounts" value={loading ? '—' : String(total)} icon="group" />
+        <StatCard label="Active (this page)" value={loading ? '—' : String(activeCount)} icon="verified_user" color="#30d158" />
+        <StatCard label="Page" value={`${page} / ${totalPages}`} icon="list" color="#ff9500" />
       </div>
 
       <div className="flex flex-wrap items-center gap-3 mb-4">
-        <div className="relative flex items-center bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 flex-1 min-w-[200px]">
-          <Icon name="search" size={16} className="text-[var(--text-secondary)] mr-2" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search customers by name, email, location..."
-            className="w-full bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder:text-[var(--text-secondary)]"
-          />
-        </div>
+        <label htmlFor="role-filter" className="font-mono text-[10px] text-[var(--text-secondary)] uppercase">
+          Role
+        </label>
         <select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-          className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-[var(--accent-blue)]"
+          id="role-filter"
+          value={roleFilter}
+          onChange={(e) => {
+            setRoleFilter(e.target.value)
+            setPage(1)
+          }}
+          className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-[var(--accent-blue)] capitalize"
         >
-          {STATUSES.map((s) => <option key={s} value={s}>{s === 'All' ? 'All Status' : s}</option>)}
+          {ROLES.map((r) => (
+            <option key={r || 'all'} value={r}>
+              {r === '' ? 'All roles' : r}
+            </option>
+          ))}
         </select>
       </div>
 
-      {filtered.length ? (
-        <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-x-auto">
-          <table className="w-full text-xs min-w-[760px]">
-            <thead>
-              <tr className="font-mono text-[10px] text-[var(--text-secondary)] uppercase border-b border-[var(--border-subtle)]">
-                <th className="text-left p-3.5 font-semibold">Customer</th>
-                <th className="text-left p-3.5 font-semibold">Location</th>
-                <th className="text-center p-3.5 font-semibold">Orders</th>
-                <th className="text-right p-3.5 font-semibold">Spent</th>
-                <th className="text-left p-3.5 font-semibold">Registered</th>
-                <th className="text-center p-3.5 font-semibold">Status</th>
-                <th className="text-right p-3.5 font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-subtle)]">
-              {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-[var(--bg-primary)] transition-colors">
-                  <td className="p-3.5">
-                    <div className="flex items-center gap-3">
-                      <span className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs shrink-0 shadow-sm" style={{ background: c.avatarColor || '#0066FF' }}>
-                        {c.name.split(' ').map((n) => n[0]).join('')}
-                      </span>
-                      <div className="min-w-0">
-                        <div className="text-[var(--text-primary)] font-semibold truncate">{c.name}</div>
-                        <div className="font-mono text-[10px] text-[var(--text-secondary)] truncate">{c.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="p-3.5 text-[var(--text-secondary)]">{c.location}</td>
-                  <td className="p-3.5 text-center font-mono text-[var(--text-secondary)]">{c.orders}</td>
-                  <td className="p-3.5 text-right font-mono text-[var(--text-primary)] font-bold">${c.totalSpent.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                  <td className="p-3.5 font-mono text-[var(--text-secondary)]">{c.registered}</td>
-                  <td className="p-3.5 text-center"><Pill status={c.status} /></td>
-                  <td className="p-3.5">
-                    <div className="flex items-center justify-end gap-1">
-                      <button className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--accent-blue)] transition-colors cursor-pointer" aria-label="View">
-                        <Icon name="visibility" size={16} />
-                      </button>
-                      <button className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors cursor-pointer" aria-label="Email">
-                        <Icon name="mail" size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      {actionError && (
+        <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-mono">
+          {actionError}
         </div>
+      )}
+
+      {loading ? (
+        <div className="h-64 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl animate-pulse" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={reload} />
+      ) : users.length === 0 ? (
+        <EmptyState icon="group" title="No accounts" message="Customer accounts will appear here after registration." />
       ) : (
-        <EmptyState icon="group_off" title="No customers found" message="Try a different search." />
+        <>
+          <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left min-w-[720px]">
+                <thead>
+                  <tr className="bg-[var(--bg-primary)] border-b border-[var(--border-subtle)]">
+                    {['Customer', 'Email', 'Role', 'Status', 'Joined', 'Actions'].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 font-mono text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--border-subtle)]">
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-[var(--bg-primary)]/50 transition-colors">
+                      <td className="px-4 py-3">
+                        <span className="text-[var(--text-primary)] text-xs font-semibold">
+                          {u.firstName} {u.lastName}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-secondary)]">{u.email}</td>
+                      <td className="px-4 py-3 text-xs text-[var(--text-secondary)] capitalize">{u.role}</td>
+                      <td className="px-4 py-3">
+                        <Pill status={u.status === 'active' ? 'Active' : 'Inactive'} />
+                      </td>
+                      <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-secondary)]">
+                        {new Date(u.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.status === 'active' ? (
+                          <button
+                            type="button"
+                            disabled={busyId === u.id}
+                            onClick={() => void setStatus(u.id, 'suspended')}
+                            className="font-mono text-[10px] text-rose-500 hover:underline cursor-pointer disabled:opacity-50"
+                          >
+                            SUSPEND
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={busyId === u.id}
+                            onClick={() => void setStatus(u.id, 'active')}
+                            className="font-mono text-[10px] text-[var(--accent-blue)] hover:underline cursor-pointer disabled:opacity-50"
+                          >
+                            REACTIVATE
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                PREVIOUS
+              </Button>
+              <span className="font-mono text-xs text-[var(--text-secondary)]">
+                PAGE {page} / {totalPages}
+              </span>
+              <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                NEXT
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

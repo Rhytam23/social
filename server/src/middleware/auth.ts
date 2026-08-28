@@ -60,24 +60,36 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
 
 // ─── Cookie Helpers ────────────────────────────────────────────────────────────
 
-export function setAuthCookie(res: Response, token: string): void {
+// Shared cookie flags for every session-bearing cookie (auth, cart session, oauth state).
+// In production the SPA (Vercel) and the API (Render) live on different sites, so cookies
+// must be SameSite=None; Secure to be attached to fetch(credentials:'include') requests.
+// Set CROSS_SITE_COOKIES=false for a same-site production deployment.
+export function sessionCookieOptions(): {
+  httpOnly: true
+  secure: boolean
+  sameSite: 'lax' | 'none'
+  path: '/'
+} {
   const isProduction = config.env === 'production'
-  res.cookie('token', token, {
+  const crossSite = isProduction && process.env['CROSS_SITE_COOKIES'] !== 'false'
+  return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: 'lax',
+    sameSite: crossSite ? 'none' : 'lax',
     path: '/',
+  }
+}
+
+export function setAuthCookie(res: Response, token: string): void {
+  res.cookie('token', token, {
+    ...sessionCookieOptions(),
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
   })
 }
 
 export function clearAuthCookie(res: Response): void {
-  const isProduction = config.env === 'production'
   res.cookie('token', '', {
-    httpOnly: true,
-    secure: isProduction,
-    sameSite: 'lax',
-    path: '/',
+    ...sessionCookieOptions(),
     maxAge: 0,
   })
 }

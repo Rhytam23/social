@@ -1,158 +1,267 @@
-import { useState } from 'react'
-import { Icon } from '../../components/ui'
+import { useState, useCallback } from 'react'
+import { Icon, EmptyState, Button } from '../../components/ui'
+import { ErrorState } from '../../components/ui/ErrorState'
 import { AdminPageHeader } from './AdminLayout'
-import { useShop } from '../../context/ShopContext'
-import type { Brand } from '../../types'
+import { useApi } from '../../hooks/useApi'
+import { adminService } from '../../services/adminService'
+import type { Brand } from '../../services/brandService'
+
+const inputClass =
+  'w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]'
+const labelClass = 'text-[11px] font-mono text-[var(--text-secondary)] block mb-1 uppercase font-semibold'
+
+interface FormState {
+  id?: string
+  name: string
+  slug: string
+  description: string
+  logoUrl: string
+  websiteUrl: string
+  sortOrder: string
+  isVisible: boolean
+}
+
+const EMPTY: FormState = {
+  name: '',
+  slug: '',
+  description: '',
+  logoUrl: '',
+  websiteUrl: '',
+  sortOrder: '0',
+  isVisible: true,
+}
 
 export function AdminBrands() {
-  const { brands, addBrand, updateBrand, deleteBrand } = useShop()
+  const { data, loading, error, reload } = useApi(useCallback(() => adminService.listBrands(), []), [])
+  const [form, setForm] = useState<FormState | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
 
-  const [name, setName] = useState('')
-  const [logo, setLogo] = useState('')
-  const [description, setDescription] = useState('')
-  const [href, setHref] = useState('')
+  const brands = data ?? []
 
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editName, setEditName] = useState('')
-  const [editLogo, setEditLogo] = useState('')
-  const [editDesc, setEditDesc] = useState('')
-  const [editHref, setEditHref] = useState('')
+  const openEdit = (b: Brand) =>
+    setForm({
+      id: b.id,
+      name: b.name,
+      slug: b.slug,
+      description: b.description ?? '',
+      logoUrl: b.logoUrl ?? '',
+      websiteUrl: b.websiteUrl ?? '',
+      sortOrder: String(b.sortOrder ?? 0),
+      isVisible: b.isVisible,
+    })
 
-  const handleAdd = (e: React.FormEvent) => {
+  const save = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name) return
+    if (!form) return
+    setSaving(true)
+    setActionError(null)
 
-    addBrand({
-      id: `brand-${Date.now()}`,
-      name,
-      logo: logo || undefined,
-      description: description || `${name} Authorized Hardware Partner`,
-      href: href || `/brand/${name.toLowerCase().replace(/\s+/g, '-')}`,
-    })
+    const payload = {
+      name: form.name.trim(),
+      ...(form.slug.trim() ? { slug: form.slug.trim() } : {}),
+      ...(form.description.trim() ? { description: form.description.trim() } : {}),
+      ...(form.logoUrl.trim() ? { logoUrl: form.logoUrl.trim() } : {}),
+      ...(form.websiteUrl.trim() ? { websiteUrl: form.websiteUrl.trim() } : {}),
+      sortOrder: parseInt(form.sortOrder, 10) || 0,
+      isVisible: form.isVisible,
+    }
 
-    setName('')
-    setLogo('')
-    setDescription('')
-    setHref('')
+    try {
+      if (form.id) await adminService.updateBrand(form.id, payload)
+      else await adminService.createBrand(payload)
+      setForm(null)
+      reload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not save brand')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const startEdit = (b: Brand) => {
-    setEditingId(b.id)
-    setEditName(b.name)
-    setEditLogo(b.logo || '')
-    setEditDesc(b.description || '')
-    setEditHref(b.href)
+  const remove = async (b: Brand) => {
+    setActionError(null)
+    try {
+      await adminService.deleteBrand(b.id)
+      reload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not delete brand')
+    }
   }
-
-  const saveEdit = (b: Brand) => {
-    updateBrand({
-      ...b,
-      name: editName,
-      logo: editLogo || undefined,
-      description: editDesc,
-      href: editHref,
-    })
-    setEditingId(null)
-  }
-
-  const fieldClass = 'bg-[#121317] border border-[#414755] rounded p-2.5 text-xs text-white focus:outline-none focus:border-[#007aff]'
-  const labelClass = 'text-[11px] font-mono text-[#8b90a0] block mb-1 uppercase font-bold tracking-wider'
 
   return (
-    <div className="space-y-6">
+    <div>
       <AdminPageHeader
-        title="Brand Partners CMS"
-        subtitle="Manage authorized hardware manufacturer partnerships & vector logos"
+        title="Brands"
+        subtitle={loading ? 'Loading…' : `${brands.length} brands`}
+        action={
+          <Button variant="primary" size="md" onClick={() => setForm({ ...EMPTY })}>
+            <Icon name="add" size={15} /> Add Brand
+          </Button>
+        }
       />
 
-      {/* Add Brand Form */}
-      <form onSubmit={handleAdd} className="bg-[#1a1b1f] border border-[#414755] rounded p-5 space-y-4 shadow-xl">
-        <h2 className="text-white font-bold text-sm flex items-center gap-2">
-          <Icon name="add_business" size={18} className="text-[#007aff]" /> Add New Authorized Brand Partner
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <div>
-            <label className={labelClass}>Brand Name</label>
-            <input className={fieldClass + ' w-full'} placeholder="e.g. ASUS ROG" value={name} onChange={(e) => setName(e.target.value)} required />
-          </div>
-          <div>
-            <label className={labelClass}>Logo URL (SVG / PNG / WebP)</label>
-            <input className={fieldClass + ' w-full'} placeholder="https://..." value={logo} onChange={(e) => setLogo(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>Description</label>
-            <input className={fieldClass + ' w-full'} placeholder="Official hardware partner" value={description} onChange={(e) => setDescription(e.target.value)} />
-          </div>
-          <div>
-            <label className={labelClass}>Link / Href</label>
-            <input className={fieldClass + ' w-full'} placeholder="/brand/asus" value={href} onChange={(e) => setHref(e.target.value)} />
+      {actionError && (
+        <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-mono">
+          {actionError}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="h-64 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl animate-pulse" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={reload} />
+      ) : brands.length === 0 ? (
+        <EmptyState icon="add_business" title="No brands" message="Create your first brand." />
+      ) : (
+        <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[640px]">
+              <thead>
+                <tr className="bg-[var(--bg-primary)] border-b border-[var(--border-subtle)]">
+                  {['Brand', 'Slug', 'Products', 'Visible', 'Actions'].map((h) => (
+                    <th
+                      key={h}
+                      className="px-4 py-3 font-mono text-[10px] text-[var(--text-secondary)] uppercase font-bold tracking-wider"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-subtle)]">
+                {brands.map((b) => (
+                  <tr key={b.id} className="hover:bg-[var(--bg-primary)]/50 transition-colors">
+                    <td className="px-4 py-3 text-[var(--text-primary)] text-xs font-semibold">{b.name}</td>
+                    <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-secondary)]">{b.slug}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--text-primary)]">{b.productCount ?? 0}</td>
+                    <td className="px-4 py-3">
+                      <Icon
+                        name={b.isVisible ? 'visibility' : 'visibility_off'}
+                        size={16}
+                        className={b.isVisible ? 'text-[var(--color-stock-green)]' : 'text-[var(--text-secondary)]'}
+                      />
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(b)}
+                          className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--accent-blue)] cursor-pointer"
+                          aria-label={`Edit ${b.name}`}
+                        >
+                          <Icon name="edit" size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void remove(b)}
+                          className="p-1.5 text-[var(--text-secondary)] hover:text-rose-500 cursor-pointer"
+                          aria-label={`Delete ${b.name}`}
+                        >
+                          <Icon name="delete" size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
+      )}
 
-        {logo && (
-          <div className="flex items-center gap-3 p-3 bg-[#121317] border border-[#292a2e] rounded">
-            <span className="text-xs font-mono text-[#8b90a0]">LOGO PREVIEW:</span>
-            <div className="h-8 px-4 bg-[#17191e] border border-[#414755] rounded flex items-center justify-center">
-              <img src={logo} alt="Preview" className="h-5 max-w-[120px] object-contain" />
+      {form && (
+        <div className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4 overflow-y-auto">
+          <form
+            onSubmit={save}
+            className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl p-6 max-w-md w-full space-y-4 my-8"
+          >
+            <h3 className="text-[var(--text-primary)] font-bold text-base">{form.id ? 'Edit Brand' : 'New Brand'}</h3>
+
+            <div>
+              <label className={labelClass} htmlFor="brand-name">Name</label>
+              <input
+                id="brand-name"
+                required
+                className={inputClass}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
             </div>
-          </div>
-        )}
-
-        <button type="submit" className="px-4 py-2 bg-[#007aff] hover:bg-[#0066d6] text-white font-mono text-xs font-bold rounded flex items-center gap-1.5 transition-colors">
-          <Icon name="add" size={16} /> SAVE BRAND PARTNER
-        </button>
-      </form>
-
-      {/* Brand Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {brands.map((b) => {
-          const isEditing = editingId === b.id
-
-          return (
-            <div key={b.id} className="bg-[#1a1b1f] border border-[#414755] rounded p-5 flex flex-col justify-between shadow-md">
-              {isEditing ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className={labelClass}>Brand Name</label>
-                    <input className={fieldClass + ' w-full'} value={editName} onChange={(e) => setEditName(e.target.value)} required />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Logo URL</label>
-                    <input className={fieldClass + ' w-full'} value={editLogo} onChange={(e) => setEditLogo(e.target.value)} />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Description</label>
-                    <input className={fieldClass + ' w-full'} value={editDesc} onChange={(e) => setEditDesc(e.target.value)} />
-                  </div>
-                  <div className="flex items-center gap-2 pt-2">
-                    <button onClick={() => saveEdit(b)} className="px-3 py-1.5 bg-[#007aff] text-white font-mono text-xs font-bold rounded">SAVE</button>
-                    <button onClick={() => setEditingId(null)} className="px-3 py-1.5 bg-[#121317] text-white font-mono text-xs rounded border border-[#414755]">CANCEL</button>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <div className="h-16 bg-[#121317] rounded flex items-center justify-center p-3 mb-3 border border-[#292a2e]">
-                    {b.logo ? (
-                      <img src={b.logo} alt={b.name} className="max-h-8 max-w-full object-contain filter invert opacity-90" />
-                    ) : (
-                      <span className="font-black text-white text-lg tracking-tighter">{b.name}</span>
-                    )}
-                  </div>
-                  <h3 className="text-white font-bold text-base">{b.name}</h3>
-                  <p className="text-[#8b90a0] text-xs mt-1 line-clamp-2">{b.description || 'Authorized Partner'}</p>
-                  <div className="mt-4 pt-3 border-t border-[#292a2e] flex items-center justify-between">
-                    <span className="font-mono text-[10px] text-[#007aff] font-bold">{b.href}</span>
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => startEdit(b)} className="p-1 text-[#8b90a0] hover:text-[#007aff]"><Icon name="edit" size={16} /></button>
-                      <button onClick={() => deleteBrand(b.id)} className="p-1 text-[#8b90a0] hover:text-[#ff453a]"><Icon name="delete" size={16} /></button>
-                    </div>
-                  </div>
-                </div>
-              )}
+            <div>
+              <label className={labelClass} htmlFor="brand-slug">Slug (optional)</label>
+              <input
+                id="brand-slug"
+                className={inputClass}
+                pattern="[a-z0-9\-]*"
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              />
             </div>
-          )
-        })}
-      </div>
+            <div>
+              <label className={labelClass} htmlFor="brand-desc">Description</label>
+              <textarea
+                id="brand-desc"
+                rows={2}
+                className={inputClass}
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="brand-logo">Logo URL</label>
+              <input
+                id="brand-logo"
+                type="url"
+                className={inputClass}
+                value={form.logoUrl}
+                onChange={(e) => setForm({ ...form, logoUrl: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="brand-site">Website URL</label>
+              <input
+                id="brand-site"
+                type="url"
+                className={inputClass}
+                value={form.websiteUrl}
+                onChange={(e) => setForm({ ...form, websiteUrl: e.target.value })}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4 items-end">
+              <div>
+                <label className={labelClass} htmlFor="brand-order">Sort Order</label>
+                <input
+                  id="brand-order"
+                  type="number"
+                  min="0"
+                  className={inputClass}
+                  value={form.sortOrder}
+                  onChange={(e) => setForm({ ...form, sortOrder: e.target.value })}
+                />
+              </div>
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-primary)] pb-2">
+                <input
+                  type="checkbox"
+                  checked={form.isVisible}
+                  onChange={(e) => setForm({ ...form, isVisible: e.target.checked })}
+                  className="w-4 h-4 accent-[var(--accent-blue)]"
+                />
+                Visible
+              </label>
+            </div>
+
+            <div className="flex gap-3 justify-end pt-2">
+              <Button variant="outline" size="md" onClick={() => setForm(null)}>
+                CANCEL
+              </Button>
+              <Button type="submit" variant="primary" size="md" disabled={saving}>
+                {saving ? 'SAVING…' : 'SAVE'}
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   )
 }

@@ -107,25 +107,22 @@ app.use(errorHandler)
 // ─── Start Server ─────────────────────────────────────────────────────────────
 
 async function start() {
+  // The database is a hard dependency: never boot into a degraded mode where
+  // reads silently return nothing and writes no-op.
   const dbOk = await checkDatabaseConnection()
   if (!dbOk) {
     console.error('[Server] Cannot connect to database. Check DATABASE_URL and ensure PostgreSQL is running.')
-    console.error('[Server] Start anyway in degraded mode? Set ALLOW_DB_FAIL=true to override.')
-    if (process.env['ALLOW_DB_FAIL'] !== 'true') {
-      process.exit(1)
-    }
-  } else {
-    console.log('[Server] Database connection established.')
-    try {
-      console.log('[Server] Running database migrations check...')
-      await runMigrations()
-      console.log('[Server] Migrations verified successfully.')
-    } catch (migErr) {
-      console.error('[Server] Fatal database migration error:', migErr)
-      if (process.env['ALLOW_DB_FAIL'] !== 'true') {
-        process.exit(1)
-      }
-    }
+    process.exit(1)
+  }
+
+  console.log('[Server] Database connection established.')
+  try {
+    console.log('[Server] Running database migrations check...')
+    await runMigrations()
+    console.log('[Server] Migrations verified successfully.')
+  } catch (migErr) {
+    console.error('[Server] Fatal database migration error:', migErr)
+    process.exit(1)
   }
 
   app.listen(config.port, () => {

@@ -3,7 +3,7 @@ import crypto from 'crypto'
 import { query, queryOne } from '../db/client'
 import { config } from '../config'
 import { generateToken } from '../middleware/auth'
-import { AuthError, ConflictError, NotFoundError } from '../middleware/errorHandler'
+import { AppError, AuthError, ConflictError, NotFoundError } from '../middleware/errorHandler'
 import { emailService } from './emailService'
 import type { User, UserRole } from '../types'
 
@@ -183,12 +183,17 @@ export const authService = {
       [cleanEmail, codeHash, purpose, expiresAt.toISOString()]
     )
 
-    console.log(`[OTP] Generated 6-digit code for ${cleanEmail}: ${code}`)
-    await emailService.sendOtpEmail(cleanEmail, code)
+    const sent = await emailService.sendOtpEmail(cleanEmail, code)
+    if (!sent) {
+      // Never report success when the email did not go out.
+      await query('DELETE FROM otp_codes WHERE email = $1 AND purpose = $2', [cleanEmail, purpose])
+      throw new AppError('Email delivery is unavailable. Please try again later.', 503, 'EMAIL_UNCONFIGURED')
+    }
     return { email: cleanEmail, expiresAt: expiresAt.toISOString(), code }
   },
 
-  async verifyOTP(email: string, code: string, purpose: string = 'login'): Promise<{ user: User; token: string }> {
+  // Validates and consumes a one-time code. Throws on any failure; deletes the code on success.
+  async consumeOtp(email: string, code: string, purpose: string): Promise<void> {
     const cleanEmail = email.toLowerCase().trim()
     const codeHash = crypto.createHash('sha256').update(code).digest('hex')
 
@@ -221,9 +226,23 @@ export const authService = {
 
     // Remove used OTP
     await query('DELETE FROM otp_codes WHERE id = $1', [otpRow.id])
+  },
+
+  async verifyOTP(email: string, code: string, purpose: string = 'login'): Promise<{ user: User; token: string }> {
+    // Password-reset codes must never mint a session — see resetPasswordWithOtp.
+    if (purpose === 'reset_password') {
+      throw new AuthError('This code can only be used to reset a password.')
+    }
+
+    const cleanEmail = email.toLowerCase().trim()
+    await this.consumeOtp(cleanEmail, code, purpose)
 
     // Find existing user or create user if registering via OTP
     let row = await queryOne<UserRow>('SELECT * FROM users WHERE email = $1', [cleanEmail])
+
+    if (row && row.status !== 'active') {
+      throw new AuthError('This account is not active. Please contact support.')
+    }
 
     if (!row) {
       // Auto-create user for new email registration
@@ -246,5 +265,21 @@ export const authService = {
     const user = toUser(row)
     const token = generateToken({ userId: user.id, email: user.email, role: user.role })
     return { user, token }
+  },
+
+  // Completes a password reset: consumes a reset_password OTP and sets the new password.
+  // Does NOT log the user in — they must sign in with the new password.
+  async resetPasswordWithOtp(email: string, code: string, newPassword: string): Promise<void> {
+    const cleanEmail = email.toLowerCase().trim()
+    await this.consumeOtp(cleanEmail, code, 'reset_password')
+
+    const row = await queryOne<UserRow>('SELECT * FROM users WHERE email = $1', [cleanEmail])
+    if (!row) throw new NotFoundError('Account')
+    if (row.status !== 'active') {
+      throw new AuthError('This account is not active. Please contact support.')
+    }
+
+    const newHash = await bcrypt.hash(newPassword, config.security.bcryptRounds)
+    await query('UPDATE users SET password_hash = $1, email_verified = true WHERE id = $2', [newHash, row.id])
   },
 }

@@ -20,7 +20,6 @@ export function PasswordResetPage() {
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [demoCode, setDemoCode] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   useEffect(() => {
@@ -38,12 +37,9 @@ export function PasswordResetPage() {
     setLoading(true)
     setErrorMsg(null)
     try {
-      const res = await authService.sendOtp(email.trim(), 'reset_password')
-      if (res.demoCode) {
-        setDemoCode(res.demoCode)
-      }
+      await authService.sendOtp(email.trim(), 'reset_password')
       setStep('reset')
-      showToast('Password reset code dispatched to your email.', 'info')
+      showToast('If that email has an account, a reset code has been sent.', 'info')
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to send password reset code.')
     } finally {
@@ -54,8 +50,8 @@ export function PasswordResetPage() {
   // Step 2: Verify OTP and Reset Password
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (newPassword.length < 6) {
-      setErrorMsg('Password must be at least 6 characters long.')
+    if (newPassword.length < 8) {
+      setErrorMsg('Password must be at least 8 characters long.')
       return
     }
     if (newPassword !== confirmPassword) {
@@ -66,12 +62,10 @@ export function PasswordResetPage() {
     setLoading(true)
     setErrorMsg(null)
     try {
-      // Verify OTP code first
-      await authService.verifyOtp(email.trim(), code.trim(), 'reset_password')
-      // Update password
-      await authService.changePassword('', newPassword)
+      // The server consumes the reset code and sets the new password in one call.
+      await authService.resetPassword(email.trim(), code.trim(), newPassword)
       setStep('success')
-      showToast('Password updated successfully!', 'cart')
+      showToast('Password updated. Please sign in.', 'cart')
     } catch (err: any) {
       setErrorMsg(err.message || 'Invalid reset code or expired session.')
     } finally {
@@ -148,12 +142,6 @@ export function PasswordResetPage() {
                 Enter the 6-digit recovery code sent to <strong className="text-[var(--text-primary)]">{email}</strong> and choose your new password.
               </p>
             </div>
-
-            {demoCode && (
-              <div className="p-3.5 bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/30 rounded-lg text-xs text-[var(--text-secondary)] font-mono text-center">
-                🔑 <strong>Demo Mode Reset Code</strong>: <span className="text-[var(--text-primary)] font-bold text-sm tracking-wider ml-1">{demoCode}</span>
-              </div>
-            )}
 
             {errorMsg && (
               <div className="p-3.5 bg-red-500/10 border border-red-500/30 rounded-lg text-xs text-red-500 font-mono">

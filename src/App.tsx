@@ -1,6 +1,11 @@
 import { useEffect, lazy, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import { ShopProvider, useShop } from './context/ShopContext'
+import { AuthProvider } from './context/AuthContext'
+import { CartProvider } from './context/CartContext'
+import { WishlistProvider } from './context/WishlistContext'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { RequireAuth, RequireStaff } from './components/RequireAuth'
 import { Header } from './components/navigation/Header'
 import { Footer } from './components/layout/Footer'
 import { HomePage } from './components/home/HomePage'
@@ -108,9 +113,11 @@ function AppContent() {
         <Route
           path="/admin/*"
           element={
-            <Suspense fallback={<div className="min-h-screen bg-(--bg-primary) flex items-center justify-center text-(--text-secondary) font-mono text-xs">Loading admin console…</div>}>
-              <AdminApp />
-            </Suspense>
+            <RequireStaff>
+              <Suspense fallback={<div className="min-h-screen bg-(--bg-primary) flex items-center justify-center text-(--text-secondary) font-mono text-xs">Loading admin console…</div>}>
+                <AdminApp />
+              </Suspense>
+            </RequireStaff>
           }
         />
 
@@ -137,13 +144,13 @@ function AppContent() {
           <Route path="/sim-racing" element={<ProductsPage />} />
           <Route path="/accessories" element={<ProductsPage />} />
 
-          {/* Product details */}
+          {/* Product details (slug-based — matches database slugs) */}
           <Route path="/products/:slug" element={<ProductDetailsPage />} />
-          <Route path="/product/:id" element={<ProductDetailsPage />} />
+          <Route path="/product/:slug" element={<ProductDetailsPage />} />
 
           {/* Specialized */}
           <Route path="/gaming-pcs" element={<GamingPCsPage />} />
-          <Route path="/gaming-pc/:id" element={<GamingPCDetailsPage />} />
+          <Route path="/gaming-pc/:slug" element={<GamingPCDetailsPage />} />
           <Route path="/builder" element={<PCBuilderPage />} />
           <Route path="/pc-builder" element={<PCBuilderPage />} />
           <Route path="/search" element={<SearchPage />} />
@@ -159,7 +166,14 @@ function AppContent() {
           <Route path="/wishlist" element={<WishlistPage />} />
 
           {/* Account (lazy chunk with its own nested routes) */}
-          <Route path="/account/*" element={<AccountApp />} />
+          <Route
+            path="/account/*"
+            element={
+              <RequireAuth>
+                <AccountApp />
+              </RequireAuth>
+            }
+          />
 
           {/* Orders / tracking */}
           <Route path="/orders" element={<OrderTrackingPage />} />
@@ -200,11 +214,19 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <ShopProvider>
-        <AppContent />
-      </ShopProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <ShopProvider>
+            <CartProvider>
+              <WishlistProvider>
+                <AppContent />
+              </WishlistProvider>
+            </CartProvider>
+          </ShopProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
 

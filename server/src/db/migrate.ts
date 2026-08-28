@@ -21,12 +21,7 @@ export async function runMigrations() {
   let client
   try {
     client = await pool.connect()
-  } catch (connErr: any) {
-    if (process.env['ALLOW_DB_FAIL'] === 'true') {
-      console.warn('[Migrate] Could not connect to database for migrations:', connErr.message)
-      await pool.end()
-      return
-    }
+  } catch (connErr) {
     await pool.end()
     throw connErr
   }

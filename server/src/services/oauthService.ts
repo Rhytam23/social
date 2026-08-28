@@ -39,18 +39,21 @@ function toUser(row: UserRow): User {
   }
 }
 
+// OAuth redirect URIs are derived from API_BASE_URL config only — never from
+// request headers, which an attacker controls.
+const googleRedirectUri = () => `${config.apiBaseUrl}/api/auth/google/callback`
+const githubRedirectUri = () => `${config.apiBaseUrl}/api/auth/github/callback`
+
 export const oauthService = {
   generateState(): string {
     return crypto.randomBytes(32).toString('hex')
   },
 
-  getGoogleAuthUrl(state: string, isDev: boolean = false): string {
+  getGoogleAuthUrl(state: string): string {
     if (!config.oauth.google.clientId) {
       throw new AuthError('Google OAuth is not configured. Please set GOOGLE_CLIENT_ID.')
     }
-    const redirectUri = isDev
-      ? 'http://localhost:3001/api/auth/google/callback'
-      : `${config.cors.origin.replace(/\/$/, '') === 'http://localhost:5173' ? 'http://localhost:3001' : 'https://clint-version.onrender.com'}/api/auth/google/callback`
+    const redirectUri = googleRedirectUri()
 
     const params = new URLSearchParams({
       client_id: config.oauth.google.clientId,
@@ -65,13 +68,11 @@ export const oauthService = {
     return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   },
 
-  getGitHubAuthUrl(state: string, isDev: boolean = false): string {
+  getGitHubAuthUrl(state: string): string {
     if (!config.oauth.github.clientId) {
       throw new AuthError('GitHub OAuth is not configured. Please set GITHUB_CLIENT_ID.')
     }
-    const redirectUri = isDev
-      ? 'http://localhost:3001/api/auth/github/callback'
-      : `${config.cors.origin.replace(/\/$/, '') === 'http://localhost:5173' ? 'http://localhost:3001' : 'https://clint-version.onrender.com'}/api/auth/github/callback`
+    const redirectUri = githubRedirectUri()
 
     const params = new URLSearchParams({
       client_id: config.oauth.github.clientId,
@@ -83,14 +84,12 @@ export const oauthService = {
     return `https://github.com/login/oauth/authorize?${params.toString()}`
   },
 
-  async handleGoogleCallback(code: string, state: string, savedState?: string, isDev: boolean = false): Promise<User> {
+  async handleGoogleCallback(code: string, state: string, savedState?: string): Promise<User> {
     if (!savedState || state !== savedState) {
       throw new AuthError('OAuth state mismatch or expired request. Please try signing in again.')
     }
 
-    const redirectUri = isDev
-      ? 'http://localhost:3001/api/auth/google/callback'
-      : `${config.cors.origin.replace(/\/$/, '') === 'http://localhost:5173' ? 'http://localhost:3001' : 'https://clint-version.onrender.com'}/api/auth/google/callback`
+    const redirectUri = googleRedirectUri()
 
     // Exchange authorization code for tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
@@ -171,14 +170,12 @@ export const oauthService = {
     return toUser(userRow)
   },
 
-  async handleGitHubCallback(code: string, state: string, savedState?: string, isDev: boolean = false): Promise<User> {
+  async handleGitHubCallback(code: string, state: string, savedState?: string): Promise<User> {
     if (!savedState || state !== savedState) {
       throw new AuthError('OAuth state mismatch or expired request. Please try signing in again.')
     }
 
-    const redirectUri = isDev
-      ? 'http://localhost:3001/api/auth/github/callback'
-      : `${config.cors.origin.replace(/\/$/, '') === 'http://localhost:5173' ? 'http://localhost:3001' : 'https://clint-version.onrender.com'}/api/auth/github/callback`
+    const redirectUri = githubRedirectUri()
 
     // Exchange authorization code for token
     const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
@@ -224,21 +221,21 @@ export const oauthService = {
       avatar_url?: string
     }
 
-    let email = profile.email?.toLowerCase().trim()
-
-    // If primary email is private, fetch from /user/emails
-    if (!email) {
-      const emailsRes = await fetch('https://api.github.com/user/emails', {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-          'User-Agent': 'PREMIUM-PC-App',
-        },
-      })
-      if (emailsRes.ok) {
-        const emails = (await emailsRes.json()) as Array<{ email: string; primary: boolean; verified: boolean }>
-        const primaryObj = emails.find((e) => e.primary && e.verified) || emails[0]
-        if (primaryObj) email = primaryObj.email.toLowerCase().trim()
-      }
+    // Only trust addresses GitHub itself has verified: /user's `email` field
+    // carries no verification guarantee, so always resolve via /user/emails.
+    // Linking to an existing local account by an unverified address would be
+    // an account-takeover vector.
+    let email: string | undefined
+    const emailsRes = await fetch('https://api.github.com/user/emails', {
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+        'User-Agent': 'PREMIUM-PC-App',
+      },
+    })
+    if (emailsRes.ok) {
+      const emails = (await emailsRes.json()) as Array<{ email: string; primary: boolean; verified: boolean }>
+      const verifiedPrimary = emails.find((e) => e.primary && e.verified) || emails.find((e) => e.verified)
+      if (verifiedPrimary) email = verifiedPrimary.email.toLowerCase().trim()
     }
 
     if (!email) {

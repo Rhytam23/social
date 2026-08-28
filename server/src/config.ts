@@ -13,9 +13,14 @@ function optional_env(key: string, fallback: string): string {
   return process.env[key] ?? fallback
 }
 
+const port = parseInt(optional_env('PORT', '3001'), 10)
+
 export const config = {
   env: (process.env['NODE_ENV'] ?? 'development') as 'development' | 'production' | 'test',
-  port: parseInt(optional_env('PORT', '3001'), 10),
+  port,
+
+  // Public base URL of this API server — used to build OAuth redirect URIs.
+  apiBaseUrl: optional_env('API_BASE_URL', `http://localhost:${port}`).replace(/\/$/, ''),
 
   db: {
     connectionString: process.env['DATABASE_URL'],

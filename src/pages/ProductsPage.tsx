@@ -1,221 +1,129 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import { useSearchParams, useLocation, Link } from 'react-router-dom'
-import { Icon } from '../components/ui'
+import { Icon, EmptyState, Button } from '../components/ui'
+import { ErrorState } from '../components/ui/ErrorState'
 import { ProductGrid } from '../components/products/ProductCard'
-import { useShop } from '../context/ShopContext'
+import { ProductCardSkeleton } from '../components/ui/SkeletonLoader'
+import { useApi } from '../hooks/useApi'
+import { productService, type PaginationParams } from '../services/productService'
+import { categoryService } from '../services/categoryService'
+import { brandService } from '../services/brandService'
 
+// Storefront path → API category slug. Keeps existing URLs working while
+// filtering happens server-side.
+const PATH_TO_CATEGORY: Record<string, string> = {
+  'graphics-cards': 'gpus',
+  cpus: 'cpus',
+  motherboards: 'motherboards',
+  ram: 'ram',
+  storage: 'storage',
+  cooling: 'cooling',
+  cases: 'cases',
+  'power-supplies': 'psus',
+  monitors: 'monitors',
+  peripherals: 'peripherals',
+  streaming: 'streaming',
+  'sim-racing': 'sim-racing',
+  accessories: 'accessories',
+  'gaming-pcs': 'gaming-pcs',
+}
 
-const CATEGORY_NAMES = [
-  'All',
-  'Gaming PCs',
-  'Components',
-  'Graphics Cards',
-  'CPUs',
-  'Motherboards',
-  'RAM',
-  'Storage',
-  'Cooling',
-  'Cases',
-  'Power Supplies',
-  'Monitors',
-  'Peripherals',
-  'Streaming',
-  'Deals',
+const SORT_OPTIONS = [
+  { value: 'featured', label: 'Featured / Best Match' },
+  { value: 'price_asc', label: 'Price: Low to High' },
+  { value: 'price_desc', label: 'Price: High to Low' },
+  { value: 'rating_desc', label: 'Highest Rated' },
+  { value: 'name_asc', label: 'Name: A–Z' },
+  { value: 'newest', label: 'Newest Arrivals' },
 ]
+
+const PAGE_SIZE = 24
 
 export function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
-  const { products, addToCart, toggleWishlist, wishlist } = useShop()
 
-  // Determine active category from path or query params
-  const activeCategoryFromUrl = useMemo(() => {
+  // Category comes from the route path or ?category=
+  const categoryFromUrl = useMemo(() => {
     const qCat = searchParams.get('category')
     if (qCat) return qCat
-
-    // check pathname
     const path = location.pathname.replace(/^\//, '')
-    if (path === 'graphics-cards') return 'Graphics Cards'
-    if (path === 'cpus') return 'CPUs'
-    if (path === 'motherboards') return 'Motherboards'
-    if (path === 'ram') return 'RAM'
-    if (path === 'storage') return 'Storage'
-    if (path === 'cooling') return 'Cooling'
-    if (path === 'cases') return 'Cases'
-    if (path === 'power-supplies') return 'Power Supplies'
-    if (path === 'monitors') return 'Monitors'
-    if (path === 'peripherals') return 'Peripherals'
-    if (path === 'deals') return 'Deals'
-    if (path === 'components') return 'Components'
-    return 'All'
+    return PATH_TO_CATEGORY[path] ?? ''
   }, [searchParams, location.pathname])
 
-  const [selectedCategory, setSelectedCategory] = useState<string>(activeCategoryFromUrl)
-  const [selectedBrand, setSelectedBrand] = useState<string>(searchParams.get('brand') || 'All')
-  const [selectedGpu, setSelectedGpu] = useState<string>(searchParams.get('gpu') || 'All')
-  const [selectedCpu, setSelectedCpu] = useState<string>(searchParams.get('cpu') || 'All')
-  const [selectedRam, setSelectedRam] = useState<string>('All')
-  const [selectedStorage, setSelectedStorage] = useState<string>('All')
-  const [selectedFormFactor, setSelectedFormFactor] = useState<string>('All')
-  const [selectedPerformance, setSelectedPerformance] = useState<string>('All')
+  const searchFromUrl = searchParams.get('search') ?? ''
+  const brandFromUrl = searchParams.get('brand') ?? ''
+
   const [sortBy, setSortBy] = useState<string>('featured')
-  const [onlyInStock, setOnlyInStock] = useState<boolean>(false)
-  const [priceMax, setPriceMax] = useState<number>(3000)
-  const [minRating, setMinRating] = useState<number>(0)
+  const [onlyInStock, setOnlyInStock] = useState(false)
+  const [priceMax, setPriceMax] = useState<number>(0) // 0 = no cap
+  const [page, setPage] = useState(1)
   const [mobileFilterOpen, setMobileFilterOpen] = useState(false)
 
-  // Sync category state when URL changes
+  // Reset paging whenever the query changes
   useEffect(() => {
-    setSelectedCategory(activeCategoryFromUrl)
-  }, [activeCategoryFromUrl])
+    setPage(1)
+  }, [categoryFromUrl, brandFromUrl, searchFromUrl, sortBy, onlyInStock, priceMax])
 
-  // Extract all unique brands
-  const brands = useMemo(() => {
-    const bSet = new Set<string>()
-    products.forEach((p) => bSet.add(p.brand))
-    return ['All', ...Array.from(bSet)]
-  }, [products])
+  const params: PaginationParams = useMemo(
+    () => ({
+      page,
+      limit: PAGE_SIZE,
+      ...(categoryFromUrl ? { category: categoryFromUrl } : {}),
+      ...(brandFromUrl ? { brand: brandFromUrl } : {}),
+      ...(searchFromUrl ? { search: searchFromUrl } : {}),
+      ...(onlyInStock ? { inStock: true } : {}),
+      ...(priceMax > 0 ? { maxPrice: priceMax } : {}),
+      sort: sortBy as PaginationParams['sort'],
+    }),
+    [page, categoryFromUrl, brandFromUrl, searchFromUrl, onlyInStock, priceMax, sortBy]
+  )
 
-  // Filtered & Sorted Products
-  const filteredProducts = useMemo(() => {
-    let list = [...products]
+  const listFn = useCallback(() => productService.list(params), [params])
+  const { data, loading, error, reload } = useApi(listFn, [params])
 
-    // Category filter
-    if (selectedCategory && selectedCategory !== 'All') {
-      if (selectedCategory === 'Deals') {
-        list = list.filter((p) => (p.discount || 0) > 0)
-      } else if (selectedCategory === 'Components') {
-        const compCats = ['Graphics Cards', 'CPUs', 'Motherboards', 'RAM', 'Storage', 'Cooling', 'Cases', 'Power Supplies']
-        list = list.filter((p) => compCats.includes(p.category))
-      } else {
-        list = list.filter((p) => p.category.toLowerCase() === selectedCategory.toLowerCase())
-      }
-    }
+  const categoriesFn = useCallback(() => categoryService.list(), [])
+  const { data: categories } = useApi(categoriesFn, [])
 
-    // Brand filter
-    if (selectedBrand && selectedBrand !== 'All') {
-      list = list.filter((p) => p.brand.toLowerCase() === selectedBrand.toLowerCase())
-    }
+  const brandsFn = useCallback(() => brandService.list(), [])
+  const { data: brands } = useApi(brandsFn, [])
 
-    // GPU Chipset Filter
-    if (selectedGpu && selectedGpu !== 'All') {
-      const gQuery = selectedGpu.toLowerCase()
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(gQuery) ||
-        p.specifications.some((s) => s.value.toLowerCase().includes(gQuery)) ||
-        p.tags?.some((t) => t.toLowerCase().includes(gQuery))
-      )
-    }
+  const products = data?.data ?? []
+  const pagination = data?.pagination
+  const activeCategory = categories?.find((c) => c.slug === categoryFromUrl)
+  const heading = activeCategory?.name ?? (searchFromUrl ? `Results for “${searchFromUrl}”` : 'Complete Hardware Catalog')
 
-    // CPU Filter
-    if (selectedCpu && selectedCpu !== 'All') {
-      const cQuery = selectedCpu.toLowerCase()
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(cQuery) ||
-        p.brand.toLowerCase().includes(cQuery) ||
-        p.specifications.some((s) => s.value.toLowerCase().includes(cQuery))
-      )
-    }
-
-    // RAM Filter
-    if (selectedRam && selectedRam !== 'All') {
-      const rQuery = selectedRam.toLowerCase()
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(rQuery) ||
-        p.specifications.some((s) => s.value.toLowerCase().includes(rQuery))
-      )
-    }
-
-    // Storage Filter
-    if (selectedStorage && selectedStorage !== 'All') {
-      const sQuery = selectedStorage.toLowerCase()
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(sQuery) ||
-        p.specifications.some((s) => s.value.toLowerCase().includes(sQuery))
-      )
-    }
-
-    // Form Factor Filter
-    if (selectedFormFactor && selectedFormFactor !== 'All') {
-      const ffQuery = selectedFormFactor.toLowerCase()
-      list = list.filter((p) =>
-        p.name.toLowerCase().includes(ffQuery) ||
-        p.specifications.some((s) => s.value.toLowerCase().includes(ffQuery))
-      )
-    }
-
-    // Performance Tier Filter
-    if (selectedPerformance && selectedPerformance !== 'All') {
-      const pQuery = selectedPerformance.toLowerCase()
-      list = list.filter((p) =>
-        ('performanceTier' in p && (p as any).performanceTier.toLowerCase().includes(pQuery)) ||
-        p.name.toLowerCase().includes(pQuery) ||
-        p.description?.toLowerCase().includes(pQuery)
-      )
-    }
-
-    // In-Stock filter
-    if (onlyInStock) {
-      list = list.filter((p) => p.stockStatus === 'in-stock')
-    }
-
-    // Price Max filter
-    list = list.filter((p) => p.price <= priceMax)
-
-    // Rating filter
-    if (minRating > 0) {
-      list = list.filter((p) => p.rating >= minRating)
-    }
-
-    // Sorting
-    if (sortBy === 'price-asc') {
-      list.sort((a, b) => a.price - b.price)
-    } else if (sortBy === 'price-desc') {
-      list.sort((a, b) => b.price - a.price)
-    } else if (sortBy === 'rating') {
-      list.sort((a, b) => b.rating - a.rating)
-    } else if (sortBy === 'discount') {
-      list.sort((a, b) => (b.discount || 0) - (a.discount || 0))
-    }
-
-    return list
-  }, [products, selectedCategory, selectedBrand, selectedGpu, selectedCpu, selectedRam, selectedStorage, selectedFormFactor, selectedPerformance, onlyInStock, priceMax, minRating, sortBy])
+  const setParam = (key: string, value: string) => {
+    const next = new URLSearchParams(searchParams)
+    if (value) next.set(key, value)
+    else next.delete(key)
+    setSearchParams(next)
+  }
 
   const clearAllFilters = () => {
-    setSelectedCategory('All')
-    setSelectedBrand('All')
-    setSelectedGpu('All')
-    setSelectedCpu('All')
-    setSelectedRam('All')
-    setSelectedStorage('All')
-    setSelectedFormFactor('All')
-    setSelectedPerformance('All')
     setOnlyInStock(false)
-    setPriceMax(3000)
-    setMinRating(0)
+    setPriceMax(0)
     setSortBy('featured')
     setSearchParams({})
   }
 
+  const hasActiveFilters = !!(categoryFromUrl || brandFromUrl || searchFromUrl || onlyInStock || priceMax > 0)
+
   return (
     <main className="flex-1 w-full pb-16">
       <div className="container-max px-4 md:px-6 py-6">
-
         {/* Breadcrumb Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-(--border-theme)">
           <div>
             <nav className="flex items-center gap-2 text-xs font-mono text-(--text-secondary) mb-1">
               <Link to="/" className="hover:text-(--text-primary)">HOME</Link>
               <Icon name="chevron_right" size={12} />
-              <span className="text-(--accent-blue) uppercase">{selectedCategory}</span>
+              <span className="text-(--accent-blue) uppercase">{activeCategory?.name ?? 'ALL'}</span>
             </nav>
-            <h1 className="text-(--text-primary) font-bold text-2xl tracking-tight">
-              {selectedCategory === 'All' ? 'Complete Hardware Catalog' : selectedCategory}
-            </h1>
+            <h1 className="text-(--text-primary) font-bold text-2xl tracking-tight">{heading}</h1>
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Mobile Filter Toggle */}
             <button
               type="button"
               onClick={() => setMobileFilterOpen(true)}
@@ -224,35 +132,30 @@ export function ProductsPage() {
               <Icon name="tune" size={16} /> FILTERS
             </button>
 
-            {/* Sort Dropdown */}
             <div className="flex items-center gap-2">
               <span className="font-mono text-xs text-(--text-secondary) hidden sm:inline">SORT BY:</span>
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
+                aria-label="Sort products"
                 className="bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-xs rounded-lg px-3 py-2 focus:outline-none focus:border-(--accent-blue)"
               >
-                <option value="featured">Featured / Best Match</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
-                <option value="rating">Highest Rated</option>
-                <option value="discount">Biggest Discount</option>
+                {SORT_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
               </select>
             </div>
           </div>
         </div>
 
-        {/* Layout Grid: Sidebar + Product Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-          {/* Desktop Filter Sidebar (3 cols) */}
+          {/* Desktop Filter Sidebar */}
           <aside className="hidden lg:block lg:col-span-3 space-y-6">
-            {/* Active Filters Header */}
             <div className="flex items-center justify-between pb-3 border-b border-(--border-theme)">
               <span className="font-mono text-xs font-bold text-(--text-primary) uppercase tracking-wider flex items-center gap-1.5">
                 <Icon name="filter_list" size={16} className="text-(--accent-blue)" /> FILTER CATALOG
               </span>
-              {(selectedCategory !== 'All' || selectedBrand !== 'All' || onlyInStock || priceMax < 3000 || minRating > 0) && (
+              {hasActiveFilters && (
                 <button
                   type="button"
                   onClick={clearAllFilters}
@@ -263,175 +166,82 @@ export function ProductsPage() {
               )}
             </div>
 
-            {/* Category Filter */}
+            {/* Category Filter — real categories with real product counts */}
             <div>
               <span className="font-mono text-[11px] font-semibold text-(--text-secondary) uppercase block mb-2">CATEGORY</span>
-              <div className="flex flex-col gap-1 max-h-56 overflow-y-auto scrollbar-none pr-1">
-                {CATEGORY_NAMES.map((cat) => (
+              <div className="flex flex-col gap-1 max-h-72 overflow-y-auto scrollbar-none pr-1">
+                <button
+                  type="button"
+                  onClick={() => setParam('category', '')}
+                  className={`text-left text-xs py-1.5 px-2 rounded-lg font-mono transition-colors flex items-center justify-between cursor-pointer ${
+                    !categoryFromUrl
+                      ? 'bg-(--accent-blue)/10 text-(--accent-blue) font-bold border-l-2 border-(--accent-blue)'
+                      : 'text-(--text-secondary) hover:bg-(--bg-surface-secondary) hover:text-(--text-primary)'
+                  }`}
+                >
+                  <span>All</span>
+                </button>
+                {(categories ?? []).map((cat) => (
                   <button
-                    key={cat}
+                    key={cat.id}
                     type="button"
-                    onClick={() => {
-                      setSelectedCategory(cat)
-                      if (cat !== 'All') setSearchParams({ category: cat })
-                      else setSearchParams({})
-                    }}
+                    onClick={() => setParam('category', cat.slug)}
                     className={`text-left text-xs py-1.5 px-2 rounded-lg font-mono transition-colors flex items-center justify-between cursor-pointer ${
-                      selectedCategory.toLowerCase() === cat.toLowerCase()
+                      categoryFromUrl === cat.slug
                         ? 'bg-(--accent-blue)/10 text-(--accent-blue) font-bold border-l-2 border-(--accent-blue)'
                         : 'text-(--text-secondary) hover:bg-(--bg-surface-secondary) hover:text-(--text-primary)'
                     }`}
                   >
-                    <span>{cat}</span>
+                    <span>{cat.name}</span>
+                    {typeof cat.productCount === 'number' && (
+                      <span className="text-[10px] text-(--text-muted)">{cat.productCount}</span>
+                    )}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* GPU Chipset Filter */}
+            {/* Brand Filter — real brands from the database */}
             <div className="pt-4 border-t border-(--border-theme)">
-              <span className="font-mono text-[11px] font-semibold text-(--text-secondary) uppercase block mb-2">GPU CHIPSET</span>
+              <span className="font-mono text-[11px] font-semibold text-(--text-secondary) uppercase block mb-2">BRAND</span>
               <select
-                value={selectedGpu}
-                onChange={(e) => setSelectedGpu(e.target.value)}
+                value={brandFromUrl}
+                onChange={(e) => setParam('brand', e.target.value)}
+                aria-label="Filter by brand"
                 className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-(--accent-blue)"
               >
-                <option value="All">All Graphics Chipsets</option>
-                <option value="RTX 5090">GeForce RTX 5090</option>
-                <option value="RTX 4090">GeForce RTX 4090</option>
-                <option value="RTX 4080">GeForce RTX 4080 / Super</option>
-                <option value="RTX 4070">GeForce RTX 4070 / Ti</option>
-                <option value="RX 7900">Radeon RX 7900 XTX / XT</option>
-                <option value="RX 7800">Radeon RX 7800 XT</option>
+                <option value="">All Brands</option>
+                {(brands ?? []).map((b) => (
+                  <option key={b.id} value={b.slug}>{b.name}</option>
+                ))}
               </select>
             </div>
 
-            {/* CPU Filter */}
-            <div className="pt-4 border-t border-(--border-theme)">
-              <span className="font-mono text-[11px] font-semibold text-(--text-secondary) uppercase block mb-2">PROCESSOR (CPU)</span>
-              <select
-                value={selectedCpu}
-                onChange={(e) => setSelectedCpu(e.target.value)}
-                className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-(--accent-blue)"
-              >
-                <option value="All">All Processors</option>
-                <option value="Intel Core Ultra">Intel Core Ultra (Arrow Lake)</option>
-                <option value="14900">Intel Core i9-14900K / KS</option>
-                <option value="7800X3D">AMD Ryzen 7 7800X3D</option>
-                <option value="7950X3D">AMD Ryzen 9 7950X3D</option>
-                <option value="Ryzen 9">AMD Ryzen 9 Series</option>
-              </select>
-            </div>
-
-            {/* RAM Filter */}
-            <div className="pt-4 border-t border-(--border-theme)">
-              <span className="font-mono text-[11px] font-semibold text-(--text-secondary) uppercase block mb-2">RAM SPEED & TYPE</span>
-              <select
-                value={selectedRam}
-                onChange={(e) => setSelectedRam(e.target.value)}
-                className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-(--accent-blue)"
-              >
-                <option value="All">All Memory Types</option>
-                <option value="DDR5-8000">DDR5-8000+ Extreme</option>
-                <option value="DDR5-7200">DDR5-7200 High Speed</option>
-                <option value="DDR5-6000">DDR5-6000 Low Latency</option>
-                <option value="DDR4">DDR4 Memory</option>
-              </select>
-            </div>
-
-            {/* Storage & Form Factor Filter */}
-            <div className="pt-4 border-t border-(--border-theme) grid grid-cols-2 gap-2">
-              <div>
-                <span className="font-mono text-[10px] font-semibold text-(--text-secondary) uppercase block mb-1">STORAGE</span>
-                <select
-                  value={selectedStorage}
-                  onChange={(e) => setSelectedStorage(e.target.value)}
-                  className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-[11px] rounded-lg p-1.5"
-                >
-                  <option value="All">All</option>
-                  <option value="PCIe 5.0">PCIe 5.0</option>
-                  <option value="PCIe 4.0">PCIe 4.0</option>
-                  <option value="NVMe">NVMe</option>
-                </select>
-              </div>
-              <div>
-                <span className="font-mono text-[10px] font-semibold text-(--text-secondary) uppercase block mb-1">FORM FACTOR</span>
-                <select
-                  value={selectedFormFactor}
-                  onChange={(e) => setSelectedFormFactor(e.target.value)}
-                  className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-[11px] rounded-lg p-1.5"
-                >
-                  <option value="All">All</option>
-                  <option value="ATX">ATX</option>
-                  <option value="Micro-ATX">mATX</option>
-                  <option value="Mini-ITX">ITX</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Performance Tier */}
-            <div className="pt-4 border-t border-(--border-theme)">
-              <span className="font-mono text-[11px] font-semibold text-(--text-secondary) uppercase block mb-2">PERFORMANCE TIER</span>
-              <select
-                value={selectedPerformance}
-                onChange={(e) => setSelectedPerformance(e.target.value)}
-                className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-(--accent-blue)"
-              >
-                <option value="All">All Tiers</option>
-                <option value="Tier 4">Tier 4 - Enthusiast Extreme (4K Path Tracing)</option>
-                <option value="Tier 3">Tier 3 - 4K Ultra Gaming</option>
-                <option value="Tier 2">Tier 2 - 1440p High Refresh Pro</option>
-                <option value="Tier 1">Tier 1 - Esports Ready</option>
-              </select>
-            </div>
-
-            {/* Price Max Range Slider */}
+            {/* Price Max */}
             <div className="pt-4 border-t border-(--border-theme)">
               <div className="flex items-center justify-between mb-2">
                 <span className="font-mono text-[11px] font-semibold text-(--text-secondary) uppercase">MAX PRICE</span>
-                <span className="font-mono text-xs font-bold text-(--text-primary)">${priceMax.toLocaleString()}</span>
+                <span className="font-mono text-xs font-bold text-(--text-primary)">
+                  {priceMax > 0 ? `$${priceMax.toLocaleString()}` : 'Any'}
+                </span>
               </div>
               <input
                 type="range"
-                min="50"
-                max="3000"
-                step="50"
+                min="0"
+                max="6000"
+                step="100"
                 value={priceMax}
                 onChange={(e) => setPriceMax(Number(e.target.value))}
+                aria-label="Maximum price"
                 className="w-full accent-(--accent-blue) bg-(--bg-surface-secondary) rounded-lg h-1.5"
               />
               <div className="flex justify-between text-[10px] font-mono text-(--text-secondary) mt-1">
-                <span>$50</span>
-                <span>$3,000+</span>
+                <span>Any</span>
+                <span>$6,000</span>
               </div>
             </div>
 
-            {/* Rating Filter */}
-            <div className="pt-4 border-t border-(--border-theme)">
-              <span className="font-mono text-[11px] font-semibold text-(--text-secondary) uppercase block mb-2">MINIMUM RATING</span>
-              <div className="flex flex-col gap-1">
-                {[
-                  { label: 'All Ratings', value: 0 },
-                  { label: '4.5 & up', value: 4.5 },
-                  { label: '4.0 & up', value: 4 },
-                  { label: '3.0 & up', value: 3 },
-                ].map((r) => (
-                  <button
-                    key={r.value}
-                    type="button"
-                    onClick={() => setMinRating(r.value)}
-                    className={`text-left text-xs py-1.5 px-2 rounded-lg font-mono transition-colors flex items-center gap-1.5 cursor-pointer ${
-                      minRating === r.value ? 'bg-(--accent-blue)/10 text-(--accent-blue) font-bold border-l-2 border-(--accent-blue)' : 'text-(--text-secondary) hover:bg-(--bg-surface-secondary) hover:text-(--text-primary)'
-                    }`}
-                  >
-                    {r.value > 0 && <Icon name="star" size={12} className="text-amber-400" filled />}
-                    <span>{r.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* In-Stock Only Toggle */}
+            {/* In-Stock Only */}
             <div className="pt-4 border-t border-(--border-theme)">
               <label className="flex items-center gap-2 cursor-pointer select-none">
                 <input
@@ -445,103 +255,128 @@ export function ProductsPage() {
             </div>
           </aside>
 
-          {/* Product Results Column (9 cols) */}
+          {/* Product Results */}
           <div className="lg:col-span-9">
-            {/* Active Result Count */}
             <div className="flex items-center justify-between mb-4 text-xs text-(--text-secondary)">
-              <span>Showing {filteredProducts.length} products</span>
-              {selectedBrand !== 'All' && (
+              <span>
+                {loading
+                  ? 'Loading catalog…'
+                  : pagination
+                    ? `Showing ${products.length} of ${pagination.total} products`
+                    : ''}
+              </span>
+              {brandFromUrl && (
                 <span className="text-xs text-(--accent-blue) bg-(--bg-surface-secondary) px-2 py-0.5 rounded border border-(--border-theme) font-medium">
-                  Brand: {selectedBrand}
+                  Brand: {brands?.find((b) => b.slug === brandFromUrl)?.name ?? brandFromUrl}
                 </span>
               )}
             </div>
 
-            {/* Products Grid */}
-            {filteredProducts.length > 0 ? (
-              <ProductGrid
-                products={filteredProducts}
-                onAddToCart={addToCart}
-                onToggleWishlist={toggleWishlist}
-                wishlistedIds={wishlist}
-                columns={3}
-              />
-            ) : (
-              <div className="bg-(--bg-surface) border border-(--border-theme) rounded-xl p-12 text-center">
-                <Icon name="search_off" size={40} className="text-(--text-muted) mb-3" />
-                <h3 className="text-(--text-primary) font-bold text-base mb-1">No Hardware Matches Found</h3>
-                <p className="text-(--text-secondary) text-xs max-w-sm mx-auto mb-4">
-                  Try adjusting your price filter or selecting a different category from the sidebar.
-                </p>
-                <button
-                  type="button"
-                  onClick={clearAllFilters}
-                  className="px-4 py-2 bg-(--accent-blue) text-white text-xs font-semibold rounded-lg hover:bg-(--accent-blue-hover)"
-                >
-                  Reset All Filters
-                </button>
+            {loading ? (
+              <div className="grid gap-5 md:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <ProductCardSkeleton key={i} />
+                ))}
               </div>
+            ) : error ? (
+              <ErrorState message={error} onRetry={reload} />
+            ) : products.length > 0 ? (
+              <>
+                <ProductGrid products={products} columns={3} />
+
+                {pagination && pagination.totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-3 mt-10">
+                    <Button
+                      variant="outline"
+                      disabled={!pagination.hasPrev}
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    >
+                      PREVIOUS
+                    </Button>
+                    <span className="font-mono text-xs text-(--text-secondary)">
+                      PAGE {pagination.page} / {pagination.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      disabled={!pagination.hasNext}
+                      onClick={() => setPage((p) => p + 1)}
+                    >
+                      NEXT
+                    </Button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <EmptyState
+                icon="search_off"
+                title="No hardware matches found"
+                message="Try adjusting your price filter or selecting a different category."
+                action={<Button onClick={clearAllFilters}>RESET ALL FILTERS</Button>}
+              />
             )}
           </div>
         </div>
-
       </div>
 
-      {/* Mobile Filter Modal / Drawer */}
+      {/* Mobile Filter Drawer */}
       {mobileFilterOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex justify-end">
           <div className="w-full max-w-xs bg-(--bg-surface) border-l border-(--border-theme) h-full p-6 overflow-y-auto flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between pb-4 border-b border-(--border-theme) mb-6">
                 <span className="font-bold text-(--text-primary) text-sm">Filter Products</span>
-                <button onClick={() => setMobileFilterOpen(false)} className="text-(--text-secondary) hover:text-(--text-primary)">
+                <button
+                  onClick={() => setMobileFilterOpen(false)}
+                  aria-label="Close filters"
+                  className="text-(--text-secondary) hover:text-(--text-primary)"
+                >
                   <Icon name="close" size={20} />
                 </button>
               </div>
 
-              {/* Mobile Category */}
               <div className="mb-6">
                 <span className="text-xs font-semibold text-(--text-secondary) block mb-2">Category</span>
                 <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  value={categoryFromUrl}
+                  onChange={(e) => setParam('category', e.target.value)}
                   className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg p-2 text-xs text-(--text-primary)"
                 >
-                  {CATEGORY_NAMES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                  <option value="">All</option>
+                  {(categories ?? []).map((c) => (
+                    <option key={c.id} value={c.slug}>{c.name}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Mobile Brand */}
               <div className="mb-6">
                 <span className="text-xs font-semibold text-(--text-secondary) block mb-2">Brand</span>
                 <select
-                  value={selectedBrand}
-                  onChange={(e) => setSelectedBrand(e.target.value)}
+                  value={brandFromUrl}
+                  onChange={(e) => setParam('brand', e.target.value)}
                   className="w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg p-2 text-xs text-(--text-primary)"
                 >
-                  {brands.map((b) => (
-                    <option key={b} value={b}>{b}</option>
+                  <option value="">All Brands</option>
+                  {(brands ?? []).map((b) => (
+                    <option key={b.id} value={b.slug}>{b.name}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Mobile Price */}
               <div className="mb-6">
-                <span className="text-xs font-semibold text-(--text-secondary) block mb-1">Max Price: ${priceMax}</span>
+                <span className="text-xs font-semibold text-(--text-secondary) block mb-1">
+                  Max Price: {priceMax > 0 ? `$${priceMax}` : 'Any'}
+                </span>
                 <input
                   type="range"
-                  min="50"
-                  max="3000"
-                  step="50"
+                  min="0"
+                  max="6000"
+                  step="100"
                   value={priceMax}
                   onChange={(e) => setPriceMax(Number(e.target.value))}
                   className="w-full accent-(--accent-blue)"
                 />
               </div>
 
-              {/* Mobile In-Stock */}
               <label className="flex items-center gap-2 cursor-pointer mb-6">
                 <input
                   type="checkbox"
@@ -559,7 +394,7 @@ export function ProductsPage() {
                 onClick={() => setMobileFilterOpen(false)}
                 className="w-full py-2.5 bg-(--accent-blue) text-white text-xs font-semibold rounded-lg"
               >
-                Apply Filters ({filteredProducts.length})
+                Apply Filters{pagination ? ` (${pagination.total})` : ''}
               </button>
               <button
                 type="button"

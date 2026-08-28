@@ -1,33 +1,47 @@
 import { useState, type ReactNode } from 'react'
 import { NavLink, Outlet, Link, useNavigate } from 'react-router-dom'
 import { Icon } from '../../components/ui'
-import { useShop } from '../../context/ShopContext'
+import { useAuth } from '../../context/AuthContext'
+import { authService } from '../../services/authService'
 
+// Only sections backed by a real API are listed. Promotions, media library,
+// store settings and the hero editor were removed — they had no backend.
 const NAV = [
   { to: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
   { to: '/admin/products', label: 'Products', icon: 'inventory_2', end: false },
+  { to: '/admin/inventory', label: 'Inventory', icon: 'warehouse', end: false },
   { to: '/admin/categories', label: 'Categories', icon: 'category', end: false },
   { to: '/admin/brands', label: 'Brands', icon: 'add_business', end: false },
-  { to: '/admin/promotions', label: 'Deals', icon: 'sell', end: false },
-  { to: '/admin/hero', label: 'Homepage Hero', icon: 'campaign', end: false },
-  { to: '/admin/gaming-pcs', label: 'Gaming PCs', icon: 'memory', end: false },
   { to: '/admin/orders', label: 'Orders', icon: 'receipt_long', end: false },
   { to: '/admin/customers', label: 'Customers', icon: 'group', end: false },
-  { to: '/admin/media', label: 'Media Library', icon: 'perm_media', end: false },
-  { to: '/admin/settings', label: 'Store Settings', icon: 'settings', end: false },
 ]
 
+/**
+ * Sign-in shown when an unauthenticated visitor lands on /admin.
+ * This is a convenience only — every admin API enforces the role server-side.
+ */
 function AdminAuthGate() {
-  const { loginAsAdmin } = useShop()
-  const [email, setEmail] = useState('admin@premiumpc.com')
+  const { setUser } = useAuth()
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const success = await loginAsAdmin(password, email)
-    if (!success) {
-      setError(true)
+    setSubmitting(true)
+    setError(null)
+    try {
+      const { user } = await authService.login(email, password)
+      if (user.role === 'admin' || user.role === 'manager' || user.role === 'staff') {
+        setUser(user)
+      } else {
+        setError('This account does not have administrator permissions.')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid administrator credentials.')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -50,43 +64,44 @@ function AdminAuthGate() {
 
         {error && (
           <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-lg text-rose-500 text-xs font-mono flex items-center gap-2">
-            <Icon name="error" size={16} /> Invalid administrator credentials. Check email and password.
+            <Icon name="error" size={16} /> {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className={labelClass}>Admin Email</label>
+            <label className={labelClass} htmlFor="admin-email">Admin Email</label>
             <input
+              id="admin-email"
               type="email"
               className={fieldClass}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@premiumpc.com"
+              placeholder="you@example.com"
               required
             />
           </div>
 
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className={labelClass}>Admin Password</label>
-            </div>
+            <label className={labelClass} htmlFor="admin-password">Admin Password</label>
             <input
+              id="admin-password"
               type="password"
               className={fieldClass}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter administrator password..."
+              placeholder="Enter administrator password…"
               required
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-3 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-mono font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+            disabled={submitting}
+            className="w-full py-3 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white text-xs font-mono font-bold rounded-lg transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm disabled:opacity-50"
           >
             <Icon name="lock" size={16} />
-            <span>UNLOCK ADMIN CONSOLE</span>
+            <span>{submitting ? 'SIGNING IN…' : 'SIGN IN'}</span>
           </button>
         </form>
 
@@ -101,16 +116,16 @@ function AdminAuthGate() {
 }
 
 export function AdminLayout() {
-  const { isAdminLoggedIn, logoutAdmin } = useShop()
+  const { isStaff, status, logout } = useAuth()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
 
-  if (!isAdminLoggedIn) {
+  if (status !== 'authed' || !isStaff) {
     return <AdminAuthGate />
   }
 
-  const handleLogout = () => {
-    logoutAdmin()
+  const handleLogout = async () => {
+    await logout()
     navigate('/')
   }
 
@@ -159,7 +174,7 @@ export function AdminLayout() {
         </Link>
 
         <button
-          onClick={handleLogout}
+          onClick={() => void handleLogout()}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg font-mono text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
         >
           <Icon name="logout" size={18} />
@@ -192,20 +207,13 @@ export function AdminLayout() {
           >
             <Icon name="menu" size={22} />
           </button>
-          <div className="relative flex items-center bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 max-w-md flex-1">
-            <Icon name="search" size={16} className="text-[var(--text-secondary)] mr-2" />
-            <input
-              placeholder="Search orders, products, customers..."
-              className="w-full bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder:text-[var(--text-secondary)]"
-            />
-          </div>
           <div className="flex items-center gap-3 ml-auto">
             <button
-              onClick={handleLogout}
+              onClick={() => void handleLogout()}
               className="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white font-mono text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <Icon name="lock" size={14} />
-              <span>LOCK CONSOLE</span>
+              <Icon name="logout" size={14} />
+              <span>SIGN OUT</span>
             </button>
           </div>
         </header>

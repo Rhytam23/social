@@ -55,7 +55,7 @@ router.delete(
   '/reviews/:id',
   authenticate,
   asyncRoute(async (req, res) => {
-    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'staff'
+    const isAdmin = req.user?.role === 'admin' || req.user?.role === 'manager' || req.user?.role === 'staff'
     await reviewService.delete(req.user!.userId, req.params.id, isAdmin)
     noContent(res)
   })

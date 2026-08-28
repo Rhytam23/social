@@ -1,27 +1,49 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { Product } from '../../types'
+import type { ProductSummary } from '../../services/productService'
 import { Icon, Badge, StockBadge, StarRating, Price } from '../ui'
 import { useShop } from '../../context/ShopContext'
+import { useCart } from '../../context/CartContext'
+import { useWishlist } from '../../context/WishlistContext'
 
 // ─── ProductCard ──────────────────────────────────────────────────────────────
 
 interface ProductCardProps {
-  product: Product
-  onAddToCart: (product: Product) => void
-  onToggleWishlist: (productId: string) => void
-  isWishlisted?: boolean
+  product: ProductSummary
 }
 
-export function ProductCard({
-  product,
-  onAddToCart,
-  onToggleWishlist,
-  isWishlisted = false,
-}: ProductCardProps) {
+export function ProductCard({ product }: ProductCardProps) {
   const [imageError, setImageError] = useState(false)
-  const { toggleCompare, isInCompare } = useShop()
+  const [adding, setAdding] = useState(false)
+  const { toggleCompare, isInCompare, showToast } = useShop()
+  const { addItem } = useCart()
+  const { isInWishlist, toggleWishlist } = useWishlist()
+
   const comparing = isInCompare(product.id)
+  const isWishlisted = isInWishlist(product.id)
+  const outOfStock = product.stockStatus === 'out-of-stock'
+
+  const handleAddToCart = async () => {
+    setAdding(true)
+    try {
+      await addItem(product.id, 1)
+      const shortName = product.name.length > 34 ? `${product.name.slice(0, 34)}…` : product.name
+      showToast(`Added "${shortName}" to cart`, 'cart')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Could not add to cart', 'info')
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const handleToggleWishlist = async () => {
+    try {
+      await toggleWishlist(product.id)
+      showToast(isWishlisted ? 'Removed from wishlist' : 'Saved to wishlist', 'wishlist')
+    } catch {
+      showToast('Sign in to save items to your wishlist', 'info')
+    }
+  }
 
   return (
     <article className="product-card-container group relative flex flex-col justify-between bg-transparent transition-all duration-200 h-full select-none">
@@ -30,9 +52,9 @@ export function ProductCard({
         to={`/products/${product.slug}`}
         className="product-card-img-area relative w-full h-48 md:h-52 bg-white dark:bg-(--bg-surface-secondary) rounded-xl flex items-center justify-center p-4 overflow-hidden shrink-0"
       >
-        {!imageError ? (
+        {product.primaryImage && !imageError ? (
           <img
-            src={product.image}
+            src={product.primaryImage}
             alt=""
             className="w-full h-full object-contain group-hover:scale-[1.03] transition-transform duration-300 ease-out relative z-10"
             onError={(e) => {
@@ -50,7 +72,7 @@ export function ProductCard({
         {/* Badges Overlay */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1 z-20 pointer-events-none">
           {product.isNew && <Badge variant="primary">NEW</Badge>}
-          {product.discount && <Badge variant="orange">-{product.discount}%</Badge>}
+          {product.discountPercent > 0 && <Badge variant="orange">-{product.discountPercent}%</Badge>}
         </div>
 
         {/* Action Buttons (Wishlist & Compare) */}
@@ -60,7 +82,7 @@ export function ProductCard({
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              onToggleWishlist(product.id)
+              void handleToggleWishlist()
             }}
             aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
             className={`w-7 h-7 flex items-center justify-center rounded-md border transition-all duration-150 ${
@@ -97,7 +119,7 @@ export function ProductCard({
           {/* Brand & Stock */}
           <div className="flex items-center justify-between gap-2 mb-1">
             <span className="text-[11px] font-bold text-(--accent-blue) uppercase">
-              {product.brand}
+              {product.brandName ?? ''}
             </span>
             <StockBadge status={product.stockStatus} />
           </div>
@@ -109,9 +131,13 @@ export function ProductCard({
             </h3>
           </Link>
 
-          {/* Rating */}
-          <div className="mb-3">
-            <StarRating rating={product.rating} count={product.reviewCount} />
+          {/* Rating — only shown once real reviews exist */}
+          <div className="mb-3 min-h-[18px]">
+            {product.reviewCount > 0 ? (
+              <StarRating rating={product.rating} count={product.reviewCount} />
+            ) : (
+              <span className="font-mono text-[10px] text-(--text-muted)">NO REVIEWS YET</span>
+            )}
           </div>
         </div>
 
@@ -119,20 +145,20 @@ export function ProductCard({
         <div className="pt-2 flex flex-col gap-2.5">
           <Price
             price={product.price}
-            previousPrice={product.previousPrice}
-            discount={product.discount}
+            previousPrice={product.previousPrice ?? undefined}
+            discount={product.discountPercent || undefined}
             size="sm"
           />
 
           <button
             type="button"
-            onClick={() => onAddToCart(product)}
-            disabled={product.stockStatus === 'out-of-stock'}
+            onClick={() => void handleAddToCart()}
+            disabled={outOfStock || adding}
             aria-label={`Add ${product.name} to cart`}
             className="w-full h-9 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-semibold rounded-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-1.5"
           >
             <Icon name="add_shopping_cart" size={16} />
-            <span>Add to Cart</span>
+            <span>{outOfStock ? 'Out of Stock' : adding ? 'Adding…' : 'Add to Cart'}</span>
           </button>
         </div>
       </div>
@@ -143,20 +169,11 @@ export function ProductCard({
 // ─── ProductGrid ──────────────────────────────────────────────────────────────
 
 interface ProductGridProps {
-  products: Product[]
-  onAddToCart: (product: Product) => void
-  onToggleWishlist: (productId: string) => void
-  wishlistedIds: Set<string>
+  products: ProductSummary[]
   columns?: 2 | 3 | 4
 }
 
-export function ProductGrid({
-  products,
-  onAddToCart,
-  onToggleWishlist,
-  wishlistedIds,
-  columns = 4,
-}: ProductGridProps) {
+export function ProductGrid({ products, columns = 4 }: ProductGridProps) {
   const colClasses = {
     2: 'grid-cols-1 sm:grid-cols-2',
     3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
@@ -166,13 +183,7 @@ export function ProductGrid({
   return (
     <div className={`grid gap-5 md:gap-6 ${colClasses[columns]}`}>
       {products.map((product) => (
-        <ProductCard
-          key={product.id}
-          product={product}
-          onAddToCart={onAddToCart}
-          onToggleWishlist={onToggleWishlist}
-          isWishlisted={wishlistedIds.has(product.id)}
-        />
+        <ProductCard key={product.id} product={product} />
       ))}
     </div>
   )

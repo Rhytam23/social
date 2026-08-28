@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Icon } from '../components/ui'
 import { authService } from '../services/authService'
 import { useShop } from '../context/ShopContext'
+import { useAuth } from '../context/AuthContext'
 import { config } from '../lib/config'
 
 type Mode = 'login' | 'register' | 'forgot'
@@ -19,6 +20,9 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const { showToast } = useShop()
+  const { setUser } = useAuth()
+  // Return the user to wherever they were sent from (e.g. /checkout).
+  const nextPath = searchParams.get('next') || '/account'
 
   // State
   const [authMethod, setAuthMethod] = useState<AuthMethod>('otp')
@@ -28,7 +32,6 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [password, setPassword] = useState('')
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', ''])
   const [loading, setLoading] = useState(false)
-  const [demoCode, setDemoCode] = useState<string | null>(null)
   const [resendCooldown, setResendCooldown] = useState(0)
 
   // OTP input references for auto-focus
@@ -55,10 +58,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
     setLoading(true)
     try {
-      const res = await authService.sendOtp(email.trim(), mode === 'register' ? 'register' : 'login')
-      if (res.demoCode) {
-        setDemoCode(res.demoCode)
-      }
+      await authService.sendOtp(email.trim(), mode === 'register' ? 'register' : 'login')
       setStep('otp')
       showToast(`OTP code sent to ${email}`, 'info')
 
@@ -91,9 +91,10 @@ export function AuthPage({ mode }: { mode: Mode }) {
 
     setLoading(true)
     try {
-      await authService.verifyOtp(email.trim(), code, mode === 'register' ? 'register' : 'login')
-      showToast('Successfully authenticated!', 'cart')
-      navigate('/account')
+      const { user } = await authService.verifyOtp(email.trim(), code, mode === 'register' ? 'register' : 'login')
+      setUser(user)
+      showToast('Successfully authenticated', 'cart')
+      navigate(nextPath)
     } catch (err: any) {
       showToast(err.message || 'Invalid OTP code', 'wishlist')
     } finally {
@@ -106,19 +107,22 @@ export function AuthPage({ mode }: { mode: Mode }) {
     e.preventDefault()
     setLoading(true)
     try {
-      if (mode === 'register') {
-        const [firstName, ...rest] = fullName.split(' ')
-        await authService.register({
-          email: email.trim(),
-          password,
-          firstName: firstName || 'Valued',
-          lastName: rest.join(' ') || 'Customer',
-        })
-      } else {
-        await authService.login(email.trim(), password)
-      }
-      showToast('Welcome back!', 'cart')
-      navigate('/account')
+      const result =
+        mode === 'register'
+          ? await (async () => {
+              const [firstName, ...rest] = fullName.trim().split(' ')
+              return authService.register({
+                email: email.trim(),
+                password,
+                firstName: firstName || 'Customer',
+                lastName: rest.join(' ') || '-',
+              })
+            })()
+          : await authService.login(email.trim(), password)
+
+      setUser(result.user)
+      showToast(mode === 'register' ? 'Account created' : 'Welcome back', 'cart')
+      navigate(nextPath)
     } catch (err: any) {
       showToast(err.message || 'Authentication failed', 'wishlist')
     } finally {
@@ -285,12 +289,6 @@ export function AuthPage({ mode }: { mode: Mode }) {
               ) : (
                 // Step 2: 6-Digit OTP Verification Form
                 <form onSubmit={handleVerifyOtp} className="space-y-6">
-                  {demoCode && (
-                    <div className="p-3.5 bg-[var(--accent-blue)]/10 border border-[var(--accent-blue)]/30 rounded-lg text-xs text-[var(--text-secondary)] font-mono text-center">
-                      🔑 <strong>Demo Mode OTP Code</strong>: <span className="text-[var(--text-primary)] font-bold text-sm tracking-wider ml-1">{demoCode}</span>
-                    </div>
-                  )}
-
                   <div>
                     <label className="text-xs font-mono text-[var(--text-secondary)] block mb-2 uppercase tracking-wider font-semibold">Enter 6-Digit OTP Code</label>
                     <div className="flex gap-2 sm:gap-3 justify-between mt-2">

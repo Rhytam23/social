@@ -14,6 +14,15 @@ const stripe = stripeSecretKey
   ? new Stripe(stripeSecretKey, { apiVersion: '2025-02-24.acacia' as any })
   : null
 
+function requireStripe(): Stripe {
+  if (!stripe) {
+    // Never simulate a payment: without Stripe configured the endpoint fails
+    // loudly in every environment. Use Stripe test keys for development.
+    throw new AppError('Payment gateway is not configured.', 503, 'PAYMENT_UNCONFIGURED')
+  }
+  return stripe
+}
+
 // POST /api/payments/create-intent — Create Stripe PaymentIntent for an order
 router.post(
   '/create-intent',
@@ -24,7 +33,9 @@ router.post(
       throw new AppError('Order ID is required.', 400)
     }
 
-    const order = await orderService.getById(orderId, req.user?.userId)
+    const gateway = requireStripe()
+
+    const order = await orderService.getById(orderId, { userId: req.user?.userId })
     if (!order) {
       throw new AppError('Order not found.', 404)
     }
@@ -37,24 +48,8 @@ router.post(
     const amountInCents = Math.round(order.total * 100)
     const currency = (order.currency || 'USD').toLowerCase()
 
-    if (!stripe) {
-      if (process.env['NODE_ENV'] === 'production') {
-        throw new AppError('Stripe live payment gateway is not configured.', 503)
-      }
-      // Non-production fallback logging
-      console.warn('[Stripe] Warning: STRIPE_SECRET_KEY is not set. Returning test intent token.')
-      success(res, {
-        clientSecret: `mock_secret_for_order_${order.id}`,
-        paymentIntentId: `mock_pi_${order.id}`,
-        amount: order.total,
-        currency,
-        status: 'requires_payment_method',
-      })
-      return
-    }
-
     // Create real Stripe PaymentIntent
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await gateway.paymentIntents.create({
       amount: amountInCents,
       currency,
       metadata: {
@@ -90,7 +85,9 @@ router.post(
       throw new AppError('Order ID and PaymentIntent ID are required.', 400)
     }
 
-    const order = await orderService.getById(orderId, req.user?.userId)
+    const gateway = requireStripe()
+
+    const order = await orderService.getById(orderId, { userId: req.user?.userId })
     if (!order) {
       throw new AppError('Order not found.', 404)
     }
@@ -100,22 +97,10 @@ router.post(
       return
     }
 
-    if (!stripe) {
-      if (process.env['NODE_ENV'] === 'production') {
-        throw new AppError('Stripe payment gateway unconfigured.', 503)
-      }
-      // Demo dev mode verification
-      const updated = await orderService.updatePaymentStatus(order.id, 'paid')
-      await orderService.updateStatus(order.id, 'processing', 'Payment verified in development mode.')
-      success(res, { order: updated, verified: true })
-      return
-    }
-
     // Verify PaymentIntent status directly with Stripe API
-    const intent = await stripe.paymentIntents.retrieve(paymentIntentId)
+    const intent = await gateway.paymentIntents.retrieve(paymentIntentId)
     if (intent.status === 'succeeded' && intent.metadata['orderId'] === orderId) {
-      const updated = await orderService.updatePaymentStatus(order.id, 'paid')
-      await orderService.updateStatus(order.id, 'processing', 'Payment verified via Stripe API.')
+      const updated = await orderService.markPaid(order.id, 'Payment verified via Stripe API.')
       success(res, { order: updated, verified: true })
       return
     }
@@ -148,20 +133,24 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
     return
   }
 
-  console.log(`[Stripe Webhook] Verified event ${event.id} of type ${event.type}`)
-
   try {
+    // Replay/duplicate guard: each Stripe event is processed exactly once.
+    const claimed = await query<{ event_id: string }>(
+      'INSERT INTO stripe_events (event_id, type) VALUES ($1, $2) ON CONFLICT (event_id) DO NOTHING RETURNING event_id',
+      [event.id, event.type]
+    )
+    if (claimed.length === 0) {
+      res.status(200).json({ received: true, duplicate: true })
+      return
+    }
+
     switch (event.type) {
       case 'payment_intent.succeeded': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         const orderId = paymentIntent.metadata['orderId']
         if (orderId) {
-          const order = await orderService.getById(orderId)
-          if (order && order.paymentStatus !== 'paid') {
-            await orderService.updatePaymentStatus(orderId, 'paid')
-            await orderService.updateStatus(orderId, 'processing', `Payment succeeded via Stripe (${paymentIntent.id})`)
-            console.log(`[Stripe Webhook] Order ${orderId} marked as paid.`)
-          }
+          await orderService.markPaid(orderId, `Payment succeeded via Stripe (${paymentIntent.id})`)
+          console.log(`[Stripe Webhook] Order ${orderId} payment confirmed.`)
         }
         break
       }
@@ -170,8 +159,10 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         const paymentIntent = event.data.object as Stripe.PaymentIntent
         const orderId = paymentIntent.metadata['orderId']
         if (orderId) {
-          await orderService.updatePaymentStatus(orderId, 'failed')
-          await orderService.updateStatus(orderId, 'cancelled', `Payment failed: ${paymentIntent.last_payment_error?.message || 'Transaction declined'}`)
+          await orderService.markFailed(
+            orderId,
+            `Payment failed: ${paymentIntent.last_payment_error?.message || 'Transaction declined'}`
+          )
           console.log(`[Stripe Webhook] Order ${orderId} marked as failed.`)
         }
         break
@@ -183,8 +174,7 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
         if (paymentIntentId) {
           const rows = await query<{ id: string }>('SELECT id FROM orders WHERE payment_ref = $1', [paymentIntentId])
           if (rows[0]?.id) {
-            await orderService.updatePaymentStatus(rows[0].id, 'refunded')
-            await orderService.updateStatus(rows[0].id, 'refunded', `Charge refunded via Stripe (${charge.id})`)
+            await orderService.markRefunded(rows[0].id, `Charge refunded via Stripe (${charge.id})`)
             console.log(`[Stripe Webhook] Order ${rows[0].id} marked as refunded.`)
           }
         }
@@ -195,6 +185,8 @@ export async function stripeWebhookHandler(req: Request, res: Response): Promise
     res.status(200).json({ received: true })
   } catch (err: any) {
     console.error('[Stripe Webhook Error] Event processing error:', err)
+    // Release the idempotency claim so Stripe's retry can reprocess the event.
+    await query('DELETE FROM stripe_events WHERE event_id = $1', [event.id]).catch(() => {})
     res.status(500).json({ error: 'Failed to process webhook event.' })
   }
 }

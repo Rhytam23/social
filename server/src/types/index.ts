@@ -61,6 +61,13 @@ export interface ProductImage {
   isPrimary: boolean
 }
 
+// Manufacturer-supplied FPS figures for prebuilt systems.
+export interface ProductBenchmark {
+  game: string
+  fps1440p: number | null
+  fps4K: number | null
+}
+
 export interface Product {
   id: string
   name: string
@@ -83,10 +90,12 @@ export interface Product {
   reviewCount: number
   wattage: number | null
   weightGrams: number | null
+  performanceTier?: string | null
   images?: ProductImage[]
   primaryImage?: string
   specs?: ProductSpec[]
   tags?: string[]
+  benchmarks?: ProductBenchmark[]
   // Inventory (from join)
   stockStatus?: StockStatus
   stockAvailable?: number
@@ -220,11 +229,13 @@ export interface ProductListParams extends PaginationParams {
   category?: string
   brand?: string
   search?: string
+  ids?: string[]
   minPrice?: number
   maxPrice?: number
   inStock?: boolean
   isFeatured?: boolean
   isNew?: boolean
+  hasDiscount?: boolean
   sort?: 'price_asc' | 'price_desc' | 'rating_desc' | 'name_asc' | 'newest' | 'featured'
 }
 

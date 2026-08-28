@@ -1,311 +1,410 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { Icon, Button } from '../../components/ui'
+import { ErrorState } from '../../components/ui/ErrorState'
 import { AdminPageHeader } from './AdminLayout'
-import { useShop } from '../../context/ShopContext'
-import type { Product, ProductCategory, StockStatus } from '../../types'
+import { useApi } from '../../hooks/useApi'
+import { adminService, type CreateProductPayload } from '../../services/adminService'
+import { productService } from '../../services/productService'
 
-const CATEGORIES = ['Graphics Cards', 'CPUs', 'Motherboards', 'RAM', 'Storage', 'Cooling', 'Cases', 'Power Supplies', 'Monitors', 'Peripherals', 'Streaming', 'Gaming PCs']
-const field = 'w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg p-2.5 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue) placeholder:text-(--text-secondary)'
-const lbl = 'text-[11px] font-mono text-(--text-secondary) block mb-1.5 uppercase tracking-wider font-semibold'
+const inputClass =
+  'w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)]'
+const labelClass = 'text-[11px] font-mono text-[var(--text-secondary)] block mb-1 uppercase font-semibold'
 
-function Section({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
-  return (
-    <section className="bg-(--bg-surface) border border-(--border-theme) rounded-xl p-5 shadow-sm">
-      <h2 className="font-mono text-xs font-bold text-(--text-primary) uppercase mb-4 border-b border-(--border-theme) pb-3 flex items-center gap-1.5">
-        <Icon name={icon} size={16} className="text-(--accent-blue)" /> {title}
-      </h2>
-      {children}
-    </section>
-  )
+interface SpecRow {
+  label: string
+  value: string
 }
 
 export function AdminProductEditor() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { products, addProduct, updateProduct } = useShop()
+  const isEdit = Boolean(id)
 
-  const existing = id && id !== 'new' ? products.find((p) => p.id === id) : undefined
-  const isNew = !existing
+  const [name, setName] = useState('')
+  const [slug, setSlug] = useState('')
+  const [sku, setSku] = useState('')
+  const [description, setDescription] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [brandId, setBrandId] = useState('')
+  const [price, setPrice] = useState('')
+  const [previousPrice, setPreviousPrice] = useState('')
+  const [discountPercent, setDiscountPercent] = useState('0')
+  const [wattage, setWattage] = useState('')
+  const [imageUrl, setImageUrl] = useState('')
+  const [isFeatured, setIsFeatured] = useState(false)
+  const [isNew, setIsNew] = useState(true)
+  const [isActive, setIsActive] = useState(true)
+  const [quantityOnHand, setQuantityOnHand] = useState('0')
+  const [specs, setSpecs] = useState<SpecRow[]>([])
+  const [tags, setTags] = useState('')
 
-  const [name, setName] = useState(existing?.name ?? '')
-  const [brand, setBrand] = useState(existing?.brand ?? 'NVIDIA')
-  const [category, setCategory] = useState<ProductCategory>((existing?.category as ProductCategory) ?? 'Graphics Cards')
-  const [price, setPrice] = useState(existing?.price ?? 999)
-  const [previousPrice, setPreviousPrice] = useState(existing?.previousPrice ?? 0)
-  const [discount, setDiscount] = useState(existing?.discount ?? 0)
-  const [stockStatus, setStockStatus] = useState<StockStatus>(existing?.stockStatus ?? 'in-stock')
-  const [stockCount, setStockCount] = useState(existing?.stockCount ?? 15)
-  const [image, setImage] = useState(existing?.image ?? 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&q=90')
-  const [description, setDescription] = useState(existing?.description ?? '')
-  const [isFeatured, setIsFeatured] = useState(existing?.isFeatured ?? true)
-  const [isNewTag, setIsNewTag] = useState(existing?.isNew ?? true)
-  const [rating] = useState(existing?.rating ?? 5.0)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
-  const [specs, setSpecs] = useState(existing?.specifications ?? [{ label: 'VRAM', value: '24GB GDDR6X' }, { label: 'BUS', value: '384-bit' }])
-  const [saved, setSaved] = useState(false)
+  const { data: categories } = useApi(useCallback(() => adminService.listCategories(), []), [])
+  const { data: brands } = useApi(useCallback(() => adminService.listBrands(), []), [])
 
-  const handleSave = (e: React.FormEvent) => {
+  // Existing products are loaded through the admin list, then detail by slug.
+  const { data: existing, loading, error, reload } = useApi(
+    useCallback(async () => {
+      if (!id) return null
+      const list = await productService.list({ ids: [id], limit: 1 })
+      const summary = list.data[0]
+      if (!summary) return null
+      return productService.getBySlug(summary.slug)
+    }, [id]),
+    [id]
+  )
+
+  useEffect(() => {
+    if (!existing) return
+    setName(existing.name)
+    setSlug(existing.slug)
+    setSku(existing.sku)
+    setDescription(existing.description ?? '')
+    setPrice(String(existing.price))
+    setPreviousPrice(existing.previousPrice ? String(existing.previousPrice) : '')
+    setDiscountPercent(String(existing.discountPercent ?? 0))
+    setWattage(existing.wattage ? String(existing.wattage) : '')
+    setImageUrl(existing.primaryImage ?? '')
+    setIsFeatured(existing.isFeatured)
+    setIsNew(existing.isNew)
+    setSpecs(existing.specs ?? [])
+    setTags((existing.tags ?? []).join(', '))
+  }, [existing])
+
+  // Match the loaded product's category/brand once the option lists arrive.
+  useEffect(() => {
+    if (!existing || !categories) return
+    const match = categories.find((c) => c.slug === existing.categorySlug)
+    if (match) setCategoryId(match.id)
+  }, [existing, categories])
+
+  useEffect(() => {
+    if (!existing || !brands) return
+    const match = brands.find((b) => b.slug === existing.brandSlug)
+    if (match) setBrandId(match.id)
+  }, [existing, brands])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSaving(true)
+    setSaveError(null)
 
-    const productPayload: Product = {
-      id: existing ? existing.id : `prod-${Date.now()}`,
-      name: name || 'New Flagship Hardware',
-      brand: brand || 'NVIDIA',
-      category: category || 'Graphics Cards',
-      price: Number(price) || 999,
-      previousPrice: previousPrice ? Number(previousPrice) : undefined,
-      discount: discount ? Number(discount) : undefined,
-      rating: Number(rating) || 5.0,
-      reviewCount: existing?.reviewCount ?? 12,
-      stockStatus: stockStatus || 'in-stock',
-      stockCount: Number(stockCount) || 10,
-      image: image || 'https://images.unsplash.com/photo-1587202372775-e229f172b9d7?w=1200&q=90',
-      description: description || 'Flagship performance engineered for enthusiasts.',
-      slug: existing ? existing.slug : `${(name || 'product').toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now()}`,
-      sku: existing?.sku ?? `PP-${Math.floor(1000 + Math.random() * 9000)}`,
+    const payload: CreateProductPayload = {
+      name: name.trim(),
+      sku: sku.trim(),
+      categoryId,
+      brandId,
+      price: parseFloat(price),
+      discountPercent: parseInt(discountPercent, 10) || 0,
+      isActive,
       isFeatured,
-      isNew: isNewTag,
-      specifications: specs.filter((s) => s.label.trim() !== ''),
+      isNew,
+      ...(slug.trim() ? { slug: slug.trim() } : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
+      ...(previousPrice ? { previousPrice: parseFloat(previousPrice) } : {}),
+      ...(wattage ? { wattage: parseInt(wattage, 10) } : {}),
+      ...(imageUrl.trim() ? { images: [{ url: imageUrl.trim(), isPrimary: true }] } : {}),
+      ...(specs.filter((s) => s.label && s.value).length
+        ? { specs: specs.filter((s) => s.label && s.value) }
+        : {}),
+      ...(tags.trim() ? { tags: tags.split(',').map((t) => t.trim()).filter(Boolean) } : {}),
+      ...(!isEdit ? { inventory: { quantityOnHand: parseInt(quantityOnHand, 10) || 0 } } : {}),
     }
 
-    if (existing) {
-      updateProduct(productPayload)
-    } else {
-      addProduct(productPayload)
+    try {
+      if (isEdit && id) await adminService.updateProduct(id, payload)
+      else await adminService.createProduct(payload)
+      navigate('/admin/products')
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not save product')
+    } finally {
+      setSaving(false)
     }
+  }
 
-    setSaved(true)
-    setTimeout(() => navigate('/admin/products'), 800)
+  if (isEdit && loading) {
+    return <div className="h-96 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl animate-pulse" />
+  }
+
+  if (isEdit && error) {
+    return <ErrorState message={error} onRetry={reload} />
   }
 
   return (
-    <form onSubmit={handleSave}>
+    <div>
       <AdminPageHeader
-        title={isNew ? 'Add Product' : 'Edit Product'}
-        subtitle={isNew ? 'Create a new catalog entry' : existing?.name}
+        title={isEdit ? 'Edit Product' : 'New Product'}
+        subtitle={isEdit ? 'Changes are saved to the product database' : 'Create a new catalog product'}
         action={
-          <div className="flex items-center gap-2">
-            <Link to="/admin/products">
-              <Button variant="secondary" size="md">Cancel</Button>
-            </Link>
-            <Button type="submit" variant="primary" size="md">
-              <Icon name={saved ? 'check' : 'save'} size={15} /> {saved ? 'Saved' : 'Save Product'}
+          <Link to="/admin/products">
+            <Button variant="outline" size="md">
+              <Icon name="arrow_back" size={15} /> Back
             </Button>
-          </div>
+          </Link>
         }
       />
 
-      {saved && (
-        <div className="mb-4 p-3 bg-(--color-stock-green)/10 border border-(--color-stock-green)/20 rounded-lg text-(--color-stock-green) font-mono text-xs flex items-center gap-2 font-semibold">
-          <Icon name="check_circle" size={16} filled /> Product {isNew ? 'created' : 'updated'} successfully. Redirecting…
+      {saveError && (
+        <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-mono">
+          {saveError}
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Main column */}
-        <div className="lg:col-span-2 space-y-4">
-          <Section title="Basic Information" icon="info">
-            <div className="space-y-4">
-              <div>
-                <label className={lbl}>Product Name</label>
-                <input
-                  className={field}
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. NVIDIA GeForce RTX 5090 Founders Edition"
-                  required
-                />
-              </div>
-              <div>
-                <label className={lbl}>Description</label>
-                <textarea
-                  className={`${field} h-24 resize-none`}
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Detailed product description..."
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={lbl}>Brand</label>
-                  <input
-                    className={field}
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
-                    placeholder="NVIDIA"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className={lbl}>Category</label>
-                  <select
-                    className={field}
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value as ProductCategory)}
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </Section>
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main fields */}
+        <div className="lg:col-span-2 space-y-6">
+          <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-4">
+            <h2 className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase border-b border-[var(--border-subtle)] pb-3">
+              Product Details
+            </h2>
 
-          <Section title="Image Asset URL" icon="image">
-            <div className="space-y-3">
-              <div>
-                <label className={lbl}>Product Main Image URL</label>
-                <input
-                  className={field}
-                  value={image}
-                  onChange={(e) => setImage(e.target.value)}
-                  placeholder="https://images.unsplash.com/..."
-                  required
-                />
-              </div>
-              {image && (
-                <div className="relative w-32 h-32 rounded-lg overflow-hidden border border-(--border-theme) bg-(--bg-surface-secondary)">
-                  <img src={image} alt="Preview" className="w-full h-full object-contain" />
-                </div>
-              )}
+            <div>
+              <label className={labelClass} htmlFor="p-name">Name</label>
+              <input id="p-name" required className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
-          </Section>
 
-          <Section title="Specifications" icon="list">
-            <div className="space-y-2">
-              {specs.map((s, i) => (
-                <div key={i} className="flex gap-2">
-                  <input
-                    className={field}
-                    value={s.label}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setSpecs((sp) => sp.map((item, idx) => (idx === i ? { ...item, label: val } : item)))
-                    }}
-                    placeholder="Label (e.g. VRAM)"
-                  />
-                  <input
-                    className={field}
-                    value={s.value}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      setSpecs((sp) => sp.map((item, idx) => (idx === i ? { ...item, value: val } : item)))
-                    }}
-                    placeholder="Value (e.g. 32GB GDDR7)"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSpecs((sp) => sp.filter((_, x) => x !== i))}
-                    className="px-2 text-(--text-secondary) hover:text-rose-500 cursor-pointer"
-                    aria-label="Remove spec"
-                  >
-                    <Icon name="close" size={16} />
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setSpecs((sp) => [...sp, { label: '', value: '' }])}
-                className="font-sans text-xs text-(--accent-blue) hover:underline flex items-center gap-1 mt-1 font-semibold cursor-pointer"
-              >
-                <Icon name="add" size={14} /> Add Specification
-              </button>
-            </div>
-          </Section>
-        </div>
-
-        {/* Sidebar column */}
-        <div className="space-y-4">
-          <Section title="Pricing" icon="payments">
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={lbl}>Price ($)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className={field}
-                  value={price}
-                  onChange={(e) => setPrice(Number(e.target.value))}
-                  placeholder="0.00"
-                  required
-                />
+                <label className={labelClass} htmlFor="p-sku">SKU</label>
+                <input id="p-sku" required className={inputClass} value={sku} onChange={(e) => setSku(e.target.value)} />
               </div>
               <div>
-                <label className={lbl}>Compare-at Price ($)</label>
+                <label className={labelClass} htmlFor="p-slug">Slug (optional)</label>
                 <input
-                  type="number"
-                  step="0.01"
-                  className={field}
-                  value={previousPrice}
-                  onChange={(e) => setPreviousPrice(Number(e.target.value))}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className={lbl}>Discount (%)</label>
-                <input
-                  type="number"
-                  className={field}
-                  value={discount}
-                  onChange={(e) => setDiscount(Number(e.target.value))}
-                  placeholder="0"
+                  id="p-slug"
+                  className={inputClass}
+                  pattern="[a-z0-9\-]*"
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
                 />
               </div>
             </div>
-          </Section>
 
-          <Section title="Inventory" icon="warehouse">
-            <div className="space-y-4">
+            <div>
+              <label className={labelClass} htmlFor="p-desc">Description</label>
+              <textarea
+                id="p-desc"
+                rows={4}
+                className={inputClass}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className={lbl}>Stock Quantity</label>
-                <input
-                  type="number"
-                  className={field}
-                  value={stockCount}
-                  onChange={(e) => setStockCount(Number(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className={lbl}>Stock Status</label>
+                <label className={labelClass} htmlFor="p-cat">Category</label>
                 <select
-                  className={field}
-                  value={stockStatus}
-                  onChange={(e) => setStockStatus(e.target.value as StockStatus)}
+                  id="p-cat"
+                  required
+                  className={inputClass}
+                  value={categoryId}
+                  onChange={(e) => setCategoryId(e.target.value)}
                 >
-                  <option value="in-stock">In Stock</option>
-                  <option value="low-stock">Low Stock</option>
-                  <option value="out-of-stock">Out of Stock</option>
+                  <option value="">Select category…</option>
+                  {(categories ?? []).map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={labelClass} htmlFor="p-brand">Brand</label>
+                <select
+                  id="p-brand"
+                  required
+                  className={inputClass}
+                  value={brandId}
+                  onChange={(e) => setBrandId(e.target.value)}
+                >
+                  <option value="">Select brand…</option>
+                  {(brands ?? []).map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
                 </select>
               </div>
             </div>
-          </Section>
 
-          <Section title="Visibility & Badges" icon="visibility">
-            <div className="space-y-2 text-xs text-(--text-primary)">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isFeatured}
-                  onChange={(e) => setIsFeatured(e.target.checked)}
-                  className="w-4 h-4 rounded bg-(--bg-surface-secondary) border-(--border-theme) text-(--accent-blue)"
-                />
-                Featured product
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isNewTag}
-                  onChange={(e) => setIsNewTag(e.target.checked)}
-                  className="w-4 h-4 rounded bg-(--bg-surface-secondary) border-(--border-theme) text-(--accent-blue)"
-                />
-                Mark as new arrival
-              </label>
+            <div>
+              <label className={labelClass} htmlFor="p-image">Primary Image URL</label>
+              <input
+                id="p-image"
+                type="url"
+                className={inputClass}
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+              />
             </div>
-          </Section>
+
+            <div>
+              <label className={labelClass} htmlFor="p-tags">Tags (comma separated)</label>
+              <input id="p-tags" className={inputClass} value={tags} onChange={(e) => setTags(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Specifications */}
+          <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-3">
+            <div className="flex items-center justify-between border-b border-[var(--border-subtle)] pb-3">
+              <h2 className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase">Specifications</h2>
+              <button
+                type="button"
+                onClick={() => setSpecs([...specs, { label: '', value: '' }])}
+                className="font-mono text-[10px] text-[var(--accent-blue)] hover:underline cursor-pointer flex items-center gap-1"
+              >
+                <Icon name="add" size={13} /> ADD ROW
+              </button>
+            </div>
+
+            {specs.length === 0 ? (
+              <p className="text-xs text-[var(--text-secondary)]">No specifications added.</p>
+            ) : (
+              specs.map((s, i) => (
+                <div key={i} className="flex gap-2 items-center">
+                  <input
+                    className={inputClass}
+                    placeholder="Label"
+                    aria-label={`Specification ${i + 1} label`}
+                    value={s.label}
+                    onChange={(e) => {
+                      const next = [...specs]
+                      next[i] = { ...next[i], label: e.target.value }
+                      setSpecs(next)
+                    }}
+                  />
+                  <input
+                    className={inputClass}
+                    placeholder="Value"
+                    aria-label={`Specification ${i + 1} value`}
+                    value={s.value}
+                    onChange={(e) => {
+                      const next = [...specs]
+                      next[i] = { ...next[i], value: e.target.value }
+                      setSpecs(next)
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setSpecs(specs.filter((_, idx) => idx !== i))}
+                    className="p-1.5 text-[var(--text-secondary)] hover:text-rose-500 cursor-pointer shrink-0"
+                    aria-label={`Remove specification ${i + 1}`}
+                  >
+                    <Icon name="delete" size={16} />
+                  </button>
+                </div>
+              ))
+            )}
+            {isEdit && (
+              <p className="text-[10px] text-[var(--text-secondary)] pt-2">
+                Note: specification and image edits apply on create. Editing an existing product updates its core
+                fields.
+              </p>
+            )}
+          </div>
         </div>
-      </div>
-    </form>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-4">
+            <h2 className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase border-b border-[var(--border-subtle)] pb-3">
+              Pricing
+            </h2>
+            <div>
+              <label className={labelClass} htmlFor="p-price">Price (USD)</label>
+              <input
+                id="p-price"
+                type="number"
+                step="0.01"
+                min="0"
+                required
+                className={inputClass}
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="p-prev">Previous Price</label>
+              <input
+                id="p-prev"
+                type="number"
+                step="0.01"
+                min="0"
+                className={inputClass}
+                value={previousPrice}
+                onChange={(e) => setPreviousPrice(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="p-disc">Discount %</label>
+              <input
+                id="p-disc"
+                type="number"
+                min="0"
+                max="100"
+                className={inputClass}
+                value={discountPercent}
+                onChange={(e) => setDiscountPercent(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="p-watt">Wattage</label>
+              <input
+                id="p-watt"
+                type="number"
+                min="0"
+                className={inputClass}
+                value={wattage}
+                onChange={(e) => setWattage(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {!isEdit && (
+            <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-4">
+              <h2 className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase border-b border-[var(--border-subtle)] pb-3">
+                Initial Inventory
+              </h2>
+              <div>
+                <label className={labelClass} htmlFor="p-qty">Quantity On Hand</label>
+                <input
+                  id="p-qty"
+                  type="number"
+                  min="0"
+                  className={inputClass}
+                  value={quantityOnHand}
+                  onChange={(e) => setQuantityOnHand(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl p-5 space-y-3">
+            <h2 className="font-mono text-xs font-bold text-[var(--text-primary)] uppercase border-b border-[var(--border-subtle)] pb-3">
+              Visibility
+            </h2>
+            {[
+              { label: 'Active (visible in store)', checked: isActive, set: setIsActive },
+              { label: 'Featured', checked: isFeatured, set: setIsFeatured },
+              { label: 'New arrival', checked: isNew, set: setIsNew },
+            ].map((f) => (
+              <label key={f.label} className="flex items-center gap-2 cursor-pointer text-xs text-[var(--text-primary)]">
+                <input
+                  type="checkbox"
+                  checked={f.checked}
+                  onChange={(e) => f.set(e.target.checked)}
+                  className="w-4 h-4 accent-[var(--accent-blue)]"
+                />
+                {f.label}
+              </label>
+            ))}
+          </div>
+
+          <Button type="submit" variant="primary" size="lg" fullWidth disabled={saving}>
+            {saving ? 'SAVING…' : isEdit ? 'SAVE CHANGES' : 'CREATE PRODUCT'}
+          </Button>
+        </div>
+      </form>
+    </div>
   )
 }

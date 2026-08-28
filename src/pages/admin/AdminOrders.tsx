@@ -1,126 +1,212 @@
-import { useState, useMemo } from 'react'
-import { Icon, EmptyState } from '../../components/ui'
+import { useState, useCallback } from 'react'
+import { Icon, EmptyState, Button } from '../../components/ui'
+import { ErrorState } from '../../components/ui/ErrorState'
 import { AdminPageHeader, Pill } from './AdminLayout'
-import { useShop } from '../../context/ShopContext'
-import type { OrderStatus } from '../../types'
+import { useApi } from '../../hooks/useApi'
+import { adminService } from '../../services/adminService'
+import type { Order } from '../../services/orderService'
 
-const STATUSES = ['All', 'Processing', 'Assembling', 'Quality Check', 'Shipped', 'Delivered', 'Cancelled']
+const ORDER_STATUSES = [
+  'processing',
+  'assembling',
+  'quality_check',
+  'shipped',
+  'delivered',
+  'cancelled',
+  'refunded',
+] as const
 
 export function AdminOrders() {
-  const { orders, updateOrderStatus } = useShop()
-  const [query, setQuery] = useState('')
-  const [status, setStatus] = useState('All')
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [page, setPage] = useState(1)
+  const [expanded, setExpanded] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
-  const filtered = useMemo(() => {
-    return orders.filter((o) => {
-      const custName = o.customerName || o.shippingAddress?.name || 'Guest'
-      const custEmail = o.customerEmail || 'customer@example.com'
+  const { data, loading, error, reload } = useApi(
+    useCallback(() => adminService.listOrders(page, 20, statusFilter || undefined), [page, statusFilter]),
+    [page, statusFilter]
+  )
 
-      if (status !== 'All' && o.status !== status) return false
-      if (query && !(`${o.id} ${custName} ${custEmail}`.toLowerCase().includes(query.toLowerCase()))) {
-        return false
-      }
-      return true
-    })
-  }, [orders, query, status])
+  const orders = data?.orders ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / 20))
 
-  const totalRevenue = orders
-    .filter((o) => o.paymentStatus !== 'Refunded')
-    .reduce((s, o) => s + (o.total || 0), 0)
+  const changeStatus = async (order: Order, status: string) => {
+    setBusyId(order.id)
+    setActionError(null)
+    try {
+      await adminService.updateOrderStatus(order.id, status)
+      reload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not update order status')
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   return (
     <div>
       <AdminPageHeader
-        title="Orders & Fulfillment"
-        subtitle={`${orders.length} orders · $${totalRevenue.toLocaleString(undefined, { maximumFractionDigits: 2 })} collected`}
+        title="Orders &amp; Fulfillment"
+        subtitle={loading ? 'Loading orders…' : `${total} order${total === 1 ? '' : 's'}`}
       />
 
-      {/* Status tabs & search */}
+      {/* Status filter — now actually reaches the API */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <div className="flex gap-1 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg p-1 overflow-x-auto scrollbar-none">
-          {STATUSES.map((s) => (
+          <button
+            onClick={() => {
+              setStatusFilter('')
+              setPage(1)
+            }}
+            className={`px-3 py-1.5 rounded-md font-mono text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+              statusFilter === '' ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            All
+          </button>
+          {ORDER_STATUSES.map((s) => (
             <button
               key={s}
-              onClick={() => setStatus(s)}
-              className={`px-3 py-1.5 rounded-md font-mono text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                status === s ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              onClick={() => {
+                setStatusFilter(s)
+                setPage(1)
+              }}
+              className={`px-3 py-1.5 rounded-md font-mono text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer capitalize ${
+                statusFilter === s ? 'bg-[var(--accent-blue)] text-white' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
               }`}
             >
-              {s}
+              {s.replace('_', ' ')}
             </button>
           ))}
         </div>
-
-        <div className="relative flex items-center bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 flex-1 min-w-[200px]">
-          <Icon name="search" size={16} className="text-[var(--text-secondary)] mr-2" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search order ID, customer name, email..."
-            className="w-full bg-transparent text-xs text-[var(--text-primary)] focus:outline-none placeholder:text-[var(--text-secondary)]"
-          />
-        </div>
       </div>
 
-      {/* Orders Table */}
-      {filtered.length ? (
-        <div className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-x-auto">
-          <table className="w-full text-xs min-w-[850px]">
-            <thead>
-              <tr className="font-mono text-[10px] text-[var(--text-secondary)] uppercase border-b border-[var(--border-subtle)]">
-                <th className="text-left p-3.5 font-semibold">Order ID</th>
-                <th className="text-left p-3.5 font-semibold">Customer</th>
-                <th className="text-center p-3.5 font-semibold">Items</th>
-                <th className="text-right p-3.5 font-semibold">Amount</th>
-                <th className="text-center p-3.5 font-semibold">Payment</th>
-                <th className="text-center p-3.5 font-semibold">Order Status</th>
-                <th className="text-left p-3.5 font-semibold">Date</th>
-                <th className="text-right p-3.5 font-semibold">Update Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-subtle)]">
-              {filtered.map((o) => {
-                const custName = o.customerName || o.shippingAddress?.name || 'Customer'
-                const custEmail = o.customerEmail || 'customer@example.com'
-
-                return (
-                  <tr key={o.id} className="hover:bg-[var(--bg-primary)] transition-colors">
-                    <td className="p-3.5 font-mono text-[var(--accent-blue)] font-bold">#{o.id}</td>
-                    <td className="p-3.5">
-                      <div className="text-[var(--text-primary)] font-semibold">{custName}</div>
-                      <div className="font-mono text-[10px] text-[var(--text-secondary)]">{custEmail}</div>
-                    </td>
-                    <td className="p-3.5 text-center font-mono text-[var(--text-secondary)]">{o.items?.length || 1}</td>
-                    <td className="p-3.5 text-right font-mono text-[var(--text-primary)] font-bold">${o.total?.toFixed(2)}</td>
-                    <td className="p-3.5 text-center">
-                      <Pill status={o.paymentStatus || 'Paid'} />
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <Pill status={o.status} />
-                    </td>
-                    <td className="p-3.5 font-mono text-[var(--text-secondary)]">{o.date}</td>
-                    <td className="p-3.5 text-right">
-                      <select
-                        value={o.status}
-                        onChange={(e) => updateOrderStatus(o.id, e.target.value as OrderStatus)}
-                        className="bg-[var(--bg-primary)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-[var(--accent-blue)] cursor-pointer"
-                      >
-                        <option value="Processing">Processing</option>
-                        <option value="Assembling">Assembling</option>
-                        <option value="Quality Check">Quality Check</option>
-                        <option value="Shipped">Shipped</option>
-                        <option value="Delivered">Delivered</option>
-                        <option value="Cancelled">Cancelled</option>
-                      </select>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+      {actionError && (
+        <div className="mb-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-mono">
+          {actionError}
         </div>
+      )}
+
+      {loading ? (
+        <div className="h-64 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl animate-pulse" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={reload} />
+      ) : orders.length === 0 ? (
+        <EmptyState
+          icon="receipt_long"
+          title="No orders"
+          message={statusFilter ? `No orders with status “${statusFilter}”.` : 'Orders will appear here as customers check out.'}
+        />
       ) : (
-        <EmptyState icon="receipt_long" title="No orders found" message="Try adjusting your search or status filters." />
+        <>
+          <div className="space-y-2">
+            {orders.map((o) => (
+              <div
+                key={o.id}
+                className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl overflow-hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => setExpanded(expanded === o.id ? null : o.id)}
+                  className="w-full flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 text-left cursor-pointer hover:bg-[var(--bg-primary)]/40 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <span className="font-mono text-xs text-[var(--accent-blue)] font-bold">{o.orderNumber}</span>
+                    <p className="text-[var(--text-secondary)] text-[11px] font-mono truncate">
+                      {new Date(o.createdAt).toLocaleString()} · {o.shippingName}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0 flex-wrap">
+                    <Pill status={o.paymentStatus} />
+                    <Pill status={o.status} />
+                    <span className="font-mono text-[var(--text-primary)] font-bold text-sm">${o.total.toFixed(2)}</span>
+                    <Icon
+                      name={expanded === o.id ? 'expand_less' : 'expand_more'}
+                      size={18}
+                      className="text-[var(--text-secondary)]"
+                    />
+                  </div>
+                </button>
+
+                {expanded === o.id && (
+                  <div className="border-t border-[var(--border-subtle)] p-4 space-y-4 bg-[var(--bg-primary)]/30">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      <div>
+                        <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase block mb-1">
+                          Ship To
+                        </span>
+                        <p className="text-[var(--text-primary)]">{o.shippingName}</p>
+                        <p className="text-[var(--text-secondary)]">{o.shippingStreet}</p>
+                        <p className="text-[var(--text-secondary)]">
+                          {o.shippingCity}, {o.shippingState} {o.shippingZip}
+                        </p>
+                        <p className="text-[var(--text-secondary)]">{o.shippingCountry}</p>
+                      </div>
+                      <div>
+                        <span className="font-mono text-[10px] text-[var(--text-secondary)] uppercase block mb-1">
+                          Items ({o.items.length})
+                        </span>
+                        <ul className="space-y-1">
+                          {o.items.map((i) => (
+                            <li key={i.id} className="text-[var(--text-secondary)] flex justify-between gap-2">
+                              <span className="truncate">
+                                {i.productName} × {i.quantity}
+                              </span>
+                              <span className="font-mono text-[var(--text-primary)] shrink-0">
+                                ${i.lineTotal.toFixed(2)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 flex-wrap pt-3 border-t border-[var(--border-subtle)]">
+                      <label
+                        className="font-mono text-[10px] text-[var(--text-secondary)] uppercase"
+                        htmlFor={`status-${o.id}`}
+                      >
+                        Update status
+                      </label>
+                      <select
+                        id={`status-${o.id}`}
+                        value={o.status}
+                        disabled={busyId === o.id}
+                        onChange={(e) => void changeStatus(o, e.target.value)}
+                        className="bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-mono text-xs rounded-lg px-3 py-1.5 focus:outline-none focus:border-[var(--accent-blue)] capitalize"
+                      >
+                        {ORDER_STATUSES.map((s) => (
+                          <option key={s} value={s}>
+                            {s.replace('_', ' ')}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="font-mono text-[10px] text-[var(--text-secondary)]">
+                        Payment: {o.paymentStatus} (refunds are issued in Stripe)
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
+                PREVIOUS
+              </Button>
+              <span className="font-mono text-xs text-[var(--text-secondary)]">
+                PAGE {page} / {totalPages}
+              </span>
+              <Button variant="outline" disabled={page >= totalPages} onClick={() => setPage((p) => p + 1)}>
+                NEXT
+              </Button>
+            </div>
+          )}
+        </>
       )}
     </div>
   )

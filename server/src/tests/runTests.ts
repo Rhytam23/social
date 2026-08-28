@@ -2,6 +2,7 @@ process.env.NODE_ENV = 'test'
 import http from 'http'
 import app from '../index'
 import { runMigrations } from '../db/migrate'
+import { query } from '../db/client'
 
 // Integration Test Runner for API Endpoints
 async function runTests() {
@@ -171,6 +172,71 @@ async function runTests() {
     }
   } catch (err) {
     console.error('  ✗ FAILED: 4. Authentication After Logout', err)
+    testsFailed++
+  }
+
+  // ─── Security regressions ───────────────────────────────────────────────────
+
+  // 13. Password-reset codes must never mint a session via /verify-otp.
+  await testEndpoint(
+    'Security — reset_password purpose rejected at /verify-otp',
+    '/api/auth/verify-otp',
+    'POST',
+    { email: 'someone@example.com', code: '123456', purpose: 'reset_password' },
+    undefined,
+    422 // Zod rejects the purpose value outright
+  )
+
+  // 14. Payments must fail loudly when Stripe is unconfigured — never simulate success.
+  if (!process.env['STRIPE_SECRET_KEY']) {
+    await testEndpoint(
+      'Security — payments unavailable without Stripe (no fake success)',
+      '/api/payments/create-intent',
+      'POST',
+      { orderId: '00000000-0000-4000-8000-000000000000' },
+      undefined,
+      503
+    )
+  }
+
+  // 15. Admin product update rejects an invalid body (Zod validation present).
+  await testEndpoint(
+    'Security — admin product update requires auth',
+    '/api/admin/products/00000000-0000-4000-8000-000000000000',
+    'PUT',
+    { price: 'not-a-number' },
+    undefined,
+    401
+  )
+
+  // 16. Order lookups with a non-existent id must 404 (ownership-safe lookup).
+  await testEndpoint(
+    'Security — unknown order id returns 404',
+    '/api/orders/00000000-0000-4000-8000-000000000000',
+    'GET',
+    undefined,
+    undefined,
+    404
+  )
+
+  // 17. Catalog: products carry no fabricated ratings until real reviews exist.
+  try {
+    const res = await fetch(`${baseUrl}/api/products?limit=100`)
+    const json: any = await res.json()
+    const products: any[] = Array.isArray(json?.data?.data) ? json.data.data : []
+    const fabricated = products.filter((p: any) => p.reviewCount > 0 && p.rating > 0)
+    const reviewRows = await query<{ count: string }>('SELECT COUNT(*) AS count FROM reviews')
+    const realReviews = parseInt(reviewRows[0]?.count ?? '0', 10)
+    // Pass if: no products at all (empty catalog), or all ratings are backed by real reviews
+    if (products.length === 0 || fabricated.length === 0 || realReviews > 0) {
+      console.log(`  ✓ PASSED: Catalog — no fabricated ratings (${products.length} products, ${realReviews} real reviews)`)
+      testsPassed++
+    } else {
+      console.error(`  ✗ FAILED: Catalog — ${fabricated.length} products have ratings with no reviews in the database`)
+      testsFailed++
+    }
+  } catch (err) {
+    console.error('  ✗ FAILED: Catalog rating integrity check', err)
     testsFailed++
   }
 

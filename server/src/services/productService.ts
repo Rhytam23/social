@@ -24,6 +24,7 @@ interface ProductRow {
   review_count: number
   wattage: number | null
   weight_grams: number | null
+  performance_tier: string | null
   primary_image?: string
   stock_status?: string
   stock_available?: string
@@ -58,6 +59,7 @@ function toProduct(row: ProductRow): Product {
     reviewCount: row.review_count,
     wattage: row.wattage,
     weightGrams: row.weight_grams,
+    performanceTier: row.performance_tier,
     primaryImage: row.primary_image,
     stockStatus: (row.stock_status ?? 'out-of-stock') as Product['stockStatus'],
     stockAvailable: row.stock_available ? parseInt(row.stock_available, 10) : 0,
@@ -97,22 +99,28 @@ export const productService = {
   async list(params: ProductListParams): Promise<PaginatedResponse<Product>> {
     const {
       page = 1, limit = 24,
-      category, brand, search,
+      category, brand, search, ids,
       minPrice, maxPrice,
-      inStock, isFeatured, isNew,
+      inStock, isFeatured, isNew, hasDiscount,
       sort = 'featured',
     } = params
 
     const where: string[] = ['p.is_active = TRUE']
     const args: unknown[] = []
 
+    if (ids?.length) {
+      args.push(ids)
+      where.push(`p.id = ANY($${args.length}::uuid[])`)
+    }
+    // Accept either a slug or a UUID. The id columns are cast to text so a
+    // slug value never triggers "operator does not exist: uuid = text".
     if (category) {
       args.push(category)
-      where.push(`(c.slug = $${args.length} OR c.id = $${args.length})`)
+      where.push(`(c.slug = $${args.length} OR c.id::text = $${args.length})`)
     }
     if (brand) {
       args.push(brand)
-      where.push(`(b.slug = $${args.length} OR b.id = $${args.length})`)
+      where.push(`(b.slug = $${args.length} OR b.id::text = $${args.length})`)
     }
     if (search) {
       args.push(search)
@@ -134,6 +142,9 @@ export const productService = {
     }
     if (isNew) {
       where.push(`p.is_new = TRUE`)
+    }
+    if (hasDiscount) {
+      where.push(`p.discount_percent > 0`)
     }
 
     const whereSQL = where.length ? `WHERE ${where.join(' AND ')}` : ''
@@ -180,7 +191,7 @@ export const productService = {
     )
     if (!row) throw new NotFoundError('Product')
 
-    const [specs, images] = await Promise.all([
+    const [specs, images, tags, benchmarks] = await Promise.all([
       query<{ label: string; value: string }>(
         'SELECT label, value FROM product_specs WHERE product_id = $1 ORDER BY sort_order',
         [row.id]
@@ -189,12 +200,19 @@ export const productService = {
         'SELECT id, url, alt_text, sort_order, is_primary FROM product_images WHERE product_id = $1 ORDER BY sort_order',
         [row.id]
       ),
+      query<{ tag: string }>('SELECT tag FROM product_tags WHERE product_id = $1', [row.id]),
+      query<{ game: string; fps_1440p: number | null; fps_4k: number | null }>(
+        'SELECT game, fps_1440p, fps_4k FROM product_benchmarks WHERE product_id = $1 ORDER BY sort_order',
+        [row.id]
+      ),
     ])
 
     return {
       ...toProduct(row),
       specs,
       images: images.map((i) => ({ id: i.id, url: i.url, altText: i.alt_text, sortOrder: i.sort_order, isPrimary: i.is_primary })),
+      tags: tags.map((t) => t.tag),
+      benchmarks: benchmarks.map((b) => ({ game: b.game, fps1440p: b.fps_1440p, fps4K: b.fps_4k })),
     }
   },
 

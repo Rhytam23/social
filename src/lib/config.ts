@@ -12,4 +12,9 @@ export const config = {
     maxCompareItems: parseInt((import.meta.env['VITE_MAX_COMPARE_ITEMS'] as string | undefined) ?? '4', 10),
     freeShippingThreshold: parseFloat((import.meta.env['VITE_FREE_SHIPPING_THRESHOLD'] as string | undefined) ?? '500'),
   },
+  stripe: {
+    // Publishable key. When empty, checkout shows an explicit
+    // "payment not configured" state instead of a fake payment form.
+    publishableKey: (import.meta.env['VITE_STRIPE_PUBLISHABLE_KEY'] as string | undefined) ?? '',
+  },
 } as const

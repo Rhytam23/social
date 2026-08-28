@@ -1,8 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Icon } from '../ui'
-import { searchProducts, allBrandNames, categoryDetails } from '../../data'
 import { useShop } from '../../context/ShopContext'
+import { useCart } from '../../context/CartContext'
+import { useWishlist } from '../../context/WishlistContext'
+import { useAuth } from '../../context/AuthContext'
+import { useDebounce } from '../../hooks/useDebounce'
+import { productService, type ProductSummary } from '../../services/productService'
 
 // ─── SearchBar Component ──────────────────────────────────────────────────────
 
@@ -11,8 +15,6 @@ interface SearchBarProps {
   className?: string
   onSearchSubmit?: () => void
 }
-
-const POPULAR_SEARCHES = ['RTX 5090', 'Ryzen 7 7800X3D', 'DDR5-6000', 'OLED Monitor', 'PCIe 5.0 SSD', 'ATX 3.0 PSU']
 
 function loadRecent(): string[] {
   try {
@@ -31,8 +33,13 @@ export function SearchBar({
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
   const [recent, setRecent] = useState<string[]>(loadRecent)
+  const [productMatches, setProductMatches] = useState<ProductSummary[]>([])
+  const [searching, setSearching] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
+
+  const q = query.trim()
+  const debouncedQuery = useDebounce(q, 250)
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -42,10 +49,29 @@ export function SearchBar({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const q = query.trim().toLowerCase()
-  const productMatches = q ? searchProducts(q).slice(0, 5) : []
-  const brandMatches = q ? allBrandNames.filter((b) => b.toLowerCase().includes(q)).slice(0, 4) : []
-  const categoryMatches = q ? categoryDetails.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 4) : []
+  // Live typeahead against the catalog API
+  useEffect(() => {
+    if (!debouncedQuery) {
+      setProductMatches([])
+      return
+    }
+    let active = true
+    setSearching(true)
+    productService
+      .search({ search: debouncedQuery, limit: 5 })
+      .then((res) => {
+        if (active) setProductMatches(res.data)
+      })
+      .catch(() => {
+        if (active) setProductMatches([])
+      })
+      .finally(() => {
+        if (active) setSearching(false)
+      })
+    return () => {
+      active = false
+    }
+  }, [debouncedQuery])
 
   function commit(term: string) {
     const t = term.trim()
@@ -77,7 +103,7 @@ export function SearchBar({
   }
 
   const showDropdown = open
-  const hasResults = productMatches.length || brandMatches.length || categoryMatches.length
+  const hasResults = productMatches.length > 0
 
   return (
     <div ref={containerRef} className={`relative w-full ${className}`}>
@@ -131,10 +157,20 @@ export function SearchBar({
                       onClick={() => commit(p.name)}
                       className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-(--bg-surface-secondary) transition-all"
                     >
-                      <img src={p.image} alt="" className="w-8 h-8 object-cover rounded bg-(--bg-surface-secondary) shrink-0" />
+                      {p.primaryImage ? (
+                        <img
+                          src={p.primaryImage}
+                          alt=""
+                          className="w-8 h-8 object-cover rounded bg-(--bg-surface-secondary) shrink-0"
+                        />
+                      ) : (
+                        <span className="w-8 h-8 rounded bg-(--bg-surface-secondary) shrink-0 flex items-center justify-center">
+                          <Icon name="memory" size={16} className="text-(--accent-blue)" />
+                        </span>
+                      )}
                       <div className="min-w-0 flex-1">
                         <span className="text-(--text-primary) text-xs font-medium truncate block">{p.name}</span>
-                        <span className="text-[10px] text-(--text-muted)">{p.brand}</span>
+                        <span className="text-[10px] text-(--text-muted)">{p.brandName}</span>
                       </div>
                       <span className="text-xs text-(--accent-blue) font-bold shrink-0">
                         ${p.price.toFixed(2)}
@@ -143,31 +179,12 @@ export function SearchBar({
                   ))}
                 </div>
               )}
-              {brandMatches.length > 0 && (
-                <div className="border-t border-(--border-theme) pt-2">
-                  <span className="text-[10px] font-semibold text-(--text-muted) uppercase tracking-wider block px-2 mb-1.5">
-                    Brands
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 px-2">
-                    {brandMatches.map((b) => (
-                      <Link
-                        key={b}
-                        to={`/products?brand=${encodeURIComponent(b)}`}
-                        onClick={() => setOpen(false)}
-                        className="text-xs text-(--text-secondary) hover:text-(--text-primary) bg-(--bg-surface-secondary) border border-(--border-theme) hover:border-(--accent-blue) px-2.5 py-1 rounded-md transition-all"
-                      >
-                        {b}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
           {q && !hasResults && (
             <div className="px-4 py-6 text-center text-xs text-(--text-muted)">
-              No matches for "{query}". Press Enter to search catalog.
+              {searching ? 'Searching catalog…' : `No matches for "${query}". Press Enter to search catalog.`}
             </div>
           )}
 
@@ -199,22 +216,11 @@ export function SearchBar({
                   </div>
                 </div>
               )}
-              <div>
-                <span className="text-[10px] font-semibold text-(--text-muted) uppercase tracking-wider px-1 mb-1.5 block">
-                  Popular Searches
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {POPULAR_SEARCHES.map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => commit(p)}
-                      className="flex items-center gap-1 text-xs text-(--accent-blue) hover:underline bg-accent-blue/10 border border-accent-blue/20 px-2.5 py-1 rounded-md transition-all"
-                    >
-                      <Icon name="trending_up" size={13} /> {p}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {recent.length === 0 && (
+                <p className="px-1 py-2 text-xs text-(--text-muted)">
+                  Start typing to search the catalog.
+                </p>
+              )}
             </div>
           )}
         </div>
@@ -228,6 +234,8 @@ export function SearchBar({
 function AccountMenu() {
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
+  const { user, status, logout } = useAuth()
+  const navigate = useNavigate()
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -237,27 +245,39 @@ function AccountMenu() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
+  const handleSignOut = async () => {
+    setOpen(false)
+    await logout()
+    navigate('/')
+  }
+
   return (
     <div ref={menuRef} className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       <Link
-        to="/account"
+        to={status === 'authed' ? '/account' : '/login'}
         onClick={() => setOpen(false)}
         className="flex items-center gap-1.5 text-(--text-secondary) hover:text-(--text-primary) text-xs font-medium py-1 px-2 rounded-lg hover:bg-(--bg-surface-secondary) transition-all"
-        aria-label="My Account"
+        aria-label={status === 'authed' ? 'My Account' : 'Sign in'}
       >
         <Icon name="person" size={18} className="text-(--accent-blue)" />
-        <span>Account</span>
+        <span>{status === 'authed' ? 'Account' : 'Sign In'}</span>
         <Icon name="expand_more" size={14} className="text-(--text-muted)" />
       </Link>
 
       {open && (
         <div className="absolute right-0 top-full mt-1 w-52 bg-(--bg-surface) border border-(--border-theme) rounded-xl shadow-2xl py-2 z-[130]">
-          <div className="px-4 py-2 border-b border-(--border-theme)">
-            <span className="text-(--text-primary) font-bold text-xs block">Alexandre Vance</span>
-            <span className="text-[10px] text-emerald-500 font-semibold flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> VIP Member
-            </span>
-          </div>
+          {user ? (
+            <div className="px-4 py-2 border-b border-(--border-theme)">
+              <span className="text-(--text-primary) font-bold text-xs block truncate">
+                {user.firstName} {user.lastName}
+              </span>
+              <span className="text-[10px] text-(--text-secondary) block truncate mt-0.5">{user.email}</span>
+            </div>
+          ) : (
+            <div className="px-4 py-2 border-b border-(--border-theme)">
+              <span className="text-(--text-secondary) text-xs block">Not signed in</span>
+            </div>
+          )}
 
           <div className="py-1 border-b border-(--border-theme)">
             <Link
@@ -291,13 +311,23 @@ function AccountMenu() {
             >
               <Icon name="support_agent" size={15} className="text-(--text-muted)" /> Help &amp; Support
             </Link>
-            <Link
-              to="/login"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-2 px-4 py-1.5 text-xs text-rose-500 hover:bg-(--bg-surface-secondary) transition-all font-semibold"
-            >
-              <Icon name="logout" size={15} /> Sign Out
-            </Link>
+            {status === 'authed' ? (
+              <button
+                type="button"
+                onClick={() => void handleSignOut()}
+                className="w-full text-left flex items-center gap-2 px-4 py-1.5 text-xs text-rose-500 hover:bg-(--bg-surface-secondary) transition-all font-semibold cursor-pointer"
+              >
+                <Icon name="logout" size={15} /> Sign Out
+              </button>
+            ) : (
+              <Link
+                to="/login"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 px-4 py-1.5 text-xs text-(--accent-blue) hover:bg-(--bg-surface-secondary) transition-all font-semibold"
+              >
+                <Icon name="login" size={15} /> Sign In
+              </Link>
+            )}
           </div>
         </div>
       )}
@@ -451,7 +481,9 @@ function StoreNavigationBar() {
 // ─── Main Header Component ─────────────────────────────────────────────────────
 
 export function Header() {
-  const { cartCount, wishlistCount, theme, toggleTheme } = useShop()
+  const { theme, toggleTheme } = useShop()
+  const { itemCount: cartCount } = useCart()
+  const { wishlistCount } = useWishlist()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false)
   const location = useLocation()

@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import crypto from 'crypto'
 import { query, checkDatabaseConnection } from './client'
 import { config } from '../config'
 
@@ -12,20 +13,30 @@ async function seed() {
 
   console.log('[Seed] Starting database seeding...')
 
-  // 1. Seed Roles & Users
-  console.log('[Seed] Seeding users...')
-  const adminPasswordHash = await bcrypt.hash('AdminPass123!', config.security.bcryptRounds)
-  const customerPasswordHash = await bcrypt.hash('Customer123!', config.security.bcryptRounds)
+  // 1. Seed the bootstrap admin account.
+  // - Password comes from SEED_ADMIN_PASSWORD (required in production).
+  // - ON CONFLICT DO NOTHING: re-running the seed never resets a rotated
+  //   password or role on an existing account.
+  console.log('[Seed] Seeding admin user...')
+  let adminPassword = process.env['SEED_ADMIN_PASSWORD']
+  if (!adminPassword) {
+    if (config.env === 'production') {
+      console.error('[Seed] SEED_ADMIN_PASSWORD is required in production. Skipping admin user seeding.')
+    } else {
+      adminPassword = crypto.randomBytes(18).toString('base64url')
+      console.log(`[Seed] Generated one-time dev admin password for admin@premiumpc.com: ${adminPassword}`)
+      console.log('[Seed] (Set SEED_ADMIN_PASSWORD to control this. Shown only when the account is first created.)')
+    }
+  }
 
-  await query(`
-    INSERT INTO users (email, password_hash, first_name, last_name, role, status, email_verified)
-    VALUES
-      ('admin@premiumpc.com', $1, 'Admin', 'User', 'admin', 'active', TRUE),
-      ('customer@premiumpc.com', $2, 'John', 'Doe', 'customer', 'active', TRUE)
-    ON CONFLICT (email) DO UPDATE SET
-      password_hash = EXCLUDED.password_hash,
-      role = EXCLUDED.role
-  `, [adminPasswordHash, customerPasswordHash])
+  if (adminPassword) {
+    const adminPasswordHash = await bcrypt.hash(adminPassword, config.security.bcryptRounds)
+    await query(`
+      INSERT INTO users (email, password_hash, first_name, last_name, role, status, email_verified)
+      VALUES ('admin@premiumpc.com', $1, 'Admin', 'User', 'admin', 'active', TRUE)
+      ON CONFLICT (email) DO NOTHING
+    `, [adminPasswordHash])
+  }
 
   // 2. Seed Categories
   console.log('[Seed] Seeding categories...')
@@ -204,16 +215,14 @@ async function seed() {
     const brandId = brandMap.get(p.brandSlug) ?? brandRows[0]?.id
     if (!categoryId || !brandId) continue
 
+    // DO NOTHING: seeding must never clobber admin edits to existing products.
     const [prod] = await query<{ id: string }>(`
       INSERT INTO products (
         name, slug, sku, description, category_id, brand_id, price, previous_price,
         discount_percent, is_featured, is_new, wattage
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-      ON CONFLICT (slug) DO UPDATE SET
-        name = EXCLUDED.name,
-        price = EXCLUDED.price,
-        description = EXCLUDED.description
+      ON CONFLICT (slug) DO NOTHING
       RETURNING id
     `, [
       p.name, p.slug, p.sku, p.description, categoryId, brandId,
@@ -239,11 +248,11 @@ async function seed() {
         `, [prod.id, spec.label, spec.value, i])
       }
 
-      // Seed Inventory
+      // Seed Inventory — never reset live stock levels on re-run
       await query(`
         INSERT INTO inventory (product_id, quantity_on_hand, low_stock_threshold)
         VALUES ($1, 50, 5)
-        ON CONFLICT (product_id) DO UPDATE SET quantity_on_hand = 50
+        ON CONFLICT (product_id) DO NOTHING
       `, [prod.id])
     }
   }

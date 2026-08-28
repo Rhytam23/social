@@ -28,9 +28,9 @@ export function ShippingPolicyPage() {
                 Orders for individual retail hardware components placed before 2:00 PM EST ship the same business day.
               </p>
               <div className="p-4 bg-(--bg-surface-secondary) border border-(--border-theme) rounded-xl text-xs font-mono space-y-1 text-(--text-secondary)">
-                <div><span className="text-(--text-primary) font-semibold">Standard Shipping:</span> 3 to 5 Business Days via Ground Express</div>
-                <div><span className="text-(--text-primary) font-semibold">Overnight Express:</span> Next Business Day Delivery (Order cutoff 12:00 PM EST)</div>
-                <div><span className="text-(--text-primary) font-semibold">Carrier Partners:</span> [CLIENT CONFIRMATION REQUIRED: Carrier Contracts e.g. FedEx, UPS, DHL]</div>
+                <div><span className="text-(--text-primary) font-semibold">Standard Shipping:</span> 2 to 3 business days</div>
+                <div><span className="text-(--text-primary) font-semibold">Priority Overnight:</span> Next business day</div>
+                <div><span className="text-(--text-primary) font-semibold">Free standard shipping:</span> on orders over $500</div>
               </div>
             </section>
           </div>

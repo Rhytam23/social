@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { cartService } from '../services/orderService'
-import { optionalAuth } from '../middleware/auth'
+import { optionalAuth, sessionCookieOptions } from '../middleware/auth'
 import { validate, addToCartSchema, updateCartItemSchema } from '../middleware/validate'
 import { asyncRoute, success, noContent } from '../middleware/errorHandler'
 import { v4 as uuid } from 'uuid'
@@ -15,8 +15,7 @@ function getSessionId(req: import('express').Request): string {
     sid = uuid()
     // Response object is available through the route handler
     req.res?.cookie('cart_session', sid, {
-      httpOnly: true,
-      sameSite: 'lax',
+      ...sessionCookieOptions(),
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     })
   }

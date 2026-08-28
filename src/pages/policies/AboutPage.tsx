@@ -29,13 +29,19 @@ export function AboutPage() {
               </p>
             </section>
 
+            {/*
+              Business registration details are supplied by the store operator.
+              Nothing is asserted here until those details are provided.
+            */}
             <section className="space-y-3">
-              <h2 className="text-(--text-primary) font-bold text-xl tracking-tight">Corporate Verification Details</h2>
+              <h2 className="text-(--text-primary) font-bold text-xl tracking-tight">Contact</h2>
               <div className="p-4 bg-(--bg-surface-secondary) border border-(--border-theme) rounded-xl text-xs font-mono space-y-1 text-(--text-secondary)">
-                <div><span className="text-(--text-primary) font-semibold">Store Operator:</span> [CLIENT CONFIRMATION REQUIRED: Operator Name]</div>
-                <div><span className="text-(--text-primary) font-semibold">Headquarters:</span> [CLIENT CONFIRMATION REQUIRED: Physical Business Location]</div>
-                <div><span className="text-(--text-primary) font-semibold">Customer Service Phone:</span> [CLIENT CONFIRMATION REQUIRED: Phone Number]</div>
-                <div><span className="text-(--text-primary) font-semibold">Support Hours:</span> [CLIENT CONFIRMATION REQUIRED: Operating Hours]</div>
+                <div>
+                  <span className="text-(--text-primary) font-semibold">Support email:</span>{' '}
+                  <a href="mailto:support@premiumpc.com" className="text-(--accent-blue) hover:underline">
+                    support@premiumpc.com
+                  </a>
+                </div>
               </div>
             </section>
           </div>

@@ -62,7 +62,15 @@ export const sendOtpSchema = z.object({
 export const verifyOtpSchema = z.object({
   email: z.string().email('Invalid email address').toLowerCase(),
   code: z.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d{6}$/, 'OTP must be numeric'),
-  purpose: z.enum(['login', 'register', 'reset_password']).default('login'),
+  purpose: z.enum(['login', 'register']).default('login'),
+})
+
+export const resetPasswordSchema = z.object({
+  email: z.string().email('Invalid email address').toLowerCase(),
+  code: z.string().length(6, 'OTP must be exactly 6 digits').regex(/^\d{6}$/, 'OTP must be numeric'),
+  newPassword: z.string()
+    .min(8, 'Password must be at least 8 characters')
+    .max(128, 'Password too long'),
 })
 
 // ─── Product Schemas ──────────────────────────────────────────────────────────
@@ -70,12 +78,22 @@ export const verifyOtpSchema = z.object({
 export const productListSchema = paginationSchema.extend({
   category: z.string().optional(),
   brand: z.string().optional(),
+  // Comma-separated product UUIDs — used to hydrate compare/wishlist selections.
+  ids: z.string()
+    .max(2000)
+    .optional()
+    .transform((v) => (v ? v.split(',').map((s) => s.trim()).filter(Boolean) : undefined))
+    .refine(
+      (arr) => !arr || arr.every((id) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)),
+      { message: 'ids must be a comma-separated list of UUIDs' }
+    ),
   search: z.string().max(200).optional(),
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),
   inStock: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
   isFeatured: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
   isNew: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
+  hasDiscount: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
   sort: z.enum(['price_asc', 'price_desc', 'rating_desc', 'name_asc', 'newest', 'featured']).optional(),
 })
 
@@ -110,6 +128,55 @@ export const createProductSchema = z.object({
     lowStockThreshold: z.number().int().min(0).default(5),
     supplier: z.string().optional(),
   }).optional(),
+})
+
+export const updateProductSchema = createProductSchema.partial()
+
+// ─── Admin Schemas ────────────────────────────────────────────────────────────
+
+// paginationSchema strips unknown query keys, so admin list filters must be
+// declared explicitly or they silently never reach the service.
+export const adminOrderListSchema = paginationSchema.extend({
+  status: z.enum(['processing', 'assembling', 'quality_check', 'shipped', 'delivered', 'cancelled', 'refunded']).optional(),
+})
+
+export const adminUserListSchema = paginationSchema.extend({
+  role: z.enum(['customer', 'admin', 'staff', 'manager']).optional(),
+})
+
+export const categoryBodySchema = z.object({
+  name: z.string().min(1).max(200).trim(),
+  slug: z.string().min(1).max(200).regex(/^[a-z0-9-]+$/).optional(),
+  description: z.string().max(2000).optional(),
+  imageUrl: z.string().url().optional(),
+  parentId: z.string().uuid().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+  isVisible: z.boolean().optional(),
+})
+
+export const categoryUpdateSchema = categoryBodySchema.partial()
+
+export const brandBodySchema = z.object({
+  name: z.string().min(1).max(200).trim(),
+  slug: z.string().min(1).max(200).regex(/^[a-z0-9-]+$/).optional(),
+  logoUrl: z.string().url().optional(),
+  description: z.string().max(2000).optional(),
+  websiteUrl: z.string().url().optional(),
+  isVisible: z.boolean().optional(),
+  sortOrder: z.number().int().min(0).optional(),
+})
+
+export const brandUpdateSchema = brandBodySchema.partial()
+
+export const inventoryAdjustSchema = z.object({
+  quantityOnHand: z.number().int().min(0).optional(),
+  lowStockThreshold: z.number().int().min(0).optional(),
+  supplier: z.string().max(200).optional(),
+  restockEta: z.string().max(100).optional(),
+})
+
+export const productIdParamSchema = z.object({
+  productId: z.string().uuid('Invalid ID format'),
 })
 
 // ─── Cart Schemas ──────────────────────────────────────────────────────────────

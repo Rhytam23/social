@@ -1,34 +1,28 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Icon, Price } from '../components/ui'
-import { allProducts } from '../data'
-import type { BuilderCategoryKey, ProductCategory } from '../types'
+import type { BuilderCategoryKey } from '../types'
 import { useShop } from '../context/ShopContext'
+import { useCart } from '../context/CartContext'
+import { productService, type ProductSummary } from '../services/productService'
 
 interface SlotConfig {
   key: BuilderCategoryKey
   name: string
-  category: ProductCategory
+  categorySlug: string
   icon: string
   required: boolean
 }
 
 const BUILDER_SLOTS: SlotConfig[] = [
-  { key: 'cpu', name: 'Processor (CPU)', category: 'CPUs', icon: 'memory', required: true },
-  { key: 'cooler', name: 'CPU Cooler (AIO / Air)', category: 'Cooling', icon: 'mode_fan', required: true },
-  { key: 'motherboard', name: 'Motherboard', category: 'Motherboards', icon: 'developer_board', required: true },
-  { key: 'memory', name: 'Memory (RAM)', category: 'RAM', icon: 'storage', required: true },
-  { key: 'videoCard', name: 'Graphics Card (GPU)', category: 'Graphics Cards', icon: 'videogame_asset', required: true },
-  { key: 'storage', name: 'Primary Storage (NVMe SSD)', category: 'Storage', icon: 'hard_drive', required: true },
-  { key: 'case', name: 'Chassis / Case', category: 'Cases', icon: 'inventory_2', required: true },
-  { key: 'powerSupply', name: 'Power Supply (PSU)', category: 'Power Supplies', icon: 'power', required: true },
-]
-
-const OS_OPTIONS = [
-  { label: 'Windows 11 Pro (64-bit)', price: 199 },
-  { label: 'Windows 11 Home (64-bit)', price: 139 },
-  { label: 'Ubuntu Linux 24.04 LTS', price: 0 },
-  { label: 'No OS (bare metal)', price: 0 },
+  { key: 'cpu', name: 'Processor (CPU)', categorySlug: 'cpus', icon: 'memory', required: true },
+  { key: 'cooler', name: 'CPU Cooler (AIO / Air)', categorySlug: 'cooling', icon: 'mode_fan', required: true },
+  { key: 'motherboard', name: 'Motherboard', categorySlug: 'motherboards', icon: 'developer_board', required: true },
+  { key: 'memory', name: 'Memory (RAM)', categorySlug: 'ram', icon: 'storage', required: true },
+  { key: 'videoCard', name: 'Graphics Card (GPU)', categorySlug: 'gpus', icon: 'videogame_asset', required: true },
+  { key: 'storage', name: 'Primary Storage (NVMe SSD)', categorySlug: 'storage', icon: 'hard_drive', required: true },
+  { key: 'case', name: 'Chassis / Case', categorySlug: 'cases', icon: 'inventory_2', required: true },
+  { key: 'powerSupply', name: 'Power Supply (PSU)', categorySlug: 'psus', icon: 'power', required: true },
 ]
 
 function ratedWattage(text: string): number | null {
@@ -38,14 +32,16 @@ function ratedWattage(text: string): number | null {
 
 export function PCBuilderPage() {
   const navigate = useNavigate()
-  const { builderSlots, setBuilderSlot, clearBuilder, addBuildToCart, builderTotal, builderWattage, showToast } = useShop()
+  const { builderSlots, setBuilderSlot, clearBuilder, builderTotal, builderWattage, showToast } = useShop()
+  const { addItem } = useCart()
   const [activeSlot, setActiveSlot] = useState<SlotConfig | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [os, setOs] = useState(OS_OPTIONS[0].label)
+  const [slotProducts, setSlotProducts] = useState<ProductSummary[]>([])
+  const [slotLoading, setSlotLoading] = useState(false)
+  const [addingBuild, setAddingBuild] = useState(false)
 
   const selectedCount = Object.values(builderSlots).filter(Boolean).length
-  const osPrice = OS_OPTIONS.find((o) => o.label === os)?.price ?? 0
-  const grandTotal = builderTotal + osPrice
+  const grandTotal = builderTotal
 
   const compatIssues = useMemo(() => {
     const issues: { level: 'error' | 'warning' | 'ok'; text: string }[] = []
@@ -54,18 +50,19 @@ export function PCBuilderPage() {
     const psu = builderSlots.powerSupply
 
     if (cpu && mobo) {
-      const isIntelCpu = /intel|core/i.test(cpu.brand + cpu.name)
-      const isAmdCpu = /amd|ryzen/i.test(cpu.brand + cpu.name)
-      const moboText = mobo.name + ' ' + mobo.specifications.map((s) => s.value).join(' ')
+      const cpuText = `${cpu.brandName ?? ''} ${cpu.name}`
+      const isIntelCpu = /intel|core/i.test(cpuText)
+      const isAmdCpu = /amd|ryzen/i.test(cpuText)
+      const moboText = mobo.name
       const isAm5 = /AM5/i.test(moboText)
       const isLga = /LGA\s?1700|LGA\s?1851|Z790|Z890|B760/i.test(moboText)
       if (isIntelCpu && isAm5) issues.push({ level: 'error', text: 'Intel CPU is not compatible with this AM5 (AMD) motherboard socket.' })
       else if (isAmdCpu && isLga) issues.push({ level: 'error', text: 'AMD Ryzen CPU is not compatible with this Intel LGA motherboard socket.' })
-      else issues.push({ level: 'ok', text: 'CPU and motherboard sockets are compatible.' })
+      else issues.push({ level: 'ok', text: 'No socket conflict detected between CPU and motherboard.' })
     }
 
     if (psu) {
-      const rated = ratedWattage(psu.name + ' ' + psu.specifications.map((s) => s.value).join(' '))
+      const rated = ratedWattage(psu.name) ?? psu.wattage
       const recommended = builderWattage + 150
       if (rated && rated < recommended) issues.push({ level: 'error', text: `Power supply (${rated}W) is below the recommended ${recommended}W for this configuration.` })
       else if (rated) issues.push({ level: 'ok', text: `Power supply capacity (${rated}W) is sufficient with headroom.` })
@@ -104,7 +101,7 @@ export function PCBuilderPage() {
   const handleShareBuild = () => {
     const selected = BUILDER_SLOTS.filter((s) => builderSlots[s.key])
       .map((s) => `${s.name}: ${builderSlots[s.key]!.name}`)
-    const summary = `My PREMIUM PC Build (${grandTotal.toFixed(2)} USD)\nOS: ${os}\n${selected.join('\n')}`
+    const summary = `My PREMIUM PC Build (${grandTotal.toFixed(2)} USD)\n${selected.join('\n')}`
     if (navigator.clipboard) {
       navigator.clipboard.writeText(summary).then(() => showToast('Build summary copied to clipboard', 'info')).catch(() => showToast('Could not copy build', 'info'))
     } else {
@@ -112,15 +109,58 @@ export function PCBuilderPage() {
     }
   }
 
-  const slotProducts = useMemo(() => {
-    if (!activeSlot) return []
-    return allProducts.filter((p) => {
-      const matchCat = p.category.toLowerCase() === activeSlot.category.toLowerCase()
-      const matchQuery = searchQuery
-        ? p.name.toLowerCase().includes(searchQuery.toLowerCase()) || p.brand.toLowerCase().includes(searchQuery.toLowerCase())
-        : true
-      return matchCat && matchQuery
-    })
+  // Adds every selected component to the real server cart.
+  const handleAddBuildToCart = async () => {
+    const selected = Object.values(builderSlots).filter(Boolean) as ProductSummary[]
+    if (selected.length === 0) {
+      showToast('No components selected in your build', 'info')
+      return
+    }
+    setAddingBuild(true)
+    let added = 0
+    for (const product of selected) {
+      try {
+        await addItem(product.id, 1)
+        added++
+      } catch {
+        // Continue with the remaining parts.
+      }
+    }
+    setAddingBuild(false)
+    if (added > 0) {
+      showToast(`Added ${added} build part${added === 1 ? '' : 's'} to your cart`, 'cart')
+      navigate('/cart')
+    } else {
+      showToast('Could not add build parts to cart', 'info')
+    }
+  }
+
+  // Component picker results come from the catalog API, filtered by category.
+  useEffect(() => {
+    if (!activeSlot) {
+      setSlotProducts([])
+      return
+    }
+    let active = true
+    setSlotLoading(true)
+    productService
+      .list({
+        category: activeSlot.categorySlug,
+        limit: 50,
+        ...(searchQuery ? { search: searchQuery } : {}),
+      })
+      .then((res) => {
+        if (active) setSlotProducts(res.data)
+      })
+      .catch(() => {
+        if (active) setSlotProducts([])
+      })
+      .finally(() => {
+        if (active) setSlotLoading(false)
+      })
+    return () => {
+      active = false
+    }
   }, [activeSlot, searchQuery])
 
   const recommendedPSU = builderWattage + 150
@@ -175,15 +215,12 @@ export function PCBuilderPage() {
             </button>
             <button
               type="button"
-              onClick={() => {
-                addBuildToCart()
-                navigate('/cart')
-              }}
-              disabled={selectedCount === 0}
+              onClick={() => void handleAddBuildToCart()}
+              disabled={selectedCount === 0 || addingBuild}
               className="px-5 py-2.5 bg-(--accent-blue) hover:bg-(--accent-blue-hover) text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all disabled:opacity-40 cursor-pointer"
             >
               <Icon name="shopping_cart" size={16} />
-              Add to Cart (${grandTotal.toFixed(2)})
+              {addingBuild ? 'Adding…' : `Add to Cart ($${grandTotal.toFixed(2)})`}
             </button>
           </div>
         </div>
@@ -260,32 +297,6 @@ export function PCBuilderPage() {
               )
             })}
 
-            {/* Operating System slot */}
-            <div className="py-4 last:pb-0">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${os !== 'No OS (bare metal)' ? 'bg-(--accent-blue)/10 text-(--accent-blue)' : 'bg-(--bg-surface-secondary) text-(--text-muted)'}`}>
-                    <Icon name="desktop_windows" size={20} />
-                  </div>
-                  <div className="min-w-0">
-                    <span className="text-xs text-(--text-secondary) block font-medium">Operating System</span>
-                    <span className="text-(--text-primary) font-bold text-sm">{os}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <select
-                    value={os}
-                    onChange={(e) => setOs(e.target.value)}
-                    className="bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-primary) text-xs rounded px-3 py-2 focus:outline-none focus:border-(--accent-blue)"
-                  >
-                    {OS_OPTIONS.map((o) => (
-                      <option key={o.label} value={o.label}>{o.label}{o.price ? ` (+$${o.price})` : ' (Free)'}</option>
-                    ))}
-                  </select>
-                  <span className="text-(--accent-blue) font-semibold w-14 text-right">{osPrice ? `$${osPrice.toFixed(2)}` : 'FREE'}</span>
-                </div>
-              </div>
-            </div>
           </div>
 
           {/* Persistent Summary Box (4 cols) - Borderless */}
@@ -359,18 +370,13 @@ export function PCBuilderPage() {
                   <span>Component Subtotal:</span>
                   <span className="text-(--text-primary)">${builderTotal.toFixed(2)}</span>
                 </div>
-                <div className="flex justify-between text-(--text-secondary)">
-                  <span>Operating System:</span>
-                  <span className={osPrice ? 'text-(--text-primary)' : 'text-(--color-stock-green)'}>{osPrice ? `$${osPrice.toFixed(2)}` : 'FREE'}</span>
-                </div>
-                <div className="flex justify-between text-(--text-secondary)">
-                  <span>Assembly + 72H Testing:</span>
-                  <span className="text-(--color-stock-green) font-semibold">INCLUDED</span>
-                </div>
                 <div className="flex justify-between text-base font-bold text-(--text-primary) pt-2 border-t border-(--border-theme)">
                   <span>TOTAL:</span>
                   <span className="text-(--accent-blue)">${grandTotal.toFixed(2)}</span>
                 </div>
+                <p className="text-[10px] text-(--text-muted) leading-relaxed pt-1">
+                  Parts are added to your cart individually. Shipping and tax are calculated at checkout.
+                </p>
               </div>
 
               {/* Action Buttons */}
@@ -380,14 +386,11 @@ export function PCBuilderPage() {
                 )}
                 <button
                   type="button"
-                  onClick={() => {
-                    addBuildToCart()
-                    navigate('/cart')
-                  }}
-                  disabled={selectedCount === 0 || hasError}
+                  onClick={() => void handleAddBuildToCart()}
+                  disabled={selectedCount === 0 || hasError || addingBuild}
                   className="w-full py-3 bg-(--accent-blue) hover:bg-(--accent-blue-hover) disabled:opacity-40 disabled:cursor-not-allowed text-white font-sans text-xs font-semibold rounded-lg flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
                 >
-                  <Icon name="shopping_cart" size={16} /> Add Build to Cart
+                  <Icon name="shopping_cart" size={16} /> {addingBuild ? 'Adding…' : 'Add Build to Cart'}
                 </button>
                 <div className="grid grid-cols-2 gap-2">
                   <button type="button" onClick={handleSaveBuild} disabled={selectedCount === 0} className="py-2 bg-(--bg-surface-secondary) border border-(--border-theme) hover:border-(--text-secondary) text-(--text-primary) font-sans text-xs font-semibold rounded-lg transition-colors disabled:opacity-40 flex items-center justify-center gap-1 cursor-pointer"><Icon name="bookmark" size={13} /> Save Build</button>
@@ -437,22 +440,35 @@ export function PCBuilderPage() {
 
             {/* Products List */}
             <div className="p-4 overflow-y-auto flex-1 space-y-3 bg-(--bg-primary)">
-              {slotProducts.length > 0 ? (
+              {slotLoading ? (
+                <div className="py-12 text-center text-(--text-secondary) font-mono text-xs">Loading components…</div>
+              ) : slotProducts.length > 0 ? (
                 slotProducts.map((prod) => (
                   <div
                     key={prod.id}
                     className="p-3.5 bg-(--bg-surface) border border-(--border-theme) hover:border-(--accent-blue) rounded-lg flex items-center justify-between gap-4 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <img src={prod.image} alt={prod.name} className="w-14 h-14 object-cover rounded bg-(--bg-surface-secondary) shrink-0" />
+                      {prod.primaryImage ? (
+                        <img
+                          src={prod.primaryImage}
+                          alt={prod.name}
+                          className="w-14 h-14 object-cover rounded bg-(--bg-surface-secondary) shrink-0"
+                        />
+                      ) : (
+                        <span className="w-14 h-14 rounded bg-(--bg-surface-secondary) shrink-0 flex items-center justify-center">
+                          <Icon name="memory" size={22} className="text-(--accent-blue)" />
+                        </span>
+                      )}
                       <div className="min-w-0">
-                        <span className="font-mono text-[10px] text-(--text-secondary) uppercase block">{prod.brand}</span>
+                        <span className="font-mono text-[10px] text-(--text-secondary) uppercase block">
+                          {prod.brandName}
+                        </span>
                         <h4 className="text-(--text-primary) font-semibold text-xs truncate max-w-md">{prod.name}</h4>
-                        <div className="flex gap-2 text-[10px] font-mono text-(--text-secondary) mt-0.5">
-                          {prod.specifications.slice(0, 2).map((s) => (
-                            <span key={s.label}>{s.label}: {s.value}</span>
-                          ))}
-                        </div>
+                        <span className="text-[10px] font-mono text-(--text-secondary) mt-0.5 block">
+                          {prod.stockStatus === 'out-of-stock' ? 'Out of stock' : `${prod.stockAvailable} in stock`}
+                          {prod.wattage ? ` · ${prod.wattage}W` : ''}
+                        </span>
                       </div>
                     </div>
 
@@ -473,7 +489,7 @@ export function PCBuilderPage() {
                 ))
               ) : (
                 <div className="py-12 text-center text-(--text-secondary) font-mono text-xs">
-                  No matching components found for "{searchQuery}".
+                  {searchQuery ? `No matching components found for "${searchQuery}".` : 'No components available in this category.'}
                 </div>
               )}
             </div>

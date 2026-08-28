@@ -4,7 +4,6 @@ import { Icon } from '../components/ui'
 
 export function SupportPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(0)
-  const [contactSubmitted, setContactSubmitted] = useState(false)
 
   const faqs = [
     {
@@ -58,9 +57,13 @@ export function SupportPage() {
             <div className="w-10 h-10 rounded-lg bg-[var(--accent-blue)]/10 text-[var(--accent-blue)] flex items-center justify-center">
               <Icon name="headset_mic" size={22} />
             </div>
-            <h3 className="text-[var(--text-primary)] font-bold text-base">Live Technician Support</h3>
-            <p className="text-[var(--text-secondary)] text-xs leading-relaxed">Available 7 days a week, 8:00 AM - 10:00 PM EST.</p>
-            <span className="text-[var(--accent-blue)] font-mono text-xs font-semibold block pt-2">Typical response &lt; 2 mins</span>
+            <h3 className="text-[var(--text-primary)] font-bold text-base">Technical Support</h3>
+            <p className="text-[var(--text-secondary)] text-xs leading-relaxed">
+              Help with hardware compatibility, setup, and component questions.
+            </p>
+            <span className="text-[var(--text-secondary)] font-mono text-[10px] block pt-2">
+              Support hours to be confirmed
+            </span>
           </div>
 
           <div className="p-6 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl space-y-3">
@@ -113,58 +116,39 @@ export function SupportPage() {
           <div className="lg:col-span-5">
             <div className="p-6 bg-[var(--bg-surface-secondary)] border border-[var(--border-subtle)] rounded-xl space-y-4">
               <h2 className="text-[var(--text-primary)] font-bold text-xs font-mono uppercase border-b border-[var(--border-subtle)] pb-3">
-                SUBMIT A SUPPORT TICKET
+                CONTACT SUPPORT
               </h2>
 
-              {contactSubmitted ? (
-                <div className="p-6 text-center bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-500 font-mono text-xs">
-                  <Icon name="check_circle" size={32} className="mx-auto mb-2" />
-                  Ticket created successfully! Our hardware technicians will reply to your email shortly.
-                </div>
-              ) : (
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault()
-                    setContactSubmitted(true)
-                  }}
-                  className="space-y-4"
+              {/*
+                There is no ticketing backend, so this links to email rather than
+                showing a form that silently discards the message.
+              */}
+              <p className="text-[var(--text-secondary)] text-xs leading-relaxed">
+                Email our support team with your order number and a description of the issue, and we'll get back to
+                you.
+              </p>
+
+              <a
+                href="mailto:support@premiumpc.com?subject=Support%20request"
+                className="w-full py-3.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-mono text-xs font-bold rounded-lg transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Icon name="mail" size={16} /> EMAIL SUPPORT
+              </a>
+
+              <div className="pt-3 border-t border-[var(--border-subtle)] space-y-2">
+                <Link
+                  to="/track-order"
+                  className="text-xs text-[var(--accent-blue)] hover:underline flex items-center gap-1.5"
                 >
-                  <div>
-                    <label className="text-xs font-mono text-[var(--text-secondary)] block mb-1.5 uppercase font-semibold">Your Email</label>
-                    <input
-                      type="email"
-                      required
-                      placeholder="alex@example.com"
-                      className="w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg p-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs font-mono text-[var(--text-secondary)] block mb-1.5 uppercase font-semibold">Inquiry Category</label>
-                    <select className="w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg p-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors">
-                      <option>Order Tracking & Shipping</option>
-                      <option>Hardware RMA & Warranty</option>
-                      <option>Payment & Refund Help</option>
-                      <option>Account & Login Issues</option>
-                      <option>Technical Compatibility</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-xs font-mono text-[var(--text-secondary)] block mb-1.5 uppercase font-semibold">Issue Details</label>
-                    <textarea
-                      required
-                      rows={4}
-                      placeholder="Include order ID or component serial number..."
-                      className="w-full bg-[var(--bg-primary)] border border-[var(--border-subtle)] rounded-lg p-3 text-xs text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-blue)] transition-colors"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    className="w-full py-3.5 bg-[var(--accent-blue)] hover:bg-[var(--accent-blue-hover)] text-white font-mono text-xs font-bold rounded-lg transition-colors shadow-sm cursor-pointer"
-                  >
-                    SEND TICKET TO SUPPORT
-                  </button>
-                </form>
-              )}
+                  <Icon name="local_shipping" size={14} /> Track an order
+                </Link>
+                <Link
+                  to="/return-policy"
+                  className="text-xs text-[var(--accent-blue)] hover:underline flex items-center gap-1.5"
+                >
+                  <Icon name="assignment_return" size={14} /> Returns &amp; RMA policy
+                </Link>
+              </div>
             </div>
           </div>
         </div>

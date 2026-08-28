@@ -35,22 +35,15 @@ export async function query<T extends object = Record<string, unknown>>(
   text: string,
   params?: unknown[]
 ): Promise<T[]> {
-  try {
-    const start = Date.now()
-    const res = await pool.query<T>(text, params)
-    const duration = Date.now() - start
+  const start = Date.now()
+  const res = await pool.query<T>(text, params)
+  const duration = Date.now() - start
 
-    if (config.env === 'development' && duration > 200) {
-      console.warn(`[DB] Slow query (${duration}ms): ${text.slice(0, 80)}...`)
-    }
-
-    return res.rows
-  } catch (err: any) {
-    if (process.env['ALLOW_DB_FAIL'] === 'true' && (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED') || err.message?.includes('terminated') || err.message?.includes('timeout'))) {
-      return []
-    }
-    throw err
+  if (config.env === 'development' && duration > 200) {
+    console.warn(`[DB] Slow query (${duration}ms): ${text.slice(0, 80)}...`)
   }
+
+  return res.rows
 }
 
 export async function queryOne<T extends object = Record<string, unknown>>(
