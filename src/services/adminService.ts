@@ -66,6 +66,24 @@ export const adminService = {
     return product
   },
 
+  async bulkImportProducts(items: Array<{
+    name: string
+    sku: string
+    categorySlug?: string
+    brandSlug?: string
+    price: number
+    previousPrice?: number
+    costPrice?: number
+    discountPercent?: number
+    stockQuantity?: number
+    description?: string
+    isFeatured?: boolean
+    isNew?: boolean
+    imageUrl?: string
+  }>): Promise<{ importedCount: number; errors: string[] }> {
+    return apiClient.post<{ importedCount: number; errors: string[] }>('/api/admin/products/bulk-import', { items })
+  },
+
   async updateProduct(id: string, data: Partial<CreateProductPayload>): Promise<ProductSummary> {
     const { product } = await apiClient.put<{ product: ProductSummary }>(`/api/admin/products/${id}`, data)
     return product

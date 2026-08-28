@@ -326,4 +326,125 @@ export const productService = {
   async hardDelete(id: string): Promise<void> {
     await query('DELETE FROM products WHERE id = $1', [id])
   },
+
+  async bulkImport(items: Array<{
+    name: string
+    sku: string
+    categorySlug?: string
+    brandSlug?: string
+    price: number
+    previousPrice?: number
+    costPrice?: number
+    discountPercent?: number
+    stockQuantity?: number
+    description?: string
+    isFeatured?: boolean
+    isNew?: boolean
+    imageUrl?: string
+  }>): Promise<{ importedCount: number; errors: string[] }> {
+    let importedCount = 0
+    const errors: string[] = []
+
+    for (let index = 0; index < items.length; index++) {
+      const item = items[index]
+      if (!item.name || !item.sku || !item.price) {
+        errors.push(`Row ${index + 1}: Name, SKU, and Price are required.`)
+        continue
+      }
+
+      try {
+        await withTransaction(async (client) => {
+          // 1. Category lookup / auto-create
+          const catSlug = slugify(item.categorySlug || 'components')
+          let catRes = await client.query<{ id: string }>('SELECT id FROM categories WHERE slug = $1', [catSlug])
+          if (!catRes.rows[0]) {
+            const catName = (item.categorySlug || 'Components').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+            catRes = await client.query<{ id: string }>(
+              'INSERT INTO categories (name, slug) VALUES ($1, $2) RETURNING id',
+              [catName, catSlug]
+            )
+          }
+          const categoryId = catRes.rows[0].id
+
+          // 2. Brand lookup / auto-create
+          const brandSlugStr = slugify(item.brandSlug || 'premium-pc')
+          let brandRes = await client.query<{ id: string }>('SELECT id FROM brands WHERE slug = $1', [brandSlugStr])
+          if (!brandRes.rows[0]) {
+            const brandName = (item.brandSlug || 'Premium PC').replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+            brandRes = await client.query<{ id: string }>(
+              'INSERT INTO brands (name, slug) VALUES ($1, $2) RETURNING id',
+              [brandName, brandSlugStr]
+            )
+          }
+          const brandId = brandRes.rows[0].id
+
+          // 3. Generate product slug
+          let baseSlug = slugify(item.name)
+          let finalSlug = baseSlug
+          let counter = 1
+          while (true) {
+            const existing = await client.query('SELECT id FROM products WHERE slug = $1', [finalSlug])
+            if (existing.rowCount === 0) break
+            finalSlug = `${baseSlug}-${counter++}`
+          }
+
+          // 4. Insert product
+          const productRes = await client.query<ProductRow>(
+            `INSERT INTO products (name, slug, sku, description, category_id, brand_id, price, previous_price, cost_price, discount_percent, is_active, is_featured, is_new)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, TRUE, $11, $12)
+             ON CONFLICT (sku) DO UPDATE SET
+               name = EXCLUDED.name,
+               price = EXCLUDED.price,
+               description = COALESCE(EXCLUDED.description, products.description),
+               previous_price = COALESCE(EXCLUDED.previous_price, products.previous_price),
+               cost_price = COALESCE(EXCLUDED.cost_price, products.cost_price),
+               discount_percent = EXCLUDED.discount_percent,
+               is_featured = EXCLUDED.is_featured,
+               is_new = EXCLUDED.is_new,
+               is_active = TRUE
+             RETURNING *`,
+            [
+              item.name,
+              finalSlug,
+              item.sku.trim(),
+              item.description || null,
+              categoryId,
+              brandId,
+              item.price,
+              item.previousPrice || null,
+              item.costPrice || null,
+              item.discountPercent || 0,
+              item.isFeatured ?? false,
+              item.isNew ?? true,
+            ]
+          )
+
+          const productId = productRes.rows[0].id
+
+          // 5. Image
+          if (item.imageUrl) {
+            await client.query(
+              'INSERT INTO product_images (product_id, url, sort_order, is_primary) VALUES ($1, $2, 0, TRUE) ON CONFLICT DO NOTHING',
+              [productId, item.imageUrl]
+            )
+          }
+
+          // 6. Inventory stock
+          const stock = item.stockQuantity ?? 10
+          await client.query(
+            `INSERT INTO inventory (product_id, quantity_on_hand, low_stock_threshold)
+             VALUES ($1, $2, 5)
+             ON CONFLICT (product_id) DO UPDATE SET quantity_on_hand = EXCLUDED.quantity_on_hand`,
+            [productId, stock]
+          )
+
+          importedCount++
+        })
+      } catch (err) {
+        errors.push(`Row ${index + 1} (${item.sku || item.name}): ${err instanceof Error ? err.message : 'Import failed'}`)
+      }
+    }
+
+    return { importedCount, errors }
+  },
 }

@@ -76,6 +76,27 @@ router.post('/products', requireAdmin, validate(createProductSchema), asyncRoute
   created(res, { product })
 }))
 
+router.post('/products/bulk-import', requireAdmin, validate(z.object({
+  items: z.array(z.object({
+    name: z.string(),
+    sku: z.string(),
+    categorySlug: z.string().optional(),
+    brandSlug: z.string().optional(),
+    price: z.number(),
+    previousPrice: z.number().optional(),
+    costPrice: z.number().optional(),
+    discountPercent: z.number().optional(),
+    stockQuantity: z.number().optional(),
+    description: z.string().optional(),
+    isFeatured: z.boolean().optional(),
+    isNew: z.boolean().optional(),
+    imageUrl: z.string().optional(),
+  }))
+})), asyncRoute(async (req, res) => {
+  const result = await productService.bulkImport(req.body.items)
+  success(res, result)
+}))
+
 router.put('/products/:id', requireAdmin, validate(uuidParamSchema, 'params'), validate(updateProductSchema), asyncRoute(async (req, res) => {
   const product = await productService.update(req.params.id, req.body)
   success(res, { product })
