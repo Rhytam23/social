@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Icon } from '../ui'
+import { Icon, PaymentLogos } from '../ui'
 
 interface AccordionSectionProps {
   title: string
@@ -126,15 +126,9 @@ export function Footer() {
         </div>
 
         {/* Payment & Copyright Bar */}
-        <div className="border-t border-(--border-theme) mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-(--text-secondary)">
+        <div className="border-t border-(--border-theme) mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-(--text-secondary)">
           <p>© {new Date().getFullYear()} Premium PC Store. All rights reserved.</p>
-          <div className="flex items-center gap-2">
-            {['Visa', 'Mastercard', 'PayPal', 'Apple Pay'].map((pay) => (
-              <span key={pay} className="px-2 py-0.5 bg-(--bg-surface-secondary) border border-(--border-theme) text-(--text-muted) text-[10px] rounded font-mono">
-                {pay}
-              </span>
-            ))}
-          </div>
+          <PaymentLogos />
         </div>
       </div>
     </footer>
