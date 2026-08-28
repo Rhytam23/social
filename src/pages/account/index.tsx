@@ -10,7 +10,7 @@ import { useWishlist } from '../../context/WishlistContext'
 import { orderService } from '../../services/orderService'
 import { productService } from '../../services/productService'
 import { authService } from '../../services/authService'
-import { addressService, UserAddress } from '../../services/addressService'
+import { addressService, type UserAddress } from '../../services/addressService'
 
 const NAV = [
   { to: '/account', label: 'Dashboard', icon: 'dashboard', end: true },
