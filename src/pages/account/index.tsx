@@ -10,10 +10,12 @@ import { useWishlist } from '../../context/WishlistContext'
 import { orderService } from '../../services/orderService'
 import { productService } from '../../services/productService'
 import { authService } from '../../services/authService'
+import { addressService, UserAddress } from '../../services/addressService'
 
 const NAV = [
   { to: '/account', label: 'Dashboard', icon: 'dashboard', end: true },
   { to: '/account/orders', label: 'Orders', icon: 'package_2', end: false },
+  { to: '/account/addresses', label: 'Addresses', icon: 'location_on', end: false },
   { to: '/account/wishlist', label: 'Wishlist', icon: 'favorite', end: false },
   { to: '/account/settings', label: 'Settings', icon: 'settings', end: false },
 ]
@@ -112,6 +114,7 @@ export default function AccountApp() {
         <Route index element={<AccountDashboard />} />
         <Route path="orders" element={<AccountOrders />} />
         <Route path="orders/:id" element={<AccountOrderDetails />} />
+        <Route path="addresses" element={<AccountAddresses />} />
         <Route path="wishlist" element={<AccountWishlist />} />
         <Route path="settings" element={<AccountSettings />} />
       </Route>
@@ -670,6 +673,269 @@ export function AccountSettings() {
           {passwordState.saving ? 'UPDATING…' : 'UPDATE PASSWORD'}
         </Button>
       </form>
+    </div>
+  )
+}
+
+// ─── Addresses ─────────────────────────────────────────────────────────────────
+
+export function AccountAddresses() {
+  const { data: addresses = [], loading, error, reload } = useApi(
+    useCallback(() => addressService.listAddresses(), []),
+    []
+  )
+
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+
+  const [newAddress, setNewAddress] = useState({
+    fullName: '',
+    street: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'USA',
+    phone: '',
+    isDefault: true,
+  })
+
+  const inputClass =
+    'w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg px-3 py-2 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)'
+  const labelClass = 'text-[11px] font-mono text-(--text-secondary) block mb-1 uppercase font-semibold'
+
+  const handleAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setBusy(true)
+    setFormError(null)
+    try {
+      await addressService.createAddress(newAddress)
+      setNewAddress({
+        fullName: '',
+        street: '',
+        city: '',
+        state: '',
+        zipCode: '',
+        country: 'USA',
+        phone: '',
+        isDefault: false,
+      })
+      setShowAddForm(false)
+      reload()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Could not add address')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this shipping address?')) return
+    setBusy(true)
+    try {
+      await addressService.deleteAddress(id)
+      reload()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not delete address')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleSetDefault = async (id: string) => {
+    setBusy(true)
+    try {
+      await addressService.setDefaultAddress(id)
+      reload()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Could not set default address')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-(--text-primary) font-bold text-base">Shipping Addresses</h2>
+          <p className="text-(--text-secondary) text-xs mt-0.5">Manage your saved delivery destinations for faster checkout.</p>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => setShowAddForm((prev) => !prev)}
+        >
+          <Icon name={showAddForm ? 'close' : 'add'} size={16} />
+          {showAddForm ? 'CANCEL' : 'ADD ADDRESS'}
+        </Button>
+      </div>
+
+      {showAddForm && (
+        <form onSubmit={handleAddSubmit} className="bg-(--bg-surface) border border-(--accent-blue)/40 rounded-xl p-5 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+          <h3 className="font-mono text-xs font-bold text-(--accent-blue) uppercase tracking-wider border-b border-(--border-theme) pb-3 flex items-center gap-2">
+            <Icon name="location_on" size={16} /> New Delivery Address
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelClass} htmlFor="addr-name">Full Recipient Name</label>
+              <input
+                id="addr-name"
+                className={inputClass}
+                placeholder="e.g. John Doe"
+                value={newAddress.fullName}
+                onChange={(e) => setNewAddress((a) => ({ ...a, fullName: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="addr-phone">Contact Phone</label>
+              <input
+                id="addr-phone"
+                className={inputClass}
+                placeholder="e.g. (555) 019-2834"
+                value={newAddress.phone}
+                onChange={(e) => setNewAddress((a) => ({ ...a, phone: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={labelClass} htmlFor="addr-street">Street Address</label>
+            <input
+              id="addr-street"
+              className={inputClass}
+              placeholder="e.g. 123 Tech Blvd, Suite 400"
+              value={newAddress.street}
+              onChange={(e) => setNewAddress((a) => ({ ...a, street: e.target.value }))}
+              required
+            />
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div>
+              <label className={labelClass} htmlFor="addr-city">City</label>
+              <input
+                id="addr-city"
+                className={inputClass}
+                placeholder="e.g. San Francisco"
+                value={newAddress.city}
+                onChange={(e) => setNewAddress((a) => ({ ...a, city: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="addr-state">State / Province</label>
+              <input
+                id="addr-state"
+                className={inputClass}
+                placeholder="e.g. CA"
+                value={newAddress.state}
+                onChange={(e) => setNewAddress((a) => ({ ...a, state: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <label className={labelClass} htmlFor="addr-zip">ZIP / Postal Code</label>
+              <input
+                id="addr-zip"
+                className={inputClass}
+                placeholder="e.g. 94107"
+                value={newAddress.zipCode}
+                onChange={(e) => setNewAddress((a) => ({ ...a, zipCode: e.target.value }))}
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 pt-1">
+            <input
+              type="checkbox"
+              id="addr-default"
+              checked={newAddress.isDefault}
+              onChange={(e) => setNewAddress((a) => ({ ...a, isDefault: e.target.checked }))}
+              className="accent-(--accent-blue)"
+            />
+            <label htmlFor="addr-default" className="text-xs text-(--text-primary) font-mono cursor-pointer">
+              Set as my default shipping address
+            </label>
+          </div>
+
+          {formError && (
+            <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-mono">
+              {formError}
+            </div>
+          )}
+
+          <Button type="submit" variant="primary" size="md" disabled={busy}>
+            {busy ? 'SAVING ADDRESS…' : 'SAVE ADDRESS'}
+          </Button>
+        </form>
+      )}
+
+      {loading ? (
+        <div className="h-48 bg-(--bg-surface) border border-(--border-theme) rounded-xl animate-pulse" />
+      ) : error ? (
+        <ErrorState message={error} onRetry={reload} />
+      ) : addresses.length === 0 ? (
+        <EmptyState
+          icon="location_on"
+          title="No saved shipping addresses"
+          message="Add a delivery address to speed up your future orders."
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {addresses.map((a: UserAddress) => (
+            <div
+              key={a.id}
+              className={`p-5 rounded-xl border transition-all relative flex flex-col justify-between ${
+                a.isDefault
+                  ? 'bg-(--bg-surface) border-(--accent-blue) ring-1 ring-(--accent-blue)/30'
+                  : 'bg-(--bg-surface) border-(--border-theme) hover:border-(--text-secondary)'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <span className="font-bold text-sm text-(--text-primary)">{a.fullName}</span>
+                  {a.isDefault && (
+                    <span className="font-mono text-[9px] font-bold tracking-wider uppercase px-2 py-0.5 rounded bg-(--accent-blue)/15 text-(--accent-blue) border border-(--accent-blue)/30">
+                      DEFAULT
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-(--text-secondary) space-y-1 font-mono">
+                  <p>{a.street}</p>
+                  <p>{a.city}, {a.state} {a.zipCode}</p>
+                  <p>{a.country}</p>
+                  {a.phone && <p className="text-[11px] text-(--text-secondary)/80 mt-1">Phone: {a.phone}</p>}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 border-t border-(--border-theme) pt-3 mt-4">
+                {!a.isDefault && (
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handleSetDefault(a.id)}
+                    className="font-mono text-[11px] text-(--accent-blue) hover:underline cursor-pointer disabled:opacity-50"
+                  >
+                    Set Default
+                  </button>
+                )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void handleDelete(a.id)}
+                  className="font-mono text-[11px] text-rose-500 hover:underline cursor-pointer disabled:opacity-50 ml-auto"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -190,4 +190,11 @@ router.put('/users/:id/status', requireAdmin, validate(uuidParamSchema, 'params'
   success(res, { user })
 }))
 
+router.put('/users/:id/role', requireAdmin, validate(uuidParamSchema, 'params'), validate(z.object({
+  role: z.enum(['customer','admin','staff','manager']),
+})), asyncRoute(async (req, res) => {
+  const user = await authService.updateUserRole(req.params.id, req.body.role)
+  success(res, { user })
+}))
+
 export default router

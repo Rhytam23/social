@@ -162,4 +162,9 @@ export const adminService = {
     const { user } = await apiClient.put<{ user: User }>(`/api/admin/users/${id}/status`, { status })
     return user
   },
+
+  async updateUserRole(id: string, role: 'customer' | 'admin' | 'staff' | 'manager'): Promise<User> {
+    const { user } = await apiClient.put<{ user: User }>(`/api/admin/users/${id}/role`, { role })
+    return user
+  },
 }

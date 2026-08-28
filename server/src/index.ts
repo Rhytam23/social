@@ -16,6 +16,7 @@ import brandRoutes    from './routes/brands'
 import searchRoutes   from './routes/search'
 import cartRoutes     from './routes/cart'
 import wishlistRoutes from './routes/wishlist'
+import addressRoutes  from './routes/addresses'
 import orderRoutes    from './routes/orders'
 import reviewRoutes   from './routes/reviews'
 import adminRoutes    from './routes/admin/index'
@@ -89,6 +90,7 @@ app.use('/api/brands',     brandRoutes)
 app.use('/api/search',     searchRoutes)
 app.use('/api/cart',       cartRoutes)
 app.use('/api/wishlist',   wishlistRoutes)
+app.use('/api/addresses',  addressRoutes)
 app.use('/api/orders',     orderRoutes)
 app.use('/api/payments',   paymentRoutes)
 app.use('/api',            reviewRoutes)

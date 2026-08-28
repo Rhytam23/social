@@ -159,6 +159,15 @@ export const authService = {
     return toUser(row)
   },
 
+  async updateUserRole(id: string, role: 'customer' | 'admin' | 'staff' | 'manager'): Promise<User> {
+    const row = await queryOne<UserRow>(
+      'UPDATE users SET role = $1 WHERE id = $2 RETURNING *',
+      [role, id]
+    )
+    if (!row) throw new NotFoundError('User')
+    return toUser(row)
+  },
+
   async sendOTP(email: string, purpose: string = 'login'): Promise<{ email: string; expiresAt: string; code: string }> {
     const cleanEmail = email.toLowerCase().trim()
 

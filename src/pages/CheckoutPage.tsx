@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { orderService, type Order } from '../services/orderService'
 import { paymentService } from '../services/paymentService'
+import { addressService } from '../services/addressService'
 import { config } from '../lib/config'
 
 const STEPS = ['Customer', 'Shipping', 'Payment'] as const
@@ -150,7 +151,7 @@ export function CheckoutPage() {
     country: 'United States',
   })
 
-  // Prefill contact fields from the signed-in account (never fabricated data).
+  // Prefill contact fields and saved shipping address from the signed-in account
   useEffect(() => {
     if (!user) return
     setForm((prev) => ({
@@ -160,6 +161,21 @@ export function CheckoutPage() {
       email: prev.email || user.email,
       phone: prev.phone || (user.phone ?? ''),
     }))
+
+    addressService.listAddresses().then((addresses) => {
+      const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0]
+      if (defaultAddr) {
+        setForm((prev) => ({
+          ...prev,
+          street: prev.street || defaultAddr.street,
+          city: prev.city || defaultAddr.city,
+          state: prev.state || defaultAddr.state,
+          zip: prev.zip || defaultAddr.zipCode,
+          country: prev.country || defaultAddr.country || 'United States',
+          phone: prev.phone || defaultAddr.phone || prev.phone,
+        }))
+      }
+    }).catch(() => {})
   }, [user])
 
   const step: Step = STEPS[stepIndex]

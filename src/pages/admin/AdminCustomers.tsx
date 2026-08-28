@@ -36,6 +36,19 @@ export function AdminCustomers() {
     }
   }
 
+  const setRole = async (id: string, role: 'customer' | 'admin' | 'staff' | 'manager') => {
+    setBusyId(id)
+    setActionError(null)
+    try {
+      await adminService.updateUserRole(id, role)
+      reload()
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : 'Could not update account role')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   return (
     <div>
       <AdminPageHeader
@@ -108,7 +121,19 @@ export function AdminCustomers() {
                         </span>
                       </td>
                       <td className="px-4 py-3 font-mono text-[11px] text-[var(--text-secondary)]">{u.email}</td>
-                      <td className="px-4 py-3 text-xs text-[var(--text-secondary)] capitalize">{u.role}</td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={u.role}
+                          disabled={busyId === u.id}
+                          onChange={(e) => void setRole(u.id, e.target.value as 'customer' | 'admin' | 'staff' | 'manager')}
+                          className="bg-[var(--bg-primary)] border border-[var(--border-subtle)] text-[var(--text-primary)] font-mono text-[11px] rounded px-2 py-1 focus:outline-none focus:border-[var(--accent-blue)] capitalize cursor-pointer disabled:opacity-50"
+                        >
+                          <option value="customer">customer</option>
+                          <option value="staff">staff</option>
+                          <option value="manager">manager</option>
+                          <option value="admin">admin</option>
+                        </select>
+                      </td>
                       <td className="px-4 py-3">
                         <Pill status={u.status === 'active' ? 'Active' : 'Inactive'} />
                       </td>
