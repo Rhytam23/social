@@ -690,10 +690,11 @@ export function AccountSettings() {
 // ─── Addresses ─────────────────────────────────────────────────────────────────
 
 export function AccountAddresses() {
-  const { data: addresses = [], loading, error, reload } = useApi(
+  const { data: rawAddresses, loading, error, reload } = useApi(
     useCallback(() => addressService.listAddresses(), []),
     []
   )
+  const addresses = rawAddresses ?? []
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [busy, setBusy] = useState(false)
