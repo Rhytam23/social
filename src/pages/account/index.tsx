@@ -222,6 +222,11 @@ export function AccountDashboard() {
           </div>
         )}
       </div>
+
+      {/* Primary Shipping Address Management Section */}
+      <div className="pt-4 border-t border-(--border-theme)">
+        <AccountAddresses />
+      </div>
     </div>
   )
 }
@@ -673,6 +678,11 @@ export function AccountSettings() {
           {passwordState.saving ? 'UPDATING…' : 'UPDATE PASSWORD'}
         </Button>
       </form>
+
+      {/* Shipping Address Settings */}
+      <div className="pt-4 border-t border-(--border-theme)">
+        <AccountAddresses />
+      </div>
     </div>
   )
 }
