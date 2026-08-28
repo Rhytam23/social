@@ -16,7 +16,20 @@ export async function runMigrations() {
     connectionTimeoutMillis: 20_000,
   })
 
-  const MIGRATIONS_DIR = path.resolve(__dirname, 'migrations')
+  // Locate migrations directory across tsx (src/db) and compiled js (dist/db) environments.
+  const possiblePaths = [
+    path.resolve(__dirname, 'migrations'),
+    path.resolve(__dirname, '../../src/db/migrations'),
+    path.resolve(process.cwd(), 'src/db/migrations'),
+    path.resolve(process.cwd(), 'server/src/db/migrations'),
+  ]
+
+  const MIGRATIONS_DIR = possiblePaths.find((p) => fs.existsSync(p))
+
+  if (!MIGRATIONS_DIR) {
+    console.warn('[Migrate] Warning: No migrations directory found. Looked in:', possiblePaths)
+    return
+  }
 
   let client
   try {

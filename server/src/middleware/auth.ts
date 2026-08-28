@@ -62,8 +62,10 @@ export function optionalAuth(req: Request, _res: Response, next: NextFunction): 
 
 // Shared cookie flags for every session-bearing cookie (auth, cart session, oauth state).
 // In production the SPA (Vercel) and the API (Render) live on different sites, so cookies
-// must be SameSite=None; Secure to be attached to fetch(credentials:'include') requests.
-// Set CROSS_SITE_COOKIES=false for a same-site production deployment.
+// MUST be SameSite=None; Secure to be attached to fetch(credentials:'include') requests
+// AND to survive the Google/GitHub OAuth redirect chain back to the API callback.
+// CROSS_SITE_COOKIES defaults to 'true' in production. Set CROSS_SITE_COOKIES=false only
+// for a same-site production deployment where the SPA and API share a domain.
 export function sessionCookieOptions(): {
   httpOnly: true
   secure: boolean
@@ -71,7 +73,10 @@ export function sessionCookieOptions(): {
   path: '/'
 } {
   const isProduction = config.env === 'production'
-  const crossSite = isProduction && process.env['CROSS_SITE_COOKIES'] !== 'false'
+  // Cross-site mode (SameSite=None; Secure) is required when the SPA and API
+  // live on different origins (e.g. Vercel frontend + Render backend).
+  // Set CROSS_SITE_COOKIES=true in the Render environment variables.
+  const crossSite = process.env['CROSS_SITE_COOKIES'] === 'true'
   return {
     httpOnly: true,
     secure: isProduction,
