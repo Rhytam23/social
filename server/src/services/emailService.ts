@@ -6,7 +6,11 @@ const resend = resendApiKey ? new Resend(resendApiKey) : null
 export const emailService = {
   async sendOtpEmail(to: string, code: string): Promise<boolean> {
     if (!resend) {
-      console.log(`[Email Service - DEMO MODE] OTP Code for ${to}: ${code}`)
+      if (process.env['NODE_ENV'] === 'production') {
+        console.error('[Email Service] Production error: RESEND_API_KEY is not configured.')
+        return false
+      }
+      console.log(`[Email Service - DEV MODE] OTP Code generated for ${to}`)
       return true
     }
 

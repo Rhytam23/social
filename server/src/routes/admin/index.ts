@@ -18,13 +18,26 @@ router.use(authenticate)
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 
 router.get('/dashboard', requireStaff, asyncRoute(async (_req, res) => {
-  const [{ orders }, { users }] = await Promise.all([
-    orderService.listAll({ page: 1, limit: 5 }),
+  const [
+    { orders: recentOrders },
+    { total: userCount },
+    { pagination: { total: productCount } },
+    lowStockRecords,
+  ] = await Promise.all([
+    orderService.listAll({ page: 1, limit: 6 }),
     authService.listUsers({ page: 1, limit: 1 }),
+    productService.list({ page: 1, limit: 1 }),
+    inventoryService.listLowStock(),
   ])
+
+  const totalSales = recentOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+
   success(res, {
-    recentOrders: orders,
-    userCount: users.length,
+    recentOrders,
+    userCount,
+    productCount,
+    lowStockCount: lowStockRecords.length,
+    totalSales,
   })
 }))
 

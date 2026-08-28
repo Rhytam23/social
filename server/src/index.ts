@@ -19,6 +19,9 @@ import wishlistRoutes from './routes/wishlist'
 import orderRoutes    from './routes/orders'
 import reviewRoutes   from './routes/reviews'
 import adminRoutes    from './routes/admin/index'
+import paymentRoutes, { stripeWebhookHandler } from './routes/payment'
+
+import { runMigrations } from './db/migrate'
 
 // ─── App Setup ────────────────────────────────────────────────────────────────
 
@@ -27,6 +30,9 @@ const app = express()
 // Security headers
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  xFrameOptions: { action: 'deny' },
+  noSniff: true,
 }))
 
 // CORS — allow frontend origin
@@ -34,7 +40,7 @@ app.use(cors({
   origin: config.cors.origin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Stripe-Signature'],
 }))
 
 // Rate limiting
@@ -53,6 +59,9 @@ const authLimiter = rateLimit({
   max: 20,
   message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many auth attempts.' } },
 })
+
+// Raw body parser for Stripe cryptographic webhooks (must run BEFORE express.json())
+app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler)
 
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
@@ -81,6 +90,7 @@ app.use('/api/search',     searchRoutes)
 app.use('/api/cart',       cartRoutes)
 app.use('/api/wishlist',   wishlistRoutes)
 app.use('/api/orders',     orderRoutes)
+app.use('/api/payments',   paymentRoutes)
 app.use('/api',            reviewRoutes)
 app.use('/api/admin',      adminRoutes)
 
@@ -106,6 +116,16 @@ async function start() {
     }
   } else {
     console.log('[Server] Database connection established.')
+    try {
+      console.log('[Server] Running database migrations check...')
+      await runMigrations()
+      console.log('[Server] Migrations verified successfully.')
+    } catch (migErr) {
+      console.error('[Server] Fatal database migration error:', migErr)
+      if (process.env['ALLOW_DB_FAIL'] !== 'true') {
+        process.exit(1)
+      }
+    }
   }
 
   app.listen(config.port, () => {

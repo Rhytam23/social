@@ -55,6 +55,22 @@ A high-performance, polished frontend client demonstration website for an enthus
 
 ---
 
+## 📚 Project Documentation
+
+Complete technical documentation is organized in the [`docs/`](docs/README.md) directory:
+
+- 🚀 **[Local Setup & Development Guide](docs/setup/SETUP.md)**: Full instructions for Node.js, PostgreSQL, database migrations, and seeding.
+- ⚙️ **[Environment Variables Reference](docs/setup/ENV_REFERENCE.md)**: Master configuration templates for frontend and backend.
+- ☁️ **[Production Setup & Deployment](docs/setup/PRODUCTION_SETUP_GUIDE.md)**: Step-by-step instructions for Vercel, Render, and Neon Cloud.
+- 🌐 **[Deployment Operations](docs/deployment/DEPLOYMENT.md)**: Production architecture overview, build triggers, and health verification.
+- 💻 **[Platform Features](docs/features/FEATURES.md)**: Detailed feature breakdown across storefront, PC Builder, and admin console.
+- 📡 **[REST API Specifications](docs/features/API.md)**: Endpoints, payload schemas, error envelopes, and status codes.
+- 🛡️ **[Security Policy & Secret Management](docs/security/SECURITY.md)**: Session security, cookie attributes, and secret rotation procedures.
+- 🔐 **[Final Security Audit](docs/security/FINAL_SECURITY_AUDIT.md)**: Comprehensive vulnerability audit and security finding matrix.
+- 📊 **[Production Readiness Audits](docs/audits/PRODUCTION_GAP_AUDIT.md)**: Exhaustive production readiness assessment.
+
+---
+
 ## 🚀 Local Setup & Installation
 
 ### Prerequisites

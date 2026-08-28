@@ -46,7 +46,7 @@ export async function query<T extends object = Record<string, unknown>>(
 
     return res.rows
   } catch (err: any) {
-    if (process.env['ALLOW_DB_FAIL'] === 'true' && (err.code === 'ECONNREFUSED' || err.message?.includes('connect ECONNREFUSED'))) {
+    if (process.env['ALLOW_DB_FAIL'] === 'true' && (err.code === 'ECONNREFUSED' || err.message?.includes('ECONNREFUSED') || err.message?.includes('terminated') || err.message?.includes('timeout'))) {
       return []
     }
     throw err

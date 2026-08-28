@@ -1,12 +1,40 @@
 import fs from 'fs'
 import path from 'path'
-import { pool } from './client'
+import { Pool } from 'pg'
+import { config } from '../config'
 
-const MIGRATIONS_DIR = path.resolve(__dirname, 'migrations')
+export async function runMigrations() {
+  const connectionString = process.env['DATABASE_URL_DIRECT'] || config.db.connectionString
+  if (!connectionString) {
+    console.log('[Migrate] No database connection string provided. Skipping migrations.')
+    return
+  }
 
-async function runMigrations() {
-  const client = await pool.connect()
+  const pool = new Pool({
+    connectionString,
+    ssl: config.db.ssl ? { rejectUnauthorized: false } : false,
+    connectionTimeoutMillis: 20_000,
+  })
+
+  const MIGRATIONS_DIR = path.resolve(__dirname, 'migrations')
+
+  let client
   try {
+    client = await pool.connect()
+  } catch (connErr: any) {
+    if (process.env['ALLOW_DB_FAIL'] === 'true') {
+      console.warn('[Migrate] Could not connect to database for migrations:', connErr.message)
+      await pool.end()
+      return
+    }
+    await pool.end()
+    throw connErr
+  }
+
+  try {
+    // Acquire PostgreSQL advisory lock (84729103) to prevent concurrent migration runs
+    await client.query('SELECT pg_advisory_lock(84729103)')
+
     // Ensure migrations table exists
     await client.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -56,15 +84,22 @@ async function runMigrations() {
       console.log(`  Applied ${ran} migration(s).`)
     }
   } finally {
+    try {
+      await client.query('SELECT pg_advisory_unlock(84729103)')
+    } catch {
+      // Ignore unlock error if client disconnected
+    }
     client.release()
     await pool.end()
   }
 }
 
-console.log('Running database migrations...')
-runMigrations()
-  .then(() => console.log('Migrations complete.'))
-  .catch((err) => {
-    console.error('Migration failed:', err)
-    process.exit(1)
-  })
+if (require.main === module) {
+  console.log('Running database migrations...')
+  runMigrations()
+    .then(() => console.log('Migrations complete.'))
+    .catch((err) => {
+      console.error('Migration failed:', err)
+      process.exit(1)
+    })
+}

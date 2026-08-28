@@ -1,10 +1,16 @@
 process.env.NODE_ENV = 'test'
 import http from 'http'
 import app from '../index'
+import { runMigrations } from '../db/migrate'
 
 // Integration Test Runner for API Endpoints
 async function runTests() {
   console.log('[Test Suite] Starting API endpoint verification...')
+  try {
+    await runMigrations()
+  } catch (err) {
+    console.error('[Test Suite] Migration warning:', err)
+  }
 
   const server = http.createServer(app)
   await new Promise<void>((resolve) => server.listen(0, resolve))
