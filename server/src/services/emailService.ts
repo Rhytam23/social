@@ -16,7 +16,7 @@ export const emailService = {
     }
 
     try {
-      const selectedTheme = theme || (process.env['EMAIL_THEME'] as 'light' | 'dark') || 'dark'
+      const selectedTheme = theme || (process.env['EMAIL_THEME'] as 'light' | 'dark') || 'light'
       const htmlContent = selectedTheme === 'light'
         ? renderLightVerificationEmail(code)
         : renderDarkVerificationEmail(code)
