@@ -17,6 +17,7 @@ This document details the discovered production deployment environment, implemen
 ## 2. Implemented Security Architecture
 
 ### 2.1 Google & GitHub OAuth Integration
+
 - **Google Authorized JavaScript Origin**:
   - Production: `https://clint-version.vercel.app`
   - Development: `http://localhost:5173`
@@ -35,15 +36,19 @@ This document details the discovered production deployment environment, implemen
   - Verified in OAuth callback handlers to prevent request forgery and state tampering.
 
 ### 2.2 Strict HTTP-Only Cookie Session Security
+
 - **No `localStorage` Tokens**: Complete removal of `tokenStore` and `localStorage` token retention. Tokens are never stored in browser `localStorage` or returned in JSON payloads.
 - **HTTP-Only Cookies**: All session tokens are managed exclusively via HTTP-only cookies (`token`):
+
   ```http
   Set-Cookie: token=<jwt>; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800; Secure
   ```
+
 - **Backend Authentication**: [`server/src/middleware/auth.ts`](file:///e:/projesct01/server/src/middleware/auth.ts) inspects `req.cookies.token` as the primary session mechanism.
 - **Session Logout**: `POST /api/auth/logout` clears the `token` cookie (`Max-Age=0`) and invalidates session state.
 
 ### 2.3 Safe OTP Migration & Hashed Security
+
 - **Safe Migration (`003_auth_security_oauth.sql`)**:
   - Non-destructive update marking legacy unhashed OTP records as expired.
   - Added `code_hash` column (VARCHAR(255)), `attempts` (INT DEFAULT 0), and `max_attempts` (INT DEFAULT 5).
@@ -54,6 +59,7 @@ This document details the discovered production deployment environment, implemen
   - Attempt limit: Max 5 verification attempts per OTP code before immediate invalidation.
 
 ### 2.4 Account Linking & Account Takeover Prevention
+
 - Match incoming Google/GitHub user by `google_id` or `github_id`.
 - If user exists by email and `email_verified` is `true`, link provider ID safely.
 - If existing account is unverified, reject automatic OAuth linking to prevent account takeover vectors.
@@ -90,6 +96,7 @@ This document details the discovered production deployment environment, implemen
 ## 4. Third-Party Console Setup Instructions
 
 ### 4.1 Google Cloud Console Setup
+
 1. Go to [console.cloud.google.com](https://console.cloud.google.com).
 2. Select or create project **`PREMIUM PC`**.
 3. Configure OAuth consent screen (App name: `PREMIUM PC`, Scopes: `openid`, `email`, `profile`).
@@ -103,6 +110,7 @@ This document details the discovered production deployment environment, implemen
 5. Copy **Client ID** and **Client Secret** into Render environment variables.
 
 ### 4.2 GitHub Developer Settings Setup
+
 1. Go to [github.com/settings/developers](https://github.com/settings/developers) → **OAuth Apps**.
 2. Click **New OAuth App**:
    - **Application name**: `PREMIUM PC`

@@ -111,7 +111,7 @@ export function PayPalPayment({ order, onPaid, onFailed }: PayPalPaymentProps) {
       )}
 
       {/* Official PayPal SDK Buttons */}
-      <div className="min-h-[160px]">
+      <div className="min-h-40">
         <PayPalScriptProvider options={{ clientId: paypalClientId, currency }}>
           <PayPalButtons
             style={{
