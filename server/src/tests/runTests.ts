@@ -240,6 +240,39 @@ async function runTests() {
     testsFailed++
   }
 
+  // 18. Verification Email Templates — Light and Dark Theme Validation
+  try {
+    const { renderLightVerificationEmail, renderDarkVerificationEmail } = await import('../services/emailTemplates')
+    const sampleCode = '486584'
+    const lightHtml = renderLightVerificationEmail(sampleCode)
+    const darkHtml = renderDarkVerificationEmail(sampleCode)
+
+    const lightValid = lightHtml.includes(sampleCode) &&
+                       lightHtml.includes('Your verification code') &&
+                       lightHtml.includes('5 minutes') &&
+                       lightHtml.includes('Never share this code with anyone') &&
+                       lightHtml.includes('PREMIUM PC') &&
+                       lightHtml.includes('#f4f6fb')
+
+    const darkValid = darkHtml.includes(sampleCode) &&
+                      darkHtml.includes('Your verification code') &&
+                      darkHtml.includes('5 minutes') &&
+                      darkHtml.includes('Never share this code with anyone') &&
+                      darkHtml.includes('PREMIUM PC') &&
+                      darkHtml.includes('#090d16')
+
+    if (lightValid && darkValid) {
+      console.log('  ✓ PASSED: Email Templates — Light & Dark HTML Email Templates Generated Successfully')
+      testsPassed++
+    } else {
+      console.error('  ✗ FAILED: Email Templates — Template output validation failed')
+      testsFailed++
+    }
+  } catch (err) {
+    console.error('  ✗ FAILED: Email Templates — Rendering error', err)
+    testsFailed++
+  }
+
   server.close()
 
   console.log('\n========================================')

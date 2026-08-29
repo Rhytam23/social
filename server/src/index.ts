@@ -36,7 +36,20 @@ app.use(helmet({
   noSniff: true,
 }))
 
-// CORS — allow frontend origin
+// CORS — allow frontend origin only
+// Security: wildcard CORS with credentials is a critical vulnerability.
+// Reject startup in production if CORS_ORIGIN is not a specific https:// origin.
+if (config.env === 'production') {
+  const origin = config.cors.origin
+  if (!origin || origin === '*' || !origin.startsWith('https://')) {
+    console.error(
+      '[FATAL] CORS_ORIGIN must be a specific https:// origin in production ' +
+      '(e.g. https://clint-version.vercel.app). Current value is unsafe. Refusing to start.'
+    )
+    process.exit(1)
+  }
+}
+
 app.use(cors({
   origin: config.cors.origin,
   credentials: true,

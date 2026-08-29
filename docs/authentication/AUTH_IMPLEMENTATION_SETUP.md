@@ -68,8 +68,8 @@ This document details the discovered production deployment environment, implemen
 | :--- | :--- | :--- |
 | `NODE_ENV` | Yes | `production` |
 | `PORT` | Yes | `3001` |
-| `DATABASE_URL` | Yes | `postgresql://neondb_owner:...@ep-gentle-shape-aylpm2jm-pooler.c-5.us-east-2.aws.neon.tech/neondb?sslmode=require` |
-| `JWT_SECRET` | Yes | `premiumpc_super_secret_jwt_key_2026_x987y` |
+| `DATABASE_URL` | Yes | `postgresql://neondb_owner:<password>@<endpoint>-pooler.<region>.aws.neon.tech/neondb?sslmode=require` |
+| `JWT_SECRET` | Yes | Generate via: `node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"` |
 | `FRONTEND_URL` | Yes | `https://clint-version.vercel.app` |
 | `CORS_ORIGIN` | Yes | `https://clint-version.vercel.app` *(Exact origin required for credentialed cookies)* |
 | `GOOGLE_CLIENT_ID` | Yes | `123456789012-abc...apps.googleusercontent.com` |

@@ -74,3 +74,23 @@ export const config = {
 } as const
 
 export type Config = typeof config
+
+// ─── Production Secret Guards ─────────────────────────────────────────────────
+// Enforce minimum security requirements at startup.
+// These run once when the module is first imported.
+if ((process.env['NODE_ENV'] ?? 'development') === 'production') {
+  const jwtSecret = process.env['JWT_SECRET'] ?? ''
+  // The previously-exposed JWT_SECRET was 43 chars. Require ≥64 to catch reuse.
+  if (jwtSecret.length < 64) {
+    console.error(
+      '[FATAL] JWT_SECRET is too short for production (must be ≥64 characters). ' +
+      'Generate one with: node -e "console.log(require(\'crypto\').randomBytes(64).toString(\'hex\'))"'
+    )
+    process.exit(1)
+  }
+
+  if (!process.env['DATABASE_URL']) {
+    console.error('[FATAL] DATABASE_URL is required in production.')
+    process.exit(1)
+  }
+}
