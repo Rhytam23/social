@@ -1,14 +1,11 @@
 import { useState, useMemo, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { loadStripe, type Stripe } from '@stripe/stripe-js'
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js'
 import { Icon, Breadcrumbs, Button, EmptyState } from '../components/ui'
 import { useCart } from '../context/CartContext'
 import { useAuth } from '../context/AuthContext'
 import { orderService, type Order } from '../services/orderService'
-import { paymentService } from '../services/paymentService'
 import { addressService } from '../services/addressService'
-import { config } from '../lib/config'
+import { PayPalPayment } from '../components/checkout/PayPalPayment'
 
 const STEPS = ['Customer', 'Shipping', 'Payment'] as const
 type Step = (typeof STEPS)[number]
@@ -16,11 +13,6 @@ type Step = (typeof STEPS)[number]
 const inputClass =
   'w-full bg-(--bg-surface-secondary) border border-(--border-theme) rounded-lg px-3 py-2 text-xs text-(--text-primary) focus:outline-none focus:border-(--accent-blue)'
 const labelClass = 'text-[11px] font-mono text-(--text-secondary) block mb-1 uppercase font-semibold'
-
-// Stripe is loaded once, and only when a publishable key is configured.
-const stripePromise: Promise<Stripe | null> | null = config.stripe.publishableKey
-  ? loadStripe(config.stripe.publishableKey)
-  : null
 
 interface CheckoutForm {
   firstName: string
@@ -34,96 +26,6 @@ interface CheckoutForm {
   country: string
 }
 
-/** Stripe Elements payment step — confirms the PaymentIntent, then asks our server to verify it. */
-function PaymentStep({
-  order,
-  paymentIntentId,
-  onPaid,
-  onFailed,
-}: {
-  order: Order
-  paymentIntentId: string
-  onPaid: (order: Order) => void
-  onFailed: (message: string) => void
-}) {
-  const stripe = useStripe()
-  const elements = useElements()
-  const [processing, setProcessing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!stripe || !elements) return
-
-    setProcessing(true)
-    setError(null)
-
-    const { error: submitError } = await elements.submit()
-    if (submitError) {
-      setError(submitError.message ?? 'Please check your payment details.')
-      setProcessing(false)
-      return
-    }
-
-    const { error: confirmError } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required',
-      confirmParams: {
-        return_url: `${window.location.origin}/checkout/confirmation?orderId=${order.id}`,
-      },
-    })
-
-    if (confirmError) {
-      setError(confirmError.message ?? 'Payment could not be completed.')
-      setProcessing(false)
-      onFailed(confirmError.message ?? 'Payment declined')
-      return
-    }
-
-    // Payment status is never trusted from the browser — the server re-checks
-    // it with Stripe (and the webhook confirms it independently).
-    try {
-      const result = await paymentService.verify(order.id, paymentIntentId)
-      if (result.verified) {
-        onPaid(result.order)
-      } else {
-        setError('Payment is still processing. You will receive confirmation once it settles.')
-        setProcessing(false)
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not verify payment')
-      setProcessing(false)
-    }
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <h2 className="text-(--text-primary) font-bold text-base font-mono uppercase border-b border-(--border-theme) pb-3">
-        Payment
-      </h2>
-
-      <div className="p-4 bg-(--bg-surface-secondary) rounded-lg border border-(--border-theme)">
-        <PaymentElement />
-      </div>
-
-      {error && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg text-rose-500 text-xs font-mono">
-          {error}
-        </div>
-      )}
-
-      <div className="flex items-start gap-2 text-[10px] font-mono text-(--text-secondary)">
-        <Icon name="lock" size={14} className="text-(--color-stock-green) shrink-0 mt-0.5" />
-        Card details are sent directly to Stripe and never touch our servers. The charged amount is calculated
-        server-side from your order.
-      </div>
-
-      <Button type="submit" variant="primary" size="lg" fullWidth disabled={!stripe || processing}>
-        {processing ? 'PROCESSING PAYMENT…' : `PAY $${order.total.toFixed(2)}`}
-      </Button>
-    </form>
-  )
-}
 
 export function CheckoutPage() {
   const navigate = useNavigate()
@@ -133,11 +35,8 @@ export function CheckoutPage() {
   const [stepIndex, setStepIndex] = useState(0)
   const [shippingMethod, setShippingMethod] = useState<'standard' | 'express'>('standard')
   const [order, setOrder] = useState<Order | null>(null)
-  const [clientSecret, setClientSecret] = useState<string | null>(null)
-  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [checkoutError, setCheckoutError] = useState<string | null>(null)
-  const [paymentUnavailable, setPaymentUnavailable] = useState(false)
 
   const [form, setForm] = useState<CheckoutForm>({
     firstName: '',
@@ -202,11 +101,10 @@ export function CheckoutPage() {
     return true
   }, [step, form])
 
-  // Creates the real order, then opens a Stripe PaymentIntent for it.
+  // Creates the real order, then advances to PayPal payment step
   const startPayment = async () => {
     setSubmitting(true)
     setCheckoutError(null)
-    setPaymentUnavailable(false)
 
     try {
       const created = await orderService.createOrder({
@@ -218,27 +116,15 @@ export function CheckoutPage() {
         shippingZip: form.zip.trim(),
         shippingCountry: form.country.trim(),
         shippingMethod,
-        paymentMethod: 'card',
+        paymentMethod: 'paypal',
         customerEmail: form.email.trim(),
         ...(form.phone.trim() ? { customerPhone: form.phone.trim() } : {}),
       })
       setOrder(created)
-
-      const intent = await paymentService.createIntent(created.id)
-      setClientSecret(intent.clientSecret)
-      setPaymentIntentId(intent.paymentIntentId)
       setStepIndex(2)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Checkout failed'
-      // 503 from the payment gateway means Stripe is not configured on the server.
-      // Advance to the payment step regardless so the customer sees an explicit
-      // explanation rather than a silently stalled form.
-      if (/not configured|unconfigured|PAYMENT_UNCONFIGURED/i.test(message)) {
-        setPaymentUnavailable(true)
-        setStepIndex(2)
-      } else {
-        setCheckoutError(message)
-      }
+      setCheckoutError(message)
     } finally {
       setSubmitting(false)
     }
@@ -425,45 +311,12 @@ export function CheckoutPage() {
                 </div>
               )}
 
-              {step === 'Payment' && (
-                <>
-                  {paymentUnavailable ? (
-                    <div className="p-6 bg-(--bg-surface) border border-(--accent-orange)/30 rounded-xl">
-                      <div className="flex items-start gap-3">
-                        <Icon name="credit_card_off" size={24} className="text-(--accent-orange) shrink-0" />
-                        <div>
-                          <h2 className="text-(--text-primary) font-bold text-base mb-1">
-                            Online payment is not available
-                          </h2>
-                          <p className="text-(--text-secondary) text-xs leading-relaxed">
-                            Card payments are not configured for this store yet, so this order cannot be paid online.
-                            Your order has not been charged and no payment was taken. Please contact support to
-                            complete your purchase.
-                          </p>
-                          <Link to="/support" className="inline-block mt-3">
-                            <Button variant="outline" size="md">CONTACT SUPPORT</Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  ) : order && clientSecret && paymentIntentId && stripePromise ? (
-                    <Elements
-                      stripe={stripePromise}
-                      options={{ clientSecret, appearance: { theme: 'night', variables: { colorPrimary: '#007aff' } } }}
-                    >
-                      <PaymentStep
-                        order={order}
-                        paymentIntentId={paymentIntentId}
-                        onPaid={(o) => void handlePaid(o)}
-                        onFailed={handleFailed}
-                      />
-                    </Elements>
-                  ) : (
-                    <div className="p-6 bg-(--bg-surface) border border-(--border-theme) rounded-xl text-center">
-                      <span className="font-mono text-xs text-(--text-secondary)">Preparing secure payment…</span>
-                    </div>
-                  )}
-                </>
+              {step === 'Payment' && order && (
+                <PayPalPayment
+                  order={order}
+                  onPaid={(o) => void handlePaid(o)}
+                  onFailed={handleFailed}
+                />
               )}
 
               {checkoutError && (

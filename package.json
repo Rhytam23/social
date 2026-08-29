@@ -16,6 +16,7 @@
     "test:server": "cd server && npm run test"
   },
   "dependencies": {
+    "@paypal/react-paypal-js": "^10.4.0",
     "@stripe/react-stripe-js": "^6.8.2",
     "@stripe/stripe-js": "^9.14.0",
     "react": "^19.2.8",

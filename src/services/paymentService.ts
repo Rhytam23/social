@@ -19,6 +19,19 @@ export const paymentService = {
     return apiClient.post<PaymentIntentResult>('/api/payments/create-intent', { orderId })
   },
 
+  /** Creates a PayPal order for checkout */
+  async createPayPalOrder(orderId: string): Promise<{ paypalOrderId: string; amount: number; currency: string }> {
+    return apiClient.post<{ paypalOrderId: string; amount: number; currency: string }>('/api/payments/paypal/create-order', { orderId })
+  },
+
+  /** Captures & confirms PayPal payment */
+  async capturePayPalOrder(orderId: string, paypalOrderId: string): Promise<{ order: Order; verified: boolean }> {
+    return apiClient.post<{ order: Order; verified: boolean }>('/api/payments/paypal/capture-order', {
+      orderId,
+      paypalOrderId,
+    })
+  },
+
   /** Asks the server to confirm payment status directly with Stripe. */
   async verify(orderId: string, paymentIntentId: string): Promise<{ order: Order; verified: boolean; status?: string }> {
     return apiClient.post<{ order: Order; verified: boolean; status?: string }>('/api/payments/verify', {
