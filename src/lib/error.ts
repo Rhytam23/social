@@ -10,13 +10,6 @@ export class ApiError extends Error {
     super(message)
     this.name = 'ApiError'
   }
-
-  get isNotFound(): boolean { return this.statusCode === 404 }
-  get isUnauthorized(): boolean { return this.statusCode === 401 }
-  get isForbidden(): boolean { return this.statusCode === 403 }
-  get isValidation(): boolean { return this.statusCode === 422 }
-  get isConflict(): boolean { return this.statusCode === 409 }
-  get isServerError(): boolean { return this.statusCode >= 500 }
 }
 
 export class NetworkError extends Error {
@@ -26,17 +19,10 @@ export class NetworkError extends Error {
   }
 }
 
-export function isApiError(err: unknown): err is ApiError {
-  return err instanceof ApiError
-}
-
-export function isNetworkError(err: unknown): err is NetworkError {
-  return err instanceof NetworkError
-}
-
 export function getErrorMessage(err: unknown): string {
-  if (err instanceof ApiError) return err.message
-  if (err instanceof NetworkError) return err.message
-  if (err instanceof Error) return err.message
+  if (err instanceof ApiError || err instanceof NetworkError || err instanceof Error) {
+    return err.message
+  }
   return 'An unexpected error occurred'
 }
+

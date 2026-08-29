@@ -62,7 +62,7 @@ export const orderService = {
   },
 
   async trackOrder(orderNumber: string): Promise<Partial<Order>> {
-    const { order } = await apiClient.get<{ order: Partial<Order> }>(`/api/orders/track/${orderNumber}`, { auth: false })
+    const { order } = await apiClient.get<{ order: Partial<Order> }>(`/api/orders/track/${orderNumber}`)
     return order
   },
 

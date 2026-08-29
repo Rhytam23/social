@@ -15,7 +15,7 @@ async function request<T>(
   method: string,
   path: string,
   body?: unknown,
-  options: { signal?: AbortSignal; auth?: boolean } = {}
+  options: { signal?: AbortSignal } = {}
 ): Promise<T> {
   const url = `${config.api.baseUrl}${path}`
 
@@ -58,18 +58,18 @@ async function request<T>(
 // ─── HTTP method helpers ──────────────────────────────────────────────────────
 
 export const apiClient = {
-  get: <T>(path: string, options?: { signal?: AbortSignal; auth?: boolean }) =>
+  get: <T>(path: string, options?: { signal?: AbortSignal }) =>
     request<T>('GET', path, undefined, options),
 
-  post: <T>(path: string, body?: unknown, options?: { signal?: AbortSignal; auth?: boolean }) =>
+  post: <T>(path: string, body?: unknown, options?: { signal?: AbortSignal }) =>
     request<T>('POST', path, body, options),
 
-  put: <T>(path: string, body?: unknown, options?: { signal?: AbortSignal; auth?: boolean }) =>
+  put: <T>(path: string, body?: unknown, options?: { signal?: AbortSignal }) =>
     request<T>('PUT', path, body, options),
 
-  delete: <T>(path: string, options?: { signal?: AbortSignal; auth?: boolean }) =>
+  delete: <T>(path: string, options?: { signal?: AbortSignal }) =>
     request<T>('DELETE', path, undefined, options),
 
-  patch: <T>(path: string, body?: unknown, options?: { signal?: AbortSignal; auth?: boolean }) =>
+  patch: <T>(path: string, body?: unknown, options?: { signal?: AbortSignal }) =>
     request<T>('PATCH', path, body, options),
 }

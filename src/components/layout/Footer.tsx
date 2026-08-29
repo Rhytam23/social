@@ -42,7 +42,7 @@ export function Footer() {
     { label: 'Track Order', href: '/track-order' },
     { label: 'Shipping Policy', href: '/shipping-policy' },
     { label: 'Return Policy', href: '/return-policy' },
-    { label: 'Warranty & RMA', href: '/return-policy' },
+    { label: 'Warranty & RMA', href: '/warranty' },
   ]
 
   const hardwareBuildsLinks = [
@@ -134,3 +134,4 @@ export function Footer() {
     </footer>
   )
 }
+

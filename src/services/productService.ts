@@ -83,22 +83,21 @@ function buildQuery(params: PaginationParams): string {
 
 export const productService = {
   async list(params: PaginationParams = {}): Promise<ProductListResult> {
-    return apiClient.get<ProductListResult>(`/api/products${buildQuery(params)}`, { auth: false })
+    return apiClient.get<ProductListResult>(`/api/products${buildQuery(params)}`)
   },
 
   async getBySlug(slug: string): Promise<ProductDetail> {
-    const { product } = await apiClient.get<{ product: ProductDetail }>(`/api/products/${slug}`, { auth: false })
+    const { product } = await apiClient.get<{ product: ProductDetail }>(`/api/products/${slug}`)
     return product
   },
 
   async search(params: PaginationParams): Promise<ProductListResult> {
-    return apiClient.get<ProductListResult>(`/api/search${buildQuery(params)}`, { auth: false })
+    return apiClient.get<ProductListResult>(`/api/search${buildQuery(params)}`)
   },
 
   async suggest(q: string): Promise<Array<{ name: string; slug: string; category: string }>> {
     const { suggestions } = await apiClient.get<{ suggestions: Array<{ name: string; slug: string; category: string }> }>(
-      `/api/search/suggest?q=${encodeURIComponent(q)}`,
-      { auth: false }
+      `/api/search/suggest?q=${encodeURIComponent(q)}`
     )
     return suggestions
   },
