@@ -20,6 +20,7 @@ import addressRoutes  from './routes/addresses'
 import orderRoutes    from './routes/orders'
 import reviewRoutes   from './routes/reviews'
 import adminRoutes    from './routes/admin/index'
+import contactRoutes  from './routes/contact'
 import paymentRoutes, { stripeWebhookHandler } from './routes/payment'
 
 import { runMigrations } from './db/migrate'
@@ -107,6 +108,7 @@ app.use('/api/addresses',  addressRoutes)
 app.use('/api/orders',     orderRoutes)
 app.use('/api/payments',   paymentRoutes)
 app.use('/api',            reviewRoutes)
+app.use('/api/contact',    contactRoutes)
 app.use('/api/admin',      adminRoutes)
 
 // ─── 404 Catch-all ────────────────────────────────────────────────────────────

@@ -20,6 +20,7 @@
   /* Brand accents */
   --color-accent-blue: var(--accent-blue);
   --color-accent-orange: var(--accent-orange);
+  --color-accent-green: var(--accent-green);
   --color-stock-green: var(--color-stock-green-val);
   --color-stock-yellow: var(--color-stock-yellow-val);
   --color-stock-red: var(--color-stock-red-val);
@@ -40,57 +41,39 @@
   --radius-full: 9999px;
 }
 
-/* ─── Root & Theme Variables ─── */
+/* ─── Root & Theme Variables (Warm Café Palette: Brown, Cream, Green) ─── */
 :root,
+[data-theme="light"],
 [data-theme="dark"] {
-  --bg-primary: #0b0c0e;
-  --bg-surface: #121418;
-  --bg-surface-secondary: #181a20;
-  --bg-surface-tertiary: #1f222a;
-  --bg-card: #121418;
-
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
-
-  --border-theme: #222630;
-  --border-subtle: #2d3340;
-
-  --accent-blue: #0066ff;
-  --accent-blue-hover: #0052cc;
-  --color-stock-green: #10b981;
-
-  /* Badge/Accent dynamic variables */
-  --accent-orange: #ff5c00;
-  --color-stock-green-val: #10b981;
-  --color-stock-yellow-val: #ffd60a;
-  --color-stock-red-val: #ff453a;
-}
-
-html.light-mode,
-html[data-theme="light"] {
-  --bg-primary: #FAFAFC;
-  --bg-surface: #FFFFFF;
-  --bg-surface-secondary: #f4f5f8;
-  --bg-surface-tertiary: #eaecf1;
+  --bg-primary: #FDFBF7;           /* Warm Soft Cream */
+  --bg-surface: #FFFFFF;           /* Pure White Surface */
+  --bg-surface-secondary: #F7F3E9; /* Soft Linen */
+  --bg-surface-tertiary: #EFE8D8;  /* Warm Sand Accent */
   --bg-card: #FFFFFF;
 
-  --text-primary: #111827;
-  --text-secondary: #4B5563;
-  --text-muted: #6B7280;
+  --text-primary: #2C1A11;         /* Deep Roasted Espresso Brown */
+  --text-secondary: #6B5344;       /* Warm Cocoa */
+  --text-muted: #9E8878;           /* Muted Taupe */
 
-  --border-theme: #E5E7EB;
-  --border-subtle: #cbd5e1;
+  --border-theme: #E8DEC8;          /* Warm Cream Border */
+  --border-subtle: #F0E6D2;
 
-  --accent-blue: #0066FF;
-  --accent-blue-hover: #0052cc;
-  --color-stock-green: #16A34A;
+  --accent-blue: #4A2E1B;          /* Primary Coffee Brown */
+  --accent-blue-hover: #372112;
+  --accent-green: #2E5A44;         /* Sage / Forest Green */
+  --accent-green-hover: #214332;
+  --accent-orange: #C88A35;        /* Warm Bronze / Amber */
 
-  /* Badge/Accent dynamic variables for light mode */
-  --accent-orange: #EA580C;
-  --color-stock-green-val: #16A34A;
-  --color-stock-yellow-val: #D97706;
-  --color-stock-red-val: #DC2626;
+  --color-stock-green-val: #2E5A44;
+  --color-stock-yellow-val: #C88A35;
+  --color-stock-red-val: #A83232;
+
+  /* Motion Tokens */
+  --ease-warm: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 200ms;
+  --duration-normal: 400ms;
+  --duration-smooth: 600ms;
 }
 
 /* ─── Base Reset ─── */
@@ -164,14 +147,14 @@ body {
 
 /* ─── Focus States ─── */
 :focus-visible {
-  outline: 2px solid var(--accent-blue);
+  outline: 2px solid var(--accent-green);
   outline-offset: 2px;
 }
 
 /* ─── Utility Classes ─── */
 .container-max {
   width: 100%;
-  max-width: 1400px;
+  max-width: 1280px;
   margin-inline: auto;
 }
 
@@ -186,41 +169,58 @@ body {
 .line-clamp-1 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 1; line-clamp: 1; -webkit-box-orient: vertical; }
 .line-clamp-2 { overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
 
+/* ─── Steam Keyframes for Loader ─── */
+@keyframes steamRise {
+  0% {
+    transform: translateY(0) scaleX(1);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.6;
+  }
+  70% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(-16px) scaleX(1.15);
+    opacity: 0;
+  }
+}
+
+.animate-steam-1 {
+  animation: steamRise 2s ease-out infinite;
+}
+
+.animate-steam-2 {
+  animation: steamRise 2s ease-out infinite 0.4s;
+}
+
+.animate-steam-3 {
+  animation: steamRise 2s ease-out infinite 0.8s;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(3px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-fadeIn {
-  animation: fadeIn 0.15s ease-out forwards;
+  animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* ─── Light Mode Theme Consistency ─── */
-html.light-mode body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-}
-
-html.light-mode header,
-html.light-mode footer,
-html.light-mode nav {
-  background-color: var(--bg-surface) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border-theme) !important;
-}
-
-html.light-mode input[type="text"],
-html.light-mode input[type="email"],
-html.light-mode input[type="password"],
-html.light-mode input[type="search"],
-html.light-mode select,
-html.light-mode textarea {
-  background-color: var(--bg-surface-secondary) !important;
-  color: var(--text-primary) !important;
-  border-color: var(--border-theme) !important;
-}
-
-html.light-mode input::placeholder,
-html.light-mode textarea::placeholder {
-  color: var(--text-secondary) !important;
+/* ─── Accessibility: Reduced Motion Overrides ─── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .animate-steam-1,
+  .animate-steam-2,
+  .animate-steam-3 {
+    animation: none !important;
+    opacity: 0.4 !important;
+  }
 }

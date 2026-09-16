@@ -2,57 +2,39 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Icon } from '../../components/ui'
 import { useShop } from '../../context/ShopContext'
-
-const COOKIE_STORAGE_KEY = 'premium_pc_cookie_prefs'
-
-export interface CookiePreferences {
-  necessary: boolean // Always true
-  analytics: boolean
-  functional: boolean
-  marketing: boolean
-  updatedAt?: string
-}
+import { useCookieConsent } from '../../context/CookieConsentContext'
 
 export function CookiePreferencesPage() {
   const { showToast } = useShop()
+  const { prefs, acceptAll, rejectOptional, saveCustomPreferences } = useCookieConsent()
 
-  const [prefs, setPrefs] = useState<CookiePreferences>({
-    necessary: true,
-    analytics: false,
-    functional: true,
-    marketing: false,
+  const [draft, setDraft] = useState({
+    analytics: prefs.analytics,
+    functional: prefs.functional,
+    marketing: prefs.marketing,
   })
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(COOKIE_STORAGE_KEY)
-      if (saved) {
-        setPrefs(JSON.parse(saved))
-      }
-    } catch {}
-  }, [])
-
-  const savePreferences = (newPrefs: CookiePreferences, toastMessage: string) => {
-    const updated = { ...newPrefs, necessary: true, updatedAt: new Date().toISOString() }
-    setPrefs(updated)
-    try {
-      localStorage.setItem(COOKIE_STORAGE_KEY, JSON.stringify(updated))
-      showToast(toastMessage, 'cart')
-    } catch {
-      showToast('Failed to save cookie preferences', 'wishlist')
-    }
-  }
+    setDraft({
+      analytics: prefs.analytics,
+      functional: prefs.functional,
+      marketing: prefs.marketing,
+    })
+  }, [prefs])
 
   const handleAcceptAll = () => {
-    savePreferences({ necessary: true, analytics: true, functional: true, marketing: true }, 'Accepted all cookie preferences!')
+    acceptAll()
+    showToast('Accepted all cookie preferences!', 'cart')
   }
 
   const handleRejectOptional = () => {
-    savePreferences({ necessary: true, analytics: false, functional: false, marketing: false }, 'Optional cookies declined.')
+    rejectOptional()
+    showToast('Optional cookies declined.', 'cart')
   }
 
   const handleSaveCustom = () => {
-    savePreferences(prefs, 'Cookie preferences saved successfully!')
+    saveCustomPreferences(draft)
+    showToast('Cookie preferences saved successfully!', 'cart')
   }
 
   return (
@@ -144,8 +126,8 @@ export function CookiePreferencesPage() {
               </div>
               <input
                 type="checkbox"
-                checked={prefs.functional}
-                onChange={(e) => setPrefs({ ...prefs, functional: e.target.checked })}
+                checked={draft.functional}
+                onChange={(e) => setDraft({ ...draft, functional: e.target.checked })}
                 className="w-5 h-5 accent-[var(--accent-blue)] cursor-pointer"
               />
             </div>
@@ -168,8 +150,8 @@ export function CookiePreferencesPage() {
               </div>
               <input
                 type="checkbox"
-                checked={prefs.analytics}
-                onChange={(e) => setPrefs({ ...prefs, analytics: e.target.checked })}
+                checked={draft.analytics}
+                onChange={(e) => setDraft({ ...draft, analytics: e.target.checked })}
                 className="w-5 h-5 accent-[var(--accent-blue)] cursor-pointer"
               />
             </div>
@@ -192,8 +174,8 @@ export function CookiePreferencesPage() {
               </div>
               <input
                 type="checkbox"
-                checked={prefs.marketing}
-                onChange={(e) => setPrefs({ ...prefs, marketing: e.target.checked })}
+                checked={draft.marketing}
+                onChange={(e) => setDraft({ ...draft, marketing: e.target.checked })}
                 className="w-5 h-5 accent-[var(--accent-blue)] cursor-pointer"
               />
             </div>

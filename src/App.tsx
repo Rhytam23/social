@@ -4,49 +4,22 @@ import { ShopProvider, useShop } from './context/ShopContext'
 import { AuthProvider } from './context/AuthContext'
 import { CartProvider } from './context/CartContext'
 import { WishlistProvider } from './context/WishlistContext'
+import { CookieConsentProvider } from './context/CookieConsentContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { RequireAuth, RequireStaff } from './components/RequireAuth'
 import { Header } from './components/navigation/Header'
 import { Footer } from './components/layout/Footer'
-import { HomePage } from './components/home/HomePage'
-import { ProductsPage } from './pages/ProductsPage'
-import { ProductDetailsPage } from './pages/ProductDetailsPage'
-import { CartPage } from './pages/CartPage'
+import { HomePage } from './pages/HomePage'
+import { AboutPage } from './pages/AboutPage'
+import { MenuPage } from './pages/MenuPage'
+import { ContactPage } from './pages/ContactPage'
 import { NotFoundPage } from './pages/NotFoundPage'
-import { Icon } from './components/ui'
-
-// Lazy-loaded secondary areas (separate chunks)
-const AdminApp = lazy(() => import('./pages/admin'))
-const AccountApp = lazy(() => import('./pages/account'))
-const GamingPCsPage = lazy(() => import('./pages/GamingPCsPage').then((m) => ({ default: m.GamingPCsPage })))
-const GamingPCDetailsPage = lazy(() => import('./pages/GamingPCDetailsPage').then((m) => ({ default: m.GamingPCDetailsPage })))
-const PCBuilderPage = lazy(() => import('./pages/PCBuilderPage').then((m) => ({ default: m.PCBuilderPage })))
-const CheckoutPage = lazy(() => import('./pages/CheckoutPage').then((m) => ({ default: m.CheckoutPage })))
-const OrderConfirmationPage = lazy(() => import('./pages/OrderConfirmationPage').then((m) => ({ default: m.OrderConfirmationPage })))
-const WishlistPage = lazy(() => import('./pages/WishlistPage').then((m) => ({ default: m.WishlistPage })))
-const OrderTrackingPage = lazy(() => import('./pages/OrderTrackingPage').then((m) => ({ default: m.OrderTrackingPage })))
-const SupportPage = lazy(() => import('./pages/SupportPage').then((m) => ({ default: m.SupportPage })))
-const SearchPage = lazy(() => import('./pages/SearchPage').then((m) => ({ default: m.SearchPage })))
-const CategoriesPage = lazy(() => import('./pages/CategoriesPage').then((m) => ({ default: m.CategoriesPage })))
-const CategoryPage = lazy(() => import('./pages/CategoryPage').then((m) => ({ default: m.CategoryPage })))
-const DealsPage = lazy(() => import('./pages/DealsPage').then((m) => ({ default: m.DealsPage })))
-const ComparePage = lazy(() => import('./pages/ComparePage').then((m) => ({ default: m.ComparePage })))
-const BrandPage = lazy(() => import('./pages/BrandPage').then((m) => ({ default: m.BrandPage })))
-const BrandsPage = lazy(() => import('./pages/BrandPage').then((m) => ({ default: m.BrandsPage })))
-const AuthPage = lazy(() => import('./pages/AuthPage').then((m) => ({ default: m.AuthPage })))
-const PrivacyPolicyPage = lazy(() => import('./pages/policies/PrivacyPolicyPage').then((m) => ({ default: m.PrivacyPolicyPage })))
-const TermsPage = lazy(() => import('./pages/policies/TermsPage').then((m) => ({ default: m.TermsPage })))
-const ShippingPolicyPage = lazy(() => import('./pages/policies/ShippingPolicyPage').then((m) => ({ default: m.ShippingPolicyPage })))
-const ReturnPolicyPage = lazy(() => import('./pages/policies/ReturnPolicyPage').then((m) => ({ default: m.ReturnPolicyPage })))
-const AboutPage = lazy(() => import('./pages/policies/AboutPage').then((m) => ({ default: m.AboutPage })))
-const CookiePreferencesPage = lazy(() => import('./pages/policies/CookiePreferencesPage').then((m) => ({ default: m.CookiePreferencesPage })))
-const RefundPolicyPage = lazy(() => import('./pages/policies/RefundPolicyPage').then((m) => ({ default: m.RefundPolicyPage })))
-const PaymentFailedPage = lazy(() => import('./pages/PaymentFailedPage').then((m) => ({ default: m.PaymentFailedPage })))
-const PasswordResetPage = lazy(() => import('./pages/PasswordResetPage').then((m) => ({ default: m.PasswordResetPage })))
-const AccessDeniedPage = lazy(() => import('./pages/AccessDeniedPage').then((m) => ({ default: m.AccessDeniedPage })))
-const EmailVerificationPage = lazy(() => import('./pages/EmailVerificationPage').then((m) => ({ default: m.EmailVerificationPage })))
-const MaintenancePage = lazy(() => import('./pages/MaintenancePage').then((m) => ({ default: m.MaintenancePage })))
+import { Icon, CookieConsentBanner } from './components/ui'
 import { PageSkeleton } from './components/ui/SkeletonLoader'
+import { LoadingScreen } from './components/ui/LoadingScreen'
+import { ScrollProgress } from './components/ui/ScrollProgress'
+
+// Lazy-loaded auxiliary routes
+const CookiePreferencesPage = lazy(() => import('./pages/policies/CookiePreferencesPage').then((m) => ({ default: m.CookiePreferencesPage })))
 
 // ─── Scroll to top on route navigation ────────────────────────────────────────
 
@@ -69,13 +42,12 @@ function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className="flex items-center gap-2.5 px-4 py-3 bg-surface-container border border-accent-blue rounded text-[#e3e2e7] text-xs font-mono shadow-2xl pointer-events-auto animate-fadeIn"
+          className="flex items-center gap-2.5 px-4 py-3 bg-(--bg-surface) border border-(--border-theme) rounded-xl text-(--text-primary) text-xs font-mono shadow-2xl pointer-events-auto animate-fadeIn"
         >
           <Icon
             name={toast.type === 'cart' ? 'check_circle' : toast.type === 'wishlist' ? 'favorite' : 'info'}
             size={18}
-            className={toast.type === 'wishlist' ? 'text-stock-red' : 'text-accent-blue'}
-            filled={toast.type === 'wishlist'}
+            className="text-(--accent-green)"
           />
           <span>{toast.message}</span>
         </div>
@@ -93,11 +65,13 @@ function PageFallback() {
 function StorefrontLayout() {
   return (
     <div className="min-h-screen flex flex-col bg-(--bg-primary) text-(--text-primary)">
+      <ScrollProgress />
       <Header />
       <Suspense fallback={<PageFallback />}>
         <Outlet />
       </Suspense>
       <Footer />
+      <CookieConsentBanner />
     </div>
   )
 }
@@ -107,103 +81,20 @@ function StorefrontLayout() {
 function AppContent() {
   return (
     <>
+      <LoadingScreen />
       <ScrollToTop />
       <Routes>
-        {/* ── Admin (own chrome, no storefront header/footer, lazy chunk) ── */}
-        <Route
-          path="/admin/*"
-          element={
-            <RequireStaff>
-              <Suspense fallback={<div className="min-h-screen bg-(--bg-primary) flex items-center justify-center text-(--text-secondary) font-mono text-xs">Loading admin console…</div>}>
-                <AdminApp />
-              </Suspense>
-            </RequireStaff>
-          }
-        />
-
-        {/* ── Storefront ── */}
         <Route element={<StorefrontLayout />}>
+          {/* Core Required Café Pages */}
           <Route path="/" element={<HomePage />} />
-
-          {/* Categories / listing */}
-          <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/category/:slug" element={<CategoryPage />} />
-          <Route path="/products" element={<ProductsPage />} />
-          <Route path="/components" element={<ProductsPage />} />
-          <Route path="/graphics-cards" element={<ProductsPage />} />
-          <Route path="/cpus" element={<ProductsPage />} />
-          <Route path="/motherboards" element={<ProductsPage />} />
-          <Route path="/ram" element={<ProductsPage />} />
-          <Route path="/storage" element={<ProductsPage />} />
-          <Route path="/cooling" element={<ProductsPage />} />
-          <Route path="/cases" element={<ProductsPage />} />
-          <Route path="/power-supplies" element={<ProductsPage />} />
-          <Route path="/monitors" element={<ProductsPage />} />
-          <Route path="/peripherals" element={<ProductsPage />} />
-          <Route path="/streaming" element={<ProductsPage />} />
-          <Route path="/sim-racing" element={<ProductsPage />} />
-          <Route path="/accessories" element={<ProductsPage />} />
-
-          {/* Product details (slug-based — matches database slugs) */}
-          <Route path="/products/:slug" element={<ProductDetailsPage />} />
-          <Route path="/product/:slug" element={<ProductDetailsPage />} />
-
-          {/* Specialized */}
-          <Route path="/gaming-pcs" element={<GamingPCsPage />} />
-          <Route path="/gaming-pc/:slug" element={<GamingPCDetailsPage />} />
-          <Route path="/builder" element={<PCBuilderPage />} />
-          <Route path="/pc-builder" element={<PCBuilderPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/deals" element={<DealsPage />} />
-          <Route path="/compare" element={<ComparePage />} />
-          <Route path="/brands" element={<BrandsPage />} />
-          <Route path="/brand/:slug" element={<BrandPage />} />
-
-          {/* Cart & checkout */}
-          <Route path="/cart" element={<CartPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/checkout/confirmation" element={<OrderConfirmationPage />} />
-          <Route path="/wishlist" element={<WishlistPage />} />
-
-          {/* Account (lazy chunk with its own nested routes) */}
-          <Route
-            path="/account/*"
-            element={
-              <RequireAuth>
-                <AccountApp />
-              </RequireAuth>
-            }
-          />
-
-          {/* Orders / tracking */}
-          <Route path="/orders" element={<OrderTrackingPage />} />
-          <Route path="/track-order" element={<OrderTrackingPage />} />
-
-          {/* Auth & Security */}
-          <Route path="/login" element={<AuthPage mode="login" />} />
-          <Route path="/register" element={<AuthPage mode="register" />} />
-          <Route path="/forgot-password" element={<AuthPage mode="forgot" />} />
-          <Route path="/reset-password" element={<PasswordResetPage />} />
-          <Route path="/verify-email" element={<EmailVerificationPage />} />
-          <Route path="/access-denied" element={<AccessDeniedPage />} />
-
-          {/* Checkout & System Status */}
-          <Route path="/payment-failed" element={<PaymentFailedPage />} />
-          <Route path="/maintenance" element={<MaintenancePage />} />
-
-          {/* Support & Policies */}
-          <Route path="/support" element={<SupportPage />} />
-          <Route path="/warranty" element={<SupportPage />} />
-          <Route path="/b2b" element={<SupportPage />} />
           <Route path="/about" element={<AboutPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPolicyPage />} />
-          <Route path="/shipping-policy" element={<ShippingPolicyPage />} />
-          <Route path="/return-policy" element={<ReturnPolicyPage />} />
-          <Route path="/refund-policy" element={<RefundPolicyPage />} />
+          <Route path="/menu" element={<MenuPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+
+          {/* Auxiliary Pages */}
           <Route path="/cookie-preferences" element={<CookiePreferencesPage />} />
 
-          {/* 404 */}
+          {/* 404 Catch-All */}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
@@ -220,7 +111,9 @@ function App() {
           <ShopProvider>
             <CartProvider>
               <WishlistProvider>
-                <AppContent />
+                <CookieConsentProvider>
+                  <AppContent />
+                </CookieConsentProvider>
               </WishlistProvider>
             </CartProvider>
           </ShopProvider>

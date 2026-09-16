@@ -1,137 +1,118 @@
-import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Icon, PaymentLogos } from '../ui'
-
-interface AccordionSectionProps {
-  title: string
-  children: React.ReactNode
-  isOpen: boolean
-  onToggle: () => void
-}
-
-function FooterAccordion({ title, children, isOpen, onToggle }: AccordionSectionProps) {
-  return (
-    <div className="border-b border-(--border-theme) py-3 md:border-none md:py-0">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="w-full flex items-center justify-between font-mono text-xs font-bold tracking-wider text-(--text-primary) uppercase border-l-2 border-(--accent-blue) pl-2.5 md:cursor-default text-left cursor-pointer"
-      >
-        <span>{title}</span>
-        <span className="md:hidden text-(--text-secondary)">
-          <Icon name={isOpen ? 'expand_less' : 'expand_more'} size={18} />
-        </span>
-      </button>
-
-      <div className={`mt-3 ${isOpen ? 'block' : 'hidden md:block'}`}>
-        {children}
-      </div>
-    </div>
-  )
-}
+import { Icon } from '../ui'
+import { FadeUp } from '../motion/MotionPrimitives'
 
 export function Footer() {
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({})
-
-  const toggleSection = (key: string) => {
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  const customerServiceLinks = [
-    { label: 'Contact Support', href: '/support' },
-    { label: 'Track Order', href: '/track-order' },
-    { label: 'Shipping Policy', href: '/shipping-policy' },
-    { label: 'Return Policy', href: '/return-policy' },
-    { label: 'Warranty & RMA', href: '/warranty' },
-  ]
-
-  const hardwareBuildsLinks = [
-    { label: 'Custom PC Builder', href: '/builder' },
-    { label: 'Gaming PCs', href: '/gaming-pcs' },
-    { label: 'Graphics Cards', href: '/graphics-cards' },
-    { label: 'Processors (CPUs)', href: '/cpus' },
-    { label: 'Motherboards', href: '/motherboards' },
-  ]
-
-  const dealsShoppingLinks = [
-    { label: "Today's Deals", href: '/deals' },
-    { label: 'New Arrivals', href: '/products?sort=newest' },
-    { label: 'All Products', href: '/products' },
-    { label: 'Compare Products', href: '/compare' },
-    { label: 'Wishlist', href: '/wishlist' },
-  ]
-
-  const legalLinks = [
+  const quickLinks = [
+    { label: 'Home', href: '/' },
     { label: 'About Us', href: '/about' },
-    { label: 'Terms of Service', href: '/terms' },
-    { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Refund & Cancellation', href: '/refund-policy' },
-    { label: 'Cookie Preferences', href: '/cookie-preferences' },
-    { label: 'Shipping Information', href: '/shipping-policy' },
-    { label: 'B2B & Business Sales', href: '/b2b' },
+    { label: 'Our Menu', href: '/menu' },
+    { label: 'Contact', href: '/contact' },
+  ]
+
+  const socialLinks = [
+    { name: 'Instagram', href: '#' },
+    { name: 'Facebook', href: '#' },
+    { name: 'X (Twitter)', href: '#' },
   ]
 
   return (
-    <footer className="bg-(--bg-surface) border-t border-(--border-theme) pt-12 pb-8 mt-auto">
-      <div className="container-max px-4 md:px-8">
-        {/* Footer Navigation Columns */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          <FooterAccordion title="Customer Support" isOpen={!!openSections['support']} onToggle={() => toggleSection('support')}>
-            <ul className="space-y-2">
-              {customerServiceLinks.map((link) => (
-                <li key={link.label}>
-                  <Link to={link.href} className="text-xs text-(--text-secondary) hover:text-(--text-primary) transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </FooterAccordion>
+    <footer className="bg-(--bg-surface-secondary) border-t border-(--border-theme) mt-auto py-12 md:py-16 text-(--text-primary)">
+      <FadeUp duration={600} className="container-max px-4 md:px-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-8 md:gap-12">
+          
+          {/* Brand Info Column */}
+          <div className="lg:col-span-5 space-y-4">
+            <Link to="/" className="inline-flex items-center gap-2.5 group">
+              <div className="w-8 h-8 rounded-full bg-(--accent-green) text-white flex items-center justify-center group-hover:scale-105 transition-transform duration-200">
+                <Icon name="coffee" size={18} />
+              </div>
+              <span className="font-bold text-xl tracking-tight text-(--text-primary) group-hover:text-(--accent-green) transition-colors duration-200">
+                [CAFÉ NAME]
+              </span>
+            </Link>
 
-          <FooterAccordion title="Hardware Catalog" isOpen={!!openSections['hardware']} onToggle={() => toggleSection('hardware')}>
-            <ul className="space-y-2">
-              {hardwareBuildsLinks.map((link) => (
-                <li key={link.label}>
-                  <Link to={link.href} className="text-xs text-(--text-secondary) hover:text-(--text-primary) transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </FooterAccordion>
+            <p className="text-xs md:text-sm text-(--text-secondary) leading-relaxed max-w-sm">
+              [CLIENT DESCRIPTION - Welcoming café serving artisan coffee, fresh breakfast, lunch specialties, and delectable desserts.]
+            </p>
 
-          <FooterAccordion title="Deals & Shopping" isOpen={!!openSections['deals']} onToggle={() => toggleSection('deals')}>
-            <ul className="space-y-2">
-              {dealsShoppingLinks.map((link) => (
-                <li key={link.label}>
-                  <Link to={link.href} className="text-xs text-(--text-secondary) hover:text-(--text-primary) transition-colors">
-                    {link.label}
-                  </Link>
-                </li>
+            <div className="pt-2 flex items-center gap-3">
+              {socialLinks.map((social) => (
+                <a
+                  key={social.name}
+                  href={social.href}
+                  className="px-3 py-1.5 rounded-md bg-(--bg-surface) border border-(--border-theme) text-xs font-semibold text-(--text-secondary) hover:text-(--accent-green) hover:border-(--accent-green) hover:-translate-y-0.5 transition-all duration-200 shadow-xs"
+                >
+                  {social.name}
+                </a>
               ))}
-            </ul>
-          </FooterAccordion>
+            </div>
+          </div>
 
-          <FooterAccordion title="Company & Legal" isOpen={!!openSections['legal']} onToggle={() => toggleSection('legal')}>
+          {/* Navigation Links Column */}
+          <div className="lg:col-span-3 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-(--accent-green)">
+              Navigation
+            </h3>
             <ul className="space-y-2">
-              {legalLinks.map((link) => (
-                <li key={link.label}>
-                  <Link to={link.href} className="text-xs text-(--text-secondary) hover:text-(--text-primary) transition-colors">
+              {quickLinks.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    to={link.href}
+                    className="text-xs md:text-sm text-(--text-secondary) hover:text-(--accent-green) hover:translate-x-1 inline-block transition-all duration-200"
+                  >
                     {link.label}
                   </Link>
                 </li>
               ))}
             </ul>
-          </FooterAccordion>
+          </div>
+
+          {/* Location & Hours Column */}
+          <div className="lg:col-span-4 space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-(--accent-green)">
+              Visit & Contact
+            </h3>
+            <ul className="space-y-2 text-xs md:text-sm text-(--text-secondary)">
+              <li className="flex items-start gap-2">
+                <Icon name="location_on" size={16} className="text-(--accent-green) shrink-0 mt-0.5" />
+                <span>[ADDRESS]</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Icon name="call" size={16} className="text-(--accent-green) shrink-0" />
+                <span>[PHONE]</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <Icon name="mail" size={16} className="text-(--accent-green) shrink-0" />
+                <span>[EMAIL]</span>
+              </li>
+              <li className="flex items-start gap-2 pt-1 border-t border-(--border-subtle)">
+                <Icon name="schedule" size={16} className="text-(--accent-green) shrink-0 mt-0.5" />
+                <span>[OPENING HOURS]</span>
+              </li>
+            </ul>
+          </div>
+
         </div>
 
-        {/* Payment & Copyright Bar */}
-        <div className="border-t border-(--border-theme) mt-10 pt-6 flex flex-col sm:flex-row items-center justify-between gap-6 text-xs text-(--text-secondary)">
-          <p>© {new Date().getFullYear()} Premium PC Store. All rights reserved.</p>
-          <PaymentLogos />
+        {/* Bottom Copyright Bar */}
+        <div className="mt-12 pt-6 border-t border-(--border-subtle) flex flex-col sm:flex-row items-center justify-between text-xs text-(--text-muted) gap-4">
+          <p>© {new Date().getFullYear()} [CAFÉ NAME]. All rights reserved.</p>
+          <div className="flex items-center gap-4">
+            <Link to="/about" className="hover:text-(--text-primary) transition-colors">
+              About
+            </Link>
+            <span>•</span>
+            <Link to="/menu" className="hover:text-(--text-primary) transition-colors">
+              Menu
+            </Link>
+            <span>•</span>
+            <Link to="/contact" className="hover:text-(--text-primary) transition-colors">
+              Contact
+            </Link>
+          </div>
         </div>
-      </div>
+      </FadeUp>
     </footer>
   )
 }
-

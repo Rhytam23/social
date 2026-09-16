@@ -298,3 +298,4 @@ export function SectionHeader({ title, subtitle, ctaLabel, ctaHref }: SectionHea
 }
 
 export { PaymentLogos } from './PaymentLogos'
+export { CookieConsentBanner } from './CookieConsentBanner'

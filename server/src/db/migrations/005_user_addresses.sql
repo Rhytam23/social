@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS user_addresses (
   city          TEXT NOT NULL,
   state         TEXT NOT NULL,
   zip_code      TEXT NOT NULL,
-  country       TEXT NOT NULL DEFAULT 'USA',
+  country       TEXT NOT NULL,
   phone         TEXT,
   is_default    BOOLEAN NOT NULL DEFAULT FALSE,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),

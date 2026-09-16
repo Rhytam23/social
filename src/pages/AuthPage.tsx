@@ -6,7 +6,7 @@ import { useShop } from '../context/ShopContext'
 import { useAuth } from '../context/AuthContext'
 import { config } from '../lib/config'
 
-type Mode = 'login' | 'register' | 'forgot'
+type Mode = 'login' | 'register' | 'forgot' | 'forgot-password'
 type AuthMethod = 'otp' | 'password'
 
 const BENEFITS = [
@@ -160,6 +160,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
     login: step === 'otp' ? 'Enter 6-Digit OTP' : 'Sign in to your account',
     register: step === 'otp' ? 'Verify your Email' : 'Create your account',
     forgot: 'Reset your password',
+    'forgot-password': 'Reset your password',
   }
 
   return (
