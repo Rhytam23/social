@@ -1,9 +1,6 @@
-import { useEffect, lazy, Suspense } from 'react'
+import { useEffect, Suspense } from 'react'
 import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom'
 import { ShopProvider, useShop } from './context/ShopContext'
-import { AuthProvider } from './context/AuthContext'
-import { CartProvider } from './context/CartContext'
-import { WishlistProvider } from './context/WishlistContext'
 import { CookieConsentProvider } from './context/CookieConsentContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { Header } from './components/navigation/Header'
@@ -17,9 +14,6 @@ import { Icon, CookieConsentBanner } from './components/ui'
 import { PageSkeleton } from './components/ui/SkeletonLoader'
 import { LoadingScreen } from './components/ui/LoadingScreen'
 import { ScrollProgress } from './components/ui/ScrollProgress'
-
-// Lazy-loaded auxiliary routes
-const CookiePreferencesPage = lazy(() => import('./pages/policies/CookiePreferencesPage').then((m) => ({ default: m.CookiePreferencesPage })))
 
 // ─── Scroll to top on route navigation ────────────────────────────────────────
 
@@ -45,7 +39,7 @@ function ToastContainer() {
           className="flex items-center gap-2.5 px-4 py-3 bg-(--bg-surface) border border-(--border-theme) rounded-xl text-(--text-primary) text-xs font-mono shadow-2xl pointer-events-auto animate-fadeIn"
         >
           <Icon
-            name={toast.type === 'cart' ? 'check_circle' : toast.type === 'wishlist' ? 'favorite' : 'info'}
+            name="info"
             size={18}
             className="text-(--accent-green)"
           />
@@ -91,9 +85,6 @@ function AppContent() {
           <Route path="/menu" element={<MenuPage />} />
           <Route path="/contact" element={<ContactPage />} />
 
-          {/* Auxiliary Pages */}
-          <Route path="/cookie-preferences" element={<CookiePreferencesPage />} />
-
           {/* 404 Catch-All */}
           <Route path="*" element={<NotFoundPage />} />
         </Route>
@@ -107,17 +98,11 @@ function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
-        <AuthProvider>
-          <ShopProvider>
-            <CartProvider>
-              <WishlistProvider>
-                <CookieConsentProvider>
-                  <AppContent />
-                </CookieConsentProvider>
-              </WishlistProvider>
-            </CartProvider>
-          </ShopProvider>
-        </AuthProvider>
+        <ShopProvider>
+          <CookieConsentProvider>
+            <AppContent />
+          </CookieConsentProvider>
+        </ShopProvider>
       </BrowserRouter>
     </ErrorBoundary>
   )

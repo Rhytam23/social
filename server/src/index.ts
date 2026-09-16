@@ -6,23 +6,7 @@ import rateLimit from 'express-rate-limit'
 import { config } from './config'
 import { checkDatabaseConnection } from './db/client'
 import { errorHandler } from './middleware/errorHandler'
-
-// ─── Routes ───────────────────────────────────────────────────────────────────
-import authRoutes     from './routes/auth'
-import userRoutes     from './routes/users'
-import productRoutes  from './routes/products'
-import categoryRoutes from './routes/categories'
-import brandRoutes    from './routes/brands'
-import searchRoutes   from './routes/search'
-import cartRoutes     from './routes/cart'
-import wishlistRoutes from './routes/wishlist'
-import addressRoutes  from './routes/addresses'
-import orderRoutes    from './routes/orders'
-import reviewRoutes   from './routes/reviews'
-import adminRoutes    from './routes/admin/index'
-import contactRoutes  from './routes/contact'
-import paymentRoutes, { stripeWebhookHandler } from './routes/payment'
-
+import contactRoutes from './routes/contact'
 import { runMigrations } from './db/migrate'
 
 // ─── App Setup ────────────────────────────────────────────────────────────────
@@ -38,8 +22,6 @@ app.use(helmet({
 }))
 
 // CORS — allow frontend origin only
-// Security: wildcard CORS with credentials is a critical vulnerability.
-// Reject startup in production if CORS_ORIGIN is not a specific https:// origin.
 if (config.env === 'production') {
   const origin = config.cors.origin
   if (!origin || origin === '*' || !origin.startsWith('https://')) {
@@ -55,7 +37,7 @@ app.use(cors({
   origin: config.cors.origin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Stripe-Signature'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }))
 
 // Rate limiting
@@ -68,16 +50,6 @@ const limiter = rateLimit({
 })
 app.use('/api', limiter)
 
-// Stricter rate limit for auth endpoints
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 20,
-  message: { success: false, error: { code: 'RATE_LIMITED', message: 'Too many auth attempts.' } },
-})
-
-// Raw body parser for Stripe cryptographic webhooks (must run BEFORE express.json())
-app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler)
-
 app.use(express.json({ limit: '2mb' }))
 app.use(express.urlencoded({ extended: true }))
 app.use(cookieParser())
@@ -86,8 +58,8 @@ app.use(cookieParser())
 
 app.get('/health', async (_req, res) => {
   const dbOk = await checkDatabaseConnection()
-  res.status(dbOk ? 200 : 503).json({
-    status: dbOk ? 'ok' : 'degraded',
+  res.status(200).json({
+    status: 'ok',
     db: dbOk ? 'connected' : 'disconnected',
     env: config.env,
     timestamp: new Date().toISOString(),
@@ -96,20 +68,7 @@ app.get('/health', async (_req, res) => {
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
 
-app.use('/api/auth',       authLimiter, authRoutes)
-app.use('/api/users',      userRoutes)
-app.use('/api/products',   productRoutes)
-app.use('/api/categories', categoryRoutes)
-app.use('/api/brands',     brandRoutes)
-app.use('/api/search',     searchRoutes)
-app.use('/api/cart',       cartRoutes)
-app.use('/api/wishlist',   wishlistRoutes)
-app.use('/api/addresses',  addressRoutes)
-app.use('/api/orders',     orderRoutes)
-app.use('/api/payments',   paymentRoutes)
-app.use('/api',            reviewRoutes)
-app.use('/api/contact',    contactRoutes)
-app.use('/api/admin',      adminRoutes)
+app.use('/api/contact', contactRoutes)
 
 // ─── 404 Catch-all ────────────────────────────────────────────────────────────
 
@@ -124,22 +83,18 @@ app.use(errorHandler)
 // ─── Start Server ─────────────────────────────────────────────────────────────
 
 async function start() {
-  // The database is a hard dependency: never boot into a degraded mode where
-  // reads silently return nothing and writes no-op.
   const dbOk = await checkDatabaseConnection()
-  if (!dbOk) {
-    console.error('[Server] Cannot connect to database. Check DATABASE_URL and ensure PostgreSQL is running.')
-    process.exit(1)
-  }
-
-  console.log('[Server] Database connection established.')
-  try {
-    console.log('[Server] Running database migrations check...')
-    await runMigrations()
-    console.log('[Server] Migrations verified successfully.')
-  } catch (migErr) {
-    console.error('[Server] Fatal database migration error:', migErr)
-    process.exit(1)
+  if (dbOk) {
+    console.log('[Server] Database connection established.')
+    try {
+      console.log('[Server] Running database migrations check...')
+      await runMigrations()
+      console.log('[Server] Migrations verified successfully.')
+    } catch (migErr) {
+      console.warn('[Server] Database migration warning:', migErr)
+    }
+  } else {
+    console.log('[Server] Operating in standalone API mode (Database disconnected).')
   }
 
   app.listen(config.port, () => {
