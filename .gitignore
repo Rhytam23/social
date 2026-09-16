@@ -8,18 +8,26 @@ lerna-debug.log*
 
 # Node dependencies
 node_modules/
+server/node_modules/
 
 # Production build outputs
 dist/
 dist-ssr/
 build/
+server/dist/
 
 # Local Environment & Secrets
 .env
-.env.*
+.env.local
+.env.production
+.env.development
+server/.env
+server/.env.local
+server/.env.production
+server/.env.development
 !.env.example
+!server/.env.example
 *.pem
-ENV_REFERENCE.md
 
 # Editor & OS files
 .claude/
@@ -34,18 +42,10 @@ ENV_REFERENCE.md
 .DS_Store
 Thumbs.db
 
-# Cache directories
+# Cache & Scratch directories
 .oxlint/
 .vite/
+scratch/
 
-# Server build output
-server/dist/
-
-# Server local env
-server/.env
-server/.env.*
-!server/.env.example
-
-# Neon CLI linking
-.neon
-server/.neon
+# Internal Developer Documentation (Ignored from public repo)
+docs/internal/

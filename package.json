@@ -4,16 +4,15 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "check": "node scripts/check.mjs",
     "dev": "vite",
     "dev:server": "cd server && npm run dev",
     "dev:all": "start /B cmd /c \"cd server && npm run dev\" && vite",
     "build": "tsc -b && vite build",
     "build:server": "cd server && npm run build",
     "lint": "oxlint",
-    "preview": "vite preview",
-    "server:migrate": "cd server && npm run migrate",
-    "server:seed": "cd server && npm run seed",
-    "test:server": "cd server && npm run test"
+    "preview": "vite preview"
   },
   "dependencies": {
     "react": "^19.2.8",
