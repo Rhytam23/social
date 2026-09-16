@@ -25,28 +25,12 @@ router.post('/', async (req, res) => {
     })
   }
 
-  const { name, email, phone, subject, message } = result.data
+  await emailService.sendContactMessage(result.data)
 
-  // If Resend API key is configured, send actual email; otherwise return clean response
-  const sent = await emailService.sendOtpEmail(
-    process.env['EMAIL_TO'] || 'contact@auracafe.dev',
-    `Message from ${name} (${email}): ${subject || 'General Inquiry'}\nPhone: ${phone || 'N/A'}\n\n${message}`
-  )
-
-  if (sent) {
-    return res.json({
-      success: true,
-      data: { message: 'Thank you for your message. We will get back to you shortly!' },
-    })
-  } else {
-    return res.status(503).json({
-      success: false,
-      error: {
-        code: 'SERVICE_UNAVAILABLE',
-        message: 'Unable to send your message right now. Please contact us directly by phone or email.',
-      },
-    })
-  }
+  return res.json({
+    success: true,
+    data: { message: 'Thank you for your message. We will get back to you shortly!' },
+  })
 })
 
 export default router
