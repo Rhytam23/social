@@ -4,10 +4,8 @@ import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
 import { config } from './config'
-import { checkDatabaseConnection } from './db/client'
 import { errorHandler } from './middleware/errorHandler'
 import contactRoutes from './routes/contact'
-import { runMigrations } from './db/migrate'
 
 // ─── App Setup ────────────────────────────────────────────────────────────────
 
@@ -56,11 +54,9 @@ app.use(cookieParser())
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
 
-app.get('/health', async (_req, res) => {
-  const dbOk = await checkDatabaseConnection()
+app.get('/health', (_req, res) => {
   res.status(200).json({
     status: 'ok',
-    db: dbOk ? 'connected' : 'disconnected',
     env: config.env,
     timestamp: new Date().toISOString(),
   })
@@ -82,33 +78,21 @@ app.use(errorHandler)
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
 
-async function start() {
-  const dbOk = await checkDatabaseConnection()
-  if (dbOk) {
-    console.log('[Server] Database connection established.')
-    try {
-      console.log('[Server] Running database migrations check...')
-      await runMigrations()
-      console.log('[Server] Migrations verified successfully.')
-    } catch (migErr) {
-      console.warn('[Server] Database migration warning:', migErr)
-    }
-  } else {
-    console.log('[Server] Operating in standalone API mode (Database disconnected).')
-  }
-
+function start() {
   app.listen(config.port, () => {
-    console.log(`[Server] Running on http://localhost:${config.port}`)
+    console.log(`[Server] Café API running on http://localhost:${config.port}`)
     console.log(`[Server] Environment: ${config.env}`)
     console.log(`[Server] CORS origin: ${config.cors.origin}`)
   })
 }
 
 if (process.env.NODE_ENV !== 'test' && process.env.NO_AUTO_START !== 'true') {
-  start().catch((err) => {
+  try {
+    start()
+  } catch (err) {
     console.error('[Server] Fatal startup error:', err)
     process.exit(1)
-  })
+  }
 }
 
 export default app
