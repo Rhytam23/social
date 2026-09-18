@@ -39,7 +39,14 @@ For developers, security auditors, or AI coding agents onboarding to this projec
 | [`26_PRODUCTION_CONFIGURATION.md`](./26_PRODUCTION_CONFIGURATION.md) | Production Setup & Credential Guide | Definitive setup reference, env vars, Supabase setup, integration sequence | Launch Config |
 | [`27_PUBLIC_RELEASE_AUDIT.md`](./27_PUBLIC_RELEASE_AUDIT.md) | Final Public Release Audit Report | Release decision, 100-user capacity, threat model, P0/P1 issues, smoke tests | Release Audit |
 | [`API.md`](./API.md) | External API & Services Setup Guide | Service credentials procurement, Supabase setup, environment variable guidance | Services Setup |
+| [`BLACK_BOX_ACCEPTANCE.md`](./BLACK_BOX_ACCEPTANCE.md) | Black Box Acceptance Test Suite | 12 end-to-end user journey acceptance test cases and validation results | Acceptance Testing |
+| [`DEPLOYMENT.md`](./DEPLOYMENT.md) | Full Production Deployment Guide | End-to-end production deployment steps, environment variables, Vercel/Supabase | Deployment |
+| [`DEPLOYMENT_CHECKLIST.md`](./DEPLOYMENT_CHECKLIST.md) | Pre-Deployment Verification Checklist | Verification checklist across builds, database migrations, security, and secrets | Verification |
+| [`PRODUCT_SURFACE.md`](./PRODUCT_SURFACE.md) | Product Surface & Route Inventory | Complete catalog of public routes, app views, modals, and user entrypoints | Product Catalog |
+| [`UX_STATUS.md`](./UX_STATUS.md) | UX State & Design Audit | Visual design polish, responsiveness, dark mode, keyboard navigation | UX & Design |
+| [`V1_STATUS.md`](./V1_STATUS.md) | V1 Core Feature Status Matrix | High-level status matrix of messaging, attachments, auth, and E2EE | Status Matrix |
 | [`check.md`](./check.md) | Final Security & Audit Check Log | Security checks performed, automatic fixes applied, GitHub readiness | Audit Log |
+| [`e2ee-architecture.md`](./e2ee-architecture.md) | E2EE Architecture Documentation | Complete architectural flowcharts and cryptographic keys breakdown | E2EE Architecture |
 
 ---
 
