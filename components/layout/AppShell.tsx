@@ -5,7 +5,7 @@ import { MobileNav } from './MobileNav';
 import { ChatCanvas } from '../chat/ChatCanvas';
 import { InspectorDeck } from '../chat/InspectorDeck';
 import { PeopleDirectory } from '../people/PeopleDirectory';
-import { SecuritySettings } from '../settings/SecuritySettings';
+import { SettingsView } from '../settings/SettingsView';
 import { AdminDashboard } from '../admin/AdminDashboard';
 import { GlobalSearchModal } from '../search/GlobalSearchModal';
 import { UserProfileModal } from '../profile/UserProfileModal';
@@ -60,6 +60,7 @@ export interface AppShellProps {
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
+  currentUserId,
   currentUserName,
   currentUserRegistrationId,
   currentUserRole,
@@ -260,7 +261,19 @@ export const AppShell: React.FC<AppShellProps> = ({
           )}
 
           {activeCategory === 'settings' && (
-            <SecuritySettings
+            <SettingsView
+              currentUser={
+                users.find((u) => u.id === currentUserId) || {
+                  id: currentUserId,
+                  name: currentUserName,
+                  registrationId: currentUserRegistrationId,
+                  role: currentUserRole,
+                  deviceCount: devices.length,
+                  joinedAt: 'Active',
+                  identityFingerprint: '45A8-99F1-20B3-881C-00D9-FF41-92A3-77E5',
+                  presence: 'online',
+                }
+              }
               devices={devices}
               identityFingerprint="45A8-99F1-20B3-881C-00D9-FF41-92A3-77E5"
               registrationId={currentUserRegistrationId}

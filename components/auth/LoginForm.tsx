@@ -6,13 +6,20 @@ import { createClient } from '../../lib/supabase/client';
 import { getChatStore } from '../../lib/store/chatStore';
 import { IconCheck, IconLock } from '../ui/icons';
 
+import Link from 'next/link';
+
 export interface LoginFormProps {
+  initialTab?: 'signin' | 'signup';
   onLoginSuccess?: (email: string) => void;
   onNavigateInvite?: () => void;
 }
 
-export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess, onNavigateInvite }) => {
-  const [tab, setTab] = useState<'signin' | 'signup'>('signin');
+export const LoginForm: React.FC<LoginFormProps> = ({
+  initialTab = 'signin',
+  onLoginSuccess,
+  onNavigateInvite,
+}) => {
+  const [tab, setTab] = useState<'signin' | 'signup'>(initialTab);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -227,13 +234,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ onLoginSuccess, onNavigate
             <div className="flex items-center justify-between">
               <label className="text-slate-300 font-semibold">Password</label>
               {tab === 'signin' && (
-                <button
-                  type="button"
-                  onClick={() => alert('Contact your administrator or use Supabase password recovery.')}
-                  className="text-[11px] text-slate-400 hover:text-slate-200"
+                <Link
+                  href="/forgot-password"
+                  className="text-[11px] text-slate-400 hover:text-emerald-400 transition-colors"
                 >
                   Forgot password?
-                </button>
+                </Link>
               )}
             </div>
             <input

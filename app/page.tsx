@@ -5,6 +5,8 @@ import { useChatStore } from '../hooks/useChatStore';
 import { AppShell } from '../components/layout/AppShell';
 import { NewConversationModal } from '../components/chat/NewConversationModal';
 import { LoginForm } from '../components/auth/LoginForm';
+import { LandingPage } from '../components/landing/LandingPage';
+import { OnboardingModal } from '../components/onboarding/OnboardingModal';
 import { Dialog } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
 import { UserItem, MessageData, ConversationItem } from '../types/ui';
@@ -43,6 +45,10 @@ export default function HomePage() {
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+
+  // Landing & Onboarding State
+  const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup' | null>(null);
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
 
   // Supabase Auth & Live State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -85,6 +91,13 @@ export default function HomePage() {
 
       const displayName =
         profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+
+      if (typeof window !== 'undefined') {
+        const completed = localStorage.getItem(`private_chat_onboarding_completed_${user.id}`);
+        if (!completed && (!profile?.display_name || profile.display_name === 'User')) {
+          setOnboardingOpen(true);
+        }
+      }
 
       store.setUserProfile({
         id: user.id,
@@ -343,16 +356,36 @@ export default function HomePage() {
     );
   }
 
-  // Not Authenticated -> Show Sign In / Register Form
+  // Not Authenticated -> Show Landing Page or Login / Register Flow
   if (isSupabaseConfigured && !isAuthenticated) {
+    if (authModalTab) {
+      return (
+        <div className="relative min-h-screen bg-[#070b14]">
+          <div className="absolute top-4 left-4 z-50">
+            <button
+              onClick={() => setAuthModalTab(null)}
+              className="px-3.5 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-xs font-semibold backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-md"
+            >
+              ← Back to Overview
+            </button>
+          </div>
+          <LoginForm
+            initialTab={authModalTab}
+            onLoginSuccess={() => {
+              setAuthModalTab(null);
+              checkUserSession();
+            }}
+            onNavigateInvite={() => {
+              setNewChatModalOpen(false);
+            }}
+          />
+        </div>
+      );
+    }
+
     return (
-      <LoginForm
-        onLoginSuccess={() => {
-          checkUserSession();
-        }}
-        onNavigateInvite={() => {
-          setNewChatModalOpen(false);
-        }}
+      <LandingPage
+        onOpenAuth={(mode) => setAuthModalTab(mode || 'signin')}
       />
     );
   }
@@ -424,6 +457,18 @@ export default function HomePage() {
         onClearHistoryConversation={(id) => store.clearHistoryConversation(id)}
         onDeleteConversationLocally={(id) => store.deleteConversationLocally(id)}
         onLogout={handleLogout}
+      />
+
+      {/* First-Time User Onboarding Modal */}
+      <OnboardingModal
+        isOpen={onboardingOpen}
+        onClose={() => setOnboardingOpen(false)}
+        userId={state.currentUser.id}
+        initialName={state.currentUser.name}
+        onProfileUpdated={(name) =>
+          store.setUserProfile({ id: state.currentUser.id, name })
+        }
+        onStartFirstChat={() => setNewChatModalOpen(true)}
       />
 
       {/* New Direct / Group Conversation Modal */}
