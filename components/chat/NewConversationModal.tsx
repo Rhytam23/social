@@ -16,6 +16,17 @@ export interface NewConversationModalProps {
   onCreateGroupChat: (groupName: string, memberIds: string[]) => void;
 }
 
+interface SearchProfile {
+  id: string;
+  username?: string;
+  display_name?: string;
+  avatar_url?: string | null;
+  email?: string;
+  phone_number?: string;
+  is_admin?: boolean;
+  created_at?: string;
+}
+
 export const NewConversationModal: React.FC<NewConversationModalProps> = ({
   isOpen,
   onClose,
@@ -39,9 +50,9 @@ export const NewConversationModal: React.FC<NewConversationModalProps> = ({
         setIsSearching(true);
         const res = await fetch(`/api/users?q=${encodeURIComponent(searchQuery)}`);
         if (res.ok) {
-          const data = await res.json();
+          const data = (await res.json()) as SearchProfile[];
           if (Array.isArray(data) && data.length > 0) {
-            const mapped: UserItem[] = data.map((p: any) => ({
+            const mapped: UserItem[] = data.map((p) => ({
               id: p.id,
               name: p.display_name || p.username || 'Anonymous User',
               username: p.username,
