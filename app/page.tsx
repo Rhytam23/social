@@ -9,8 +9,11 @@ import { LandingPage } from '../components/landing/LandingPage';
 import { OnboardingModal } from '../components/onboarding/OnboardingModal';
 import { Dialog } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
-import { UserItem, MessageData, ConversationItem } from '../types/ui';
+import { UserItem, MessageData } from '../types/ui';
 import { createClient } from '../lib/supabase/client';
+import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
+import { MessagingCrypto } from '../lib/messaging/messagingCrypto';
+import { createKeyBackup, restoreKeyBackup } from '../crypto';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface ProfileRow {
@@ -18,16 +21,8 @@ interface ProfileRow {
   display_name?: string;
   username?: string;
   phone_number?: string;
+  avatar_url?: string | null;
   is_admin?: boolean;
-}
-
-interface MemberConversationJoin {
-  conversation_id: string;
-  conversations: {
-    id: string;
-    name?: string;
-    type?: 'direct' | 'group';
-  } | null;
 }
 
 interface RealtimeMessageRow {
@@ -36,33 +31,66 @@ interface RealtimeMessageRow {
   sender_id: string;
   ciphertext: string;
   nonce: string;
+  encryption_version: number;
   created_at: string;
-  reply_to_message_id?: string | null;
+  reply_to_message_id: string | null;
 }
 
 export default function HomePage() {
   const [state, store] = useChatStore();
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
 
-  // Landing & Onboarding State
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup' | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
 
-  // Supabase Auth & Live State
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const cryptoRef = useRef<MessagingCrypto | null>(null);
+  const initedRef = useRef(false);
 
-  const isSupabaseConfigured =
-    typeof process !== 'undefined' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
+  const configured = isSupabaseConfigured();
 
-  const checkUserSession = useCallback(async () => {
-    if (!isSupabaseConfigured) {
-      setIsAuthenticated(true);
+  const setupRealtimeSubscription = useCallback(async () => {
+    if (!configured) return;
+    const supabase = createClient();
+
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
+
+    const conversationIds = state.conversations.map((c) => c.id);
+    // Filtered by our known conversation ids as defense-in-depth; RLS
+    // (messages_select_policy) is the authoritative backstop even if this
+    // filter is momentarily stale (e.g. right after being added to a group).
+    const channel = supabase
+      .channel('realtime-messages-feed')
+      .on(
+        'postgres_changes',
+        conversationIds.length > 0
+          ? { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=in.(${conversationIds.join(',')})` }
+          : { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          void store.receiveRealtimeMessageRow(payload.new as RealtimeMessageRow);
+        }
+      )
+      .subscribe();
+
+    realtimeChannelRef.current = channel;
+  }, [configured, state.conversations, store]);
+
+  const bootstrapSession = useCallback(async () => {
+    if (!configured) {
+      if (isDemoModeAllowed()) {
+        store.initDemoMode();
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
       setAuthLoading(false);
       return;
     }
@@ -82,7 +110,6 @@ export default function HomePage() {
 
       setIsAuthenticated(true);
 
-      // Fetch user profile
       const { data: profile } = (await supabase
         .from('profiles')
         .select('*')
@@ -99,7 +126,11 @@ export default function HomePage() {
         }
       }
 
-      store.setUserProfile({
+      const crypto = new MessagingCrypto(supabase, user.id);
+      await crypto.waitReady();
+      cryptoRef.current = crypto;
+
+      await store.initializeForUser(supabase, crypto, {
         id: user.id,
         name: displayName,
         username: profile?.username || user.email?.split('@')[0],
@@ -108,59 +139,20 @@ export default function HomePage() {
         role: profile?.is_admin ? 'admin' : 'member',
       });
 
-      // Load user conversations
-      const { data: memberRows } = (await supabase
-        .from('conversation_members')
-        .select('conversation_id, conversations(*)')
-        .eq('user_id', user.id)
-        .is('left_at', null)) as { data: MemberConversationJoin[] | null };
-
-      if (memberRows && memberRows.length > 0) {
-        const conversations: ConversationItem[] = memberRows.map((row: MemberConversationJoin) => {
-          const conv = row.conversations;
-          return {
-            id: conv?.id || row.conversation_id,
-            title: conv?.name || 'Direct Chat',
-            type: conv?.type === 'group' ? 'group' : 'direct',
-            unreadCount: 0,
-            lastMessage: {
-              snippet: 'Tap to view messages',
-              timestamp: 'Recently',
-              status: 'delivered',
-            },
-          };
-        });
-        store.setConversations(conversations);
+      if (profile?.avatar_url) {
+        store.updateCurrentUserProfile({ avatarUrl: profile.avatar_url });
       }
-
-      // Initialize Supabase Realtime Subscription for incoming messages
-      if (realtimeChannelRef.current) {
-        supabase.removeChannel(realtimeChannelRef.current);
-      }
-
-      const channel = supabase
-        .channel('realtime-messages-feed')
-        .on(
-          'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'messages' },
-          (payload) => {
-            if (payload.new) {
-              store.receiveSupabaseMessage(payload.new as RealtimeMessageRow);
-            }
-          }
-        )
-        .subscribe();
-
-      realtimeChannelRef.current = channel;
     } catch {
       setIsAuthenticated(false);
     } finally {
       setAuthLoading(false);
     }
-  }, [isSupabaseConfigured, store]);
+  }, [configured, store]);
 
   useEffect(() => {
-    checkUserSession();
+    if (initedRef.current) return;
+    initedRef.current = true;
+    void bootstrapSession();
 
     return () => {
       if (realtimeChannelRef.current) {
@@ -168,7 +160,18 @@ export default function HomePage() {
         supabase.removeChannel(realtimeChannelRef.current);
       }
     };
-  }, [checkUserSession]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // (Re-)subscribe to realtime whenever the set of conversations we belong
+  // to changes, so newly created/joined conversations are actually covered.
+  const conversationIdsKey = state.conversations.map((c) => c.id).sort().join(',');
+  useEffect(() => {
+    if (isAuthenticated && configured && state.mode === 'connected') {
+      void setupRealtimeSubscription();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, configured, state.mode, conversationIdsKey]);
 
   const activeConversation =
     state.conversations.find((c) => c.id === state.activeConversationId) ||
@@ -178,54 +181,40 @@ export default function HomePage() {
     ? state.messagesMap[activeConversation.id] || []
     : [];
 
-  const handleSendMessage = async (content: string, replyToId?: string, attachmentFile?: File) => {
-    // 1. Optimistic UI update in local store
-    store.sendMessage(content, replyToId, attachmentFile);
+  const handleSendMessage = (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number) => {
+    void store.sendMessage(content, replyToId, attachmentFile, voiceDurationMs);
+  };
 
-    // 2. Persist to live Supabase if connected
-    if (isSupabaseConfigured && state.activeConversationId) {
-      try {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
+  const handleDownloadAttachment = (msgId: string, attachmentId: string) => {
+    void store.downloadAttachment(msgId, attachmentId);
+  };
 
-        if (user) {
-          const ciphertext =
-            typeof window !== 'undefined' && window.btoa ? window.btoa(content) : content;
-          const nonce = typeof window !== 'undefined' && window.btoa ? window.btoa(Math.random().toString()) : 'nonce';
+  const handleRetryFailedMessage = (msgId: string) => {
+    void store.retryFailedMessage(msgId);
+  };
 
-          await supabase.from('messages').insert([
-            {
-              conversation_id: state.activeConversationId,
-              sender_id: user.id,
-              ciphertext,
-              nonce,
-              encryption_version: 1,
-              reply_to_message_id: replyToId || null,
-            },
-          ]);
-        }
-      } catch {
-        // Local store already holds message optimistically
-      }
-    }
+  const handleAddGroupMember = (groupId: string, userId: string) => {
+    void store.addGroupMember(groupId, userId);
+  };
+
+  const handleRemoveGroupMember = (groupId: string, userId: string) => {
+    void store.removeGroupMember(groupId, userId);
   };
 
   const handleReactToMessage = (msgId: string, emoji: string) => {
-    store.reactToMessage(msgId, emoji);
+    void store.reactToMessage(msgId, emoji);
   };
 
   const handleEditMessageSubmit = (msgId: string, newContent: string) => {
-    store.editMessage(msgId, newContent);
+    void store.editMessage(msgId, newContent);
   };
 
   const handleDeleteMessageLocal = (msgId: string) => {
-    store.deleteMessage(msgId);
+    void store.deleteMessage(msgId);
   };
 
   const handleForwardMessageToTarget = (targetConvId: string, msg: MessageData) => {
-    store.forwardMessage(targetConvId, msg);
+    void store.forwardMessage(targetConvId, msg);
   };
 
   const handlePinMessageToggle = (msgId: string) => {
@@ -236,110 +225,67 @@ export default function HomePage() {
     store.starMessage(msgId);
   };
 
-  const handleGenerateInvite = async (): Promise<string> => {
-    const token = store.generateInvite();
+  const handleGenerateInvite = async (assignedEmail: string): Promise<string | null> => {
+    const token = await store.generateInvite(assignedEmail);
     setGeneratedToken(token);
     return token;
   };
 
   const handleRevokeInvite = (inviteId: string) => {
-    store.revokeInvite(inviteId);
+    void store.revokeInvite(inviteId);
   };
 
   const handleToggleUserRole = (userId: string, currentRole: 'admin' | 'member') => {
-    store.toggleUserRole(userId, currentRole);
+    void store.toggleUserRole(userId, currentRole);
   };
 
-  const handleExportKeyBackup = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+  const handleExportKeyBackup = async (passphrase: string) => {
+    const crypto = cryptoRef.current;
+    if (!crypto) throw new Error('Encryption is not ready yet');
+    const backup = await createKeyBackup(passphrase, crypto.getKeyStore());
+    const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `private-chat-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
   };
 
-  const handleRestoreKeyBackup = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 300));
+  const handleRestoreKeyBackup = async (passphrase: string, backupJson: string) => {
+    const crypto = cryptoRef.current;
+    if (!crypto) throw new Error('Encryption is not ready yet');
+    const backup = JSON.parse(backupJson);
+    await restoreKeyBackup(passphrase, backup, crypto.getKeyStore());
+    await crypto.getKeyStore().persist();
   };
 
   const handleRevokeDevice = (deviceId: string) => {
-    store.revokeDevice(deviceId);
+    void store.revokeDevice(deviceId);
   };
 
   const handleStartDirectChat = async (user: UserItem) => {
-    // 1. Optimistic store creation
-    store.createDirectConversation(user);
     setNewChatModalOpen(false);
-
-    // 2. Persist to Supabase if connected
-    if (isSupabaseConfigured) {
-      try {
-        const supabase = createClient();
-        const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser();
-
-        if (currentUser) {
-          const { data: convData } = await supabase
-            .from('conversations')
-            .insert({
-              type: 'private',
-              created_by: currentUser.id,
-            })
-            .select('id')
-            .single();
-
-          if (convData) {
-            await supabase.from('conversation_members').insert([
-              { conversation_id: convData.id, user_id: currentUser.id },
-              { conversation_id: convData.id, user_id: user.id },
-            ]);
-          }
-        }
-      } catch {
-        // Fallback to local store
-      }
-    }
+    await store.createDirectConversation(user);
   };
 
   const handleCreateGroupChat = async (groupName: string, memberIds: string[]) => {
-    // 1. Optimistic store creation
-    store.createGroupConversation(groupName, memberIds);
     setNewChatModalOpen(false);
-
-    // 2. Persist to Supabase if connected
-    if (isSupabaseConfigured) {
-      try {
-        const supabase = createClient();
-        const {
-          data: { user: currentUser },
-        } = await supabase.auth.getUser();
-
-        if (currentUser) {
-          const { data: convData } = await supabase
-            .from('conversations')
-            .insert({
-              type: 'group',
-              name: groupName,
-              created_by: currentUser.id,
-            })
-            .select('id')
-            .single();
-
-          if (convData) {
-            const allMembers = Array.from(new Set([currentUser.id, ...memberIds]));
-            await supabase.from('conversation_members').insert(
-              allMembers.map((uid) => ({ conversation_id: convData.id, user_id: uid }))
-            );
-          }
-        }
-      } catch {
-        // Fallback to local store
-      }
-    }
+    await store.createGroupConversation(groupName, memberIds);
   };
 
   const handleLogout = async () => {
-    if (isSupabaseConfigured) {
+    if (configured) {
       const supabase = createClient();
       await supabase.auth.signOut();
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+        realtimeChannelRef.current = null;
+      }
     }
+    cryptoRef.current = null;
     store.logout();
     setIsAuthenticated(false);
   };
@@ -356,8 +302,22 @@ export default function HomePage() {
     );
   }
 
+  // Server misconfigured in production and middleware somehow didn't already
+  // catch it (e.g. a static/prerendered edge case) - fail loudly rather than
+  // silently granting access.
+  if (configured === false && !isDemoModeAllowed() && isAuthenticated === false) {
+    return (
+      <div className="h-screen w-screen bg-[#070b14] flex flex-col items-center justify-center font-sans text-center p-6">
+        <h1 className="text-sm font-bold text-rose-400 mb-2">Server misconfiguration</h1>
+        <p className="text-xs text-slate-400 max-w-sm">
+          NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set. This deployment cannot authenticate users.
+        </p>
+      </div>
+    );
+  }
+
   // Not Authenticated -> Show Landing Page or Login / Register Flow
-  if (isSupabaseConfigured && !isAuthenticated) {
+  if (configured && !isAuthenticated) {
     if (authModalTab) {
       return (
         <div className="relative min-h-screen bg-[#070b14]">
@@ -373,34 +333,25 @@ export default function HomePage() {
             initialTab={authModalTab}
             onLoginSuccess={() => {
               setAuthModalTab(null);
-              checkUserSession();
-            }}
-            onNavigateInvite={() => {
-              setNewChatModalOpen(false);
+              initedRef.current = false;
+              setAuthLoading(true);
+              void bootstrapSession();
             }}
           />
         </div>
       );
     }
 
-    return (
-      <LandingPage
-        onOpenAuth={(mode) => setAuthModalTab(mode || 'signin')}
-      />
-    );
+    return <LandingPage onOpenAuth={(mode) => setAuthModalTab(mode || 'signin')} />;
   }
 
   return (
     <>
-      {/* Development / Multi-Tab Synchronization Indicator Bar (Only in local placeholder mode) */}
-      {state.mode === 'demo' && !isSupabaseConfigured && (
+      {state.mode === 'demo' && (
         <div className="bg-emerald-950/60 border-b border-emerald-500/20 px-4 py-1.5 flex items-center justify-between text-[11px] text-emerald-300 font-sans z-50">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold">Local Demo Environment</span>
-            <span className="text-emerald-400/70 hidden sm:inline">
-              • Real-time multi-tab synchronization active (BroadcastChannel + LocalStorage)
-            </span>
+            <span className="font-semibold">Local Demo Environment (development only, not connected to Supabase)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-emerald-400/80">Active Persona:</span>
@@ -416,6 +367,15 @@ export default function HomePage() {
               ))}
             </select>
           </div>
+        </div>
+      )}
+
+      {state.error && (
+        <div className="bg-rose-950/60 border-b border-rose-500/20 px-4 py-1.5 flex items-center justify-between text-[11px] text-rose-300 font-sans z-50">
+          <span>{state.error}</span>
+          <button onClick={() => store.clearError()} className="text-rose-400 hover:text-white font-semibold">
+            Dismiss
+          </button>
         </div>
       )}
 
@@ -436,6 +396,10 @@ export default function HomePage() {
         onForwardMessageToTarget={handleForwardMessageToTarget}
         onPinMessageToggle={handlePinMessageToggle}
         onStarMessageToggle={handleStarMessageToggle}
+        onDownloadAttachment={handleDownloadAttachment}
+        onRetryFailedMessage={handleRetryFailedMessage}
+        onAddGroupMember={handleAddGroupMember}
+        onRemoveGroupMember={handleRemoveGroupMember}
         devices={state.devices}
         users={state.allUsers}
         invites={state.invites}
@@ -448,6 +412,7 @@ export default function HomePage() {
         onNewMessage={() => setNewChatModalOpen(true)}
         onInviteMember={() => {
           setGeneratedToken(null);
+          setInviteEmail('');
           setInviteModalOpen(true);
         }}
         onPinConversation={(id) => store.pinConversation(id)}
@@ -459,19 +424,15 @@ export default function HomePage() {
         onLogout={handleLogout}
       />
 
-      {/* First-Time User Onboarding Modal */}
       <OnboardingModal
         isOpen={onboardingOpen}
         onClose={() => setOnboardingOpen(false)}
         userId={state.currentUser.id}
         initialName={state.currentUser.name}
-        onProfileUpdated={(name) =>
-          store.setUserProfile({ id: state.currentUser.id, name })
-        }
+        onProfileUpdated={(name) => store.updateCurrentUserProfile({ name })}
         onStartFirstChat={() => setNewChatModalOpen(true)}
       />
 
-      {/* New Direct / Group Conversation Modal */}
       <NewConversationModal
         isOpen={newChatModalOpen}
         onClose={() => setNewChatModalOpen(false)}
@@ -481,21 +442,21 @@ export default function HomePage() {
         onCreateGroupChat={handleCreateGroupChat}
       />
 
-      {/* Invite Member Dialog */}
       <Dialog
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
-        title="Generate Platform Invite Token"
+        title="Generate Platform Invite"
         footerAction={
           !generatedToken ? (
             <Button
               variant="primary"
               size="sm"
+              disabled={!inviteEmail.trim()}
               onClick={async () => {
-                await handleGenerateInvite();
+                await handleGenerateInvite(inviteEmail.trim());
               }}
             >
-              Generate Token
+              Generate Invite
             </Button>
           ) : (
             <Button variant="secondary" size="sm" onClick={() => setInviteModalOpen(false)}>
@@ -512,13 +473,22 @@ export default function HomePage() {
                 {generatedToken}
               </span>
               <span className="text-[11px] text-slate-400">
-                Share this token with the new member to redeem upon registration.
+                Share this token with {inviteEmail} - they will need it to register. It is shown only once and is never stored in plaintext.
               </span>
             </div>
           ) : (
-            <p className="text-slate-400">
-              This issues a single-use invite token. Once redeemed during registration, it establishes cryptographic device registration for the new user.
-            </p>
+            <>
+              <p className="text-slate-400">
+                This issues a single-use invite token tied to a specific email address. Registration will fail unless the recipient signs up with this exact email and token.
+              </p>
+              <input
+                type="email"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+                placeholder="newmember@example.com"
+                className="w-full bg-slate-950/70 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+              />
+            </>
           )}
         </div>
       </Dialog>

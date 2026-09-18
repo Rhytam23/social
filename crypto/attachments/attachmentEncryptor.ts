@@ -1,3 +1,5 @@
+import { bytesToBase64, base64ToBytes } from '../utils/encoding';
+
 export interface EncryptedAttachmentResult {
   encryptedBuffer: ArrayBuffer;
   attachmentKeyB64: string;
@@ -6,9 +8,9 @@ export interface EncryptedAttachmentResult {
   mimeType: string;
 }
 
-function toUint8Array(buf: ArrayBuffer | Uint8Array | Buffer): Uint8Array {
+function toUint8Array(buf: ArrayBuffer | Uint8Array): Uint8Array {
   if (buf instanceof Uint8Array) {
-    return new Uint8Array(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength));
+    return buf;
   }
   return new Uint8Array(buf);
 }
@@ -39,8 +41,8 @@ export async function encryptAttachment(
 
   return {
     encryptedBuffer,
-    attachmentKeyB64: Buffer.from(attachmentKeyBytes).toString('base64'),
-    ivB64: Buffer.from(ivBytes).toString('base64'),
+    attachmentKeyB64: bytesToBase64(attachmentKeyBytes),
+    ivB64: bytesToBase64(ivBytes),
     originalName: fileName,
     mimeType,
   };
@@ -51,11 +53,8 @@ export async function decryptAttachment(
   attachmentKeyB64: string,
   ivB64: string
 ): Promise<ArrayBuffer> {
-  const keyBuf = Buffer.from(attachmentKeyB64, 'base64');
-  const ivBuf = Buffer.from(ivB64, 'base64');
-
-  const attachmentKeyBytes = toUint8Array(keyBuf);
-  const ivBytes = toUint8Array(ivBuf);
+  const attachmentKeyBytes = base64ToBytes(attachmentKeyB64);
+  const ivBytes = base64ToBytes(ivB64);
   const dataBytes = toUint8Array(encryptedBuffer);
 
   const cryptoKey = await globalThis.crypto.subtle.importKey(

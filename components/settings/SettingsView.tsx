@@ -54,9 +54,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isProcessingBackup, setIsProcessingBackup] = useState(false);
 
-  // Appearance State
-  const [theme, setTheme] = useState<'dark' | 'system'>('dark');
-  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
+  // Avatar upload state
+  const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
 
   // Notifications State
   const [soundsEnabled, setSoundsEnabled] = useState(true);
@@ -151,6 +151,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage('Please choose an image file for your avatar.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMessage('Avatar images must be under 5MB.');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+    setErrorMessage(null);
+    try {
+      const supabase = createClient();
+      const ext = file.name.split('.').pop() || 'jpg';
+      const path = `${currentUser.id}/avatar.${ext}`;
+
+      const { error: uploadError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const url = `${publicUrlData.publicUrl}?t=${Date.now()}`; // cache-bust
+
+      const { error: updateError } = await supabase.from('profiles').update({ avatar_url: url }).eq('id', currentUser.id);
+      if (updateError) throw updateError;
+
+      setAvatarUrl(url);
+      onUpdateProfile?.({ avatarUrl: url });
+      setProfileSuccess('Avatar updated.');
+    } catch (err) {
+      setErrorMessage(err instanceof Error ? err.message : 'Failed to upload avatar.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
+  };
+
   const requestBrowserNotifications = async () => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
       try {
@@ -230,9 +268,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <form onSubmit={handleSaveProfile} className="flex flex-col gap-6">
           <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-5 shadow-xs">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white font-bold flex items-center justify-center text-lg shadow-md shrink-0">
-                {displayName.slice(0, 2).toUpperCase() || 'U'}
-              </div>
+              <label className="relative w-14 h-14 rounded-2xl bg-emerald-600 text-white font-bold flex items-center justify-center text-lg shadow-md shrink-0 cursor-pointer overflow-hidden group">
+                {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                ) : (
+                  displayName.slice(0, 2).toUpperCase() || 'U'
+                )}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-[9px] font-semibold transition-opacity">
+                  {isUploadingAvatar ? '...' : 'Change'}
+                </div>
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={isUploadingAvatar} />
+              </label>
               <div className="flex flex-col">
                 <span className="font-bold text-slate-100 text-sm">{displayName}</span>
                 <span className="text-xs text-slate-400 font-mono">Registration #{registrationId}</span>
@@ -343,7 +390,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3 shadow-xs">
             <div className="flex items-center gap-2 text-slate-100 font-bold text-sm">
               <IconShield className="w-4 h-4 text-emerald-400" />
-              <span>Signal Identity Key Fingerprint</span>
+              <span>Identity Key Fingerprint</span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed">
               Compare this cryptographic public fingerprint out-of-band with contacts to verify no man-in-the-middle exists.
@@ -401,7 +448,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
               <h4 className="text-xs font-bold text-slate-100">Export Encrypted Key Backup</h4>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Derive an Argon2id key to export your Double Ratchet sessions.
+                Derive an Argon2id key to encrypt and download your device identity key. Without this backup, losing your device means losing access to your encrypted message history.
               </p>
               <input
                 type="password"
@@ -423,7 +470,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
               <h4 className="text-xs font-bold text-slate-100">Restore Key Backup</h4>
               <p className="text-[11px] text-slate-400 leading-relaxed">
-                Restore prekeys and sessions from an encrypted JSON payload.
+                Restore your identity key from a previously exported encrypted backup file&apos;s contents.
               </p>
               <input
                 type="password"
@@ -454,66 +501,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* TAB 4: APPEARANCE */}
       {activeTab === 'appearance' && (
-        <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-6 shadow-xs">
-          <div className="flex flex-col gap-3">
-            <span className="text-xs font-bold text-slate-200">Theme</span>
-            <div className="grid grid-cols-2 gap-3 max-w-sm">
-              <button
-                type="button"
-                onClick={() => setTheme('dark')}
-                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all ${
-                  theme === 'dark'
-                    ? 'bg-slate-900 border-emerald-500/50 text-white'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-400'
-                }`}
-              >
-                <span>Dark (Standard)</span>
-                {theme === 'dark' && <IconCheck className="w-4 h-4 text-emerald-400" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => setTheme('system')}
-                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all ${
-                  theme === 'system'
-                    ? 'bg-slate-900 border-emerald-500/50 text-white'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-400'
-                }`}
-              >
-                <span>System</span>
-                {theme === 'system' && <IconCheck className="w-4 h-4 text-emerald-400" />}
-              </button>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
-            <span className="text-xs font-bold text-slate-200">Chat Bubble Density</span>
-            <div className="grid grid-cols-2 gap-3 max-w-sm">
-              <button
-                type="button"
-                onClick={() => setDensity('comfortable')}
-                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all ${
-                  density === 'comfortable'
-                    ? 'bg-slate-900 border-emerald-500/50 text-white'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-400'
-                }`}
-              >
-                <span>Comfortable</span>
-                {density === 'comfortable' && <IconCheck className="w-4 h-4 text-emerald-400" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => setDensity('compact')}
-                className={`p-3 rounded-xl border text-xs font-semibold flex items-center justify-between transition-all ${
-                  density === 'compact'
-                    ? 'bg-slate-900 border-emerald-500/50 text-white'
-                    : 'bg-slate-950/50 border-slate-800 text-slate-400'
-                }`}
-              >
-                <span>Compact</span>
-                {density === 'compact' && <IconCheck className="w-4 h-4 text-emerald-400" />}
-              </button>
-            </div>
-          </div>
+        <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3 shadow-xs">
+          <span className="text-xs font-bold text-slate-200">Theme</span>
+          <p className="text-[11px] text-slate-400 leading-relaxed max-w-md">
+            Private Chat currently ships a single fixed dark theme. A light/system theme option is not implemented yet, so no non-functional toggle is shown here.
+          </p>
         </div>
       )}
 
@@ -567,7 +559,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
 
           <p className="text-slate-300 leading-relaxed pt-2">
-            Private Chat is an open-standard messaging client engineered with genuine zero-knowledge guarantees. Built using Signal Protocol Double Ratchet, Sender Keys, and AES-256-GCM.
+            Private Chat encrypts messages client-side using X25519 key exchange with XSalsa20-Poly1305 authenticated encryption (libsodium), AES-256-GCM for attachments, and Argon2id for passphrase-protected key backups. The server only ever stores ciphertext.
           </p>
 
           <div className="flex items-center gap-4 pt-3 border-t border-slate-800 text-slate-400">

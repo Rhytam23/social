@@ -1,21 +1,13 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
-
-const DEFAULT_SUPABASE_URL = 'https://placeholder-project.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDA0ODAwMDAsImV4cCI6MTkxNjA1NjAwMH0.placeholder';
+import { getSupabaseUrl, getSupabaseAnonKey, isSupabaseConfigured } from './env';
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
   });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
-
-  const isPlaceholder = supabaseUrl.includes('placeholder');
-
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+  const supabase = createServerClient(getSupabaseUrl(), getSupabaseAnonKey(), {
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -35,12 +27,12 @@ export async function updateSession(request: NextRequest) {
   });
 
   let user = null;
-  if (!isPlaceholder) {
+  if (isSupabaseConfigured()) {
     try {
       const { data } = await supabase.auth.getUser();
       user = data?.user || null;
     } catch {
-      // Ignore network errors when Supabase is not yet connected
+      // Network/config error talking to Supabase - treated as unauthenticated.
     }
   }
 

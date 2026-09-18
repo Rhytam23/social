@@ -20,11 +20,15 @@ export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get('q') || '';
   const sanitizedQuery = query.replace(/[%_]/g, '').trim();
 
+    // Only non-sensitive, discovery-relevant columns are ever returned here.
+    // email/phone_number remain searchable (below) but are never sent to the
+    // client - a prior version leaked every user's email/phone to any
+    // authenticated caller who searched for them.
     let dbQuery = supabase
       .from('profiles')
-      .select('id, username, display_name, avatar_url, email, phone_number, created_at')
+      .select('id, username, display_name, avatar_url, created_at')
       .neq('id', user.id)
-      .limit(25);
+      .limit(100);
 
     if (sanitizedQuery.length > 0) {
       dbQuery = dbQuery.or(

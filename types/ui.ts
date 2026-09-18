@@ -15,10 +15,17 @@ export interface AttachmentItem {
   fileName: string;
   fileSize: string;
   mimeType: string;
+  /** Populated only after the user triggers decryption (see onDownloadAttachment). */
   url?: string;
   isEncrypted: boolean;
   isVoiceNote?: boolean;
   duration?: string;
+  /** Encrypted-storage coordinates, needed to lazily download + decrypt on demand. */
+  storagePath: string;
+  keyB64: string;
+  ivB64: string;
+  isDownloading?: boolean;
+  downloadError?: string;
 }
 
 export interface ReplyReference {
@@ -83,6 +90,7 @@ export interface ConversationItem {
     groupId: string;
     memberCount: number;
     senderKeyVersion: number;
+    memberIds?: string[];
   };
 }
 
@@ -92,6 +100,7 @@ export interface UserItem {
   username?: string;
   email?: string;
   phoneNumber?: string;
+  avatarUrl?: string;
   registrationId: number;
   role: 'admin' | 'member';
   deviceCount: number;

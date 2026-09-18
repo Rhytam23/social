@@ -5,8 +5,10 @@ describe('ChatStore V1 Messaging Engine', () => {
   let store: ChatStore;
 
   beforeEach(() => {
-    // Fresh store instance for each test
+    // Fresh store instance for each test, running in local demo mode (no
+    // Supabase project exists in the test environment).
     store = new ChatStore();
+    store.initDemoMode();
   });
 
   it('1. should initialize with default users and conversations', () => {
@@ -74,13 +76,13 @@ describe('ChatStore V1 Messaging Engine', () => {
     expect(updated?.isDeletedLocally).toBe(true);
   });
 
-  it('6. should create a new direct conversation without duplicates', () => {
+  it('6. should create a new direct conversation without duplicates', async () => {
     const bob = store.getState().allUsers.find((u) => u.id === 'usr-bob')!;
-    const existingId = store.createDirectConversation(bob);
+    const existingId = await store.createDirectConversation(bob);
     expect(existingId).toBe('conv-alice-bob');
 
     const carol = store.getState().allUsers.find((u) => u.id === 'usr-carol')!;
-    const newId = store.createDirectConversation(carol);
+    const newId = await store.createDirectConversation(carol);
     expect(newId).toMatch(/^conv-dm-/);
 
     const conv = store.getState().conversations.find((c) => c.id === newId);
@@ -88,8 +90,8 @@ describe('ChatStore V1 Messaging Engine', () => {
     expect(conv?.type).toBe('direct');
   });
 
-  it('7. should create a new group conversation with member count', () => {
-    const groupId = store.createGroupConversation('V1 Release Team', ['usr-bob', 'usr-carol']);
+  it('7. should create a new group conversation with member count', async () => {
+    const groupId = await store.createGroupConversation('V1 Release Team', ['usr-bob', 'usr-carol']);
     const conv = store.getState().conversations.find((c) => c.id === groupId);
 
     expect(conv?.title).toBe('V1 Release Team');

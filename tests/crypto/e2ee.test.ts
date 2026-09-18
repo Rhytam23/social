@@ -1,326 +1,261 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { ProtocolAddress } from '@signalapp/libsignal-client';
 import {
-  SignalKeyStore,
+  DeviceKeyStore,
   generateDeviceKeys,
-  establishOutboundSession,
+  registerPeerKey,
+  computeDeviceFingerprint,
+  computeSafetyNumber,
   encrypt1to1Message,
   decrypt1to1Message,
-  createGroupSenderKey,
-  processReceivedGroupSenderKey,
-  rotateGroupKeysForMembers,
+  generateGroupKey,
+  distributeGroupKey,
+  unwrapGroupKeyEnvelope,
   encryptGroupMessage,
   decryptGroupMessage,
   encryptAttachment,
   decryptAttachment,
   createKeyBackup,
   restoreKeyBackup,
+  bytesToBase64,
+  base64ToBytes,
 } from '../../crypto';
 
-function wasmToBuffer(u8: Uint8Array): Buffer {
-  return Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength);
-}
-
-describe('End-to-End Encryption (E2EE) Signal Protocol Suite', () => {
-  let aliceStore: SignalKeyStore;
-  let bobStore: SignalKeyStore;
-  let charlieStore: SignalKeyStore;
-
-  const aliceAddress = ProtocolAddress.new('alice-user-id', 1);
-  const bobAddress = ProtocolAddress.new('bob-user-id', 1);
-  const charlieAddress = ProtocolAddress.new('charlie-user-id', 1);
+describe('End-to-End Encryption (E2EE) Suite (libsodium X25519 / XSalsa20-Poly1305)', () => {
+  let aliceStore: DeviceKeyStore;
+  let bobStore: DeviceKeyStore;
+  let charlieStore: DeviceKeyStore;
 
   beforeEach(async () => {
-    aliceStore = new SignalKeyStore();
-    bobStore = new SignalKeyStore();
-    charlieStore = new SignalKeyStore();
+    aliceStore = new DeviceKeyStore();
+    bobStore = new DeviceKeyStore();
+    charlieStore = new DeviceKeyStore();
 
-    await generateDeviceKeys(aliceStore, 1001, 1, 5);
+    await generateDeviceKeys(aliceStore);
   });
 
   // 1. Identity generation
-  it('1. should generate valid cryptographic device identity keys', async () => {
-    const bundle = await generateDeviceKeys(aliceStore, 1001, 1, 5);
-
-    expect(bundle.registrationId).toBe(1001);
+  it('1. should generate valid X25519 device identity keys', async () => {
+    const bundle = await generateDeviceKeys(new DeviceKeyStore());
+    expect(bundle.deviceId).toBeTruthy();
     expect(bundle.identityPublicKey).toBeTruthy();
-    expect(bundle.signedPreKeyPublicKey).toBeTruthy();
-    expect(bundle.oneTimePreKeys).toHaveLength(5);
+    expect(base64ToBytes(bundle.identityPublicKey)).toHaveLength(32);
   });
 
   // 2. Identity persistence
   it('2. should persist and export/import key store state', async () => {
-    const exportedJson = await aliceStore.exportSerializedState();
+    const exportedJson = aliceStore.exportSerializedState();
 
-    const restoredStore = new SignalKeyStore();
-    await restoredStore.importSerializedState(exportedJson);
+    const restoredStore = new DeviceKeyStore();
+    restoredStore.importSerializedState(exportedJson);
 
-    const originalPair = await aliceStore.getIdentityKeyPair();
-    const restoredPair = await restoredStore.getIdentityKeyPair();
-
-    expect(
-      wasmToBuffer(restoredPair!.publicKey.serialize()).equals(
-        wasmToBuffer(originalPair!.publicKey.serialize())
-      )
-    ).toBe(true);
+    expect(restoredStore.requireIdentity().publicKey).toEqual(aliceStore.requireIdentity().publicKey);
+    expect(restoredStore.requireIdentity().privateKey).toEqual(aliceStore.requireIdentity().privateKey);
   });
 
-  // 3. Session establishment
-  it('3. should establish a 1-to-1 Signal session using prekey bundle', async () => {
-    const bobPublicBundle = await generateDeviceKeys(bobStore, 2002, 1, 5);
+  // 3. Peer key registration ("session establishment" for a public-key scheme)
+  it('3. should register a peer device public key for later use', async () => {
+    const bobBundle = await generateDeviceKeys(bobStore);
+    registerPeerKey(aliceStore, 'bob-user-id', bobBundle.deviceId, bobBundle.identityPublicKey);
 
-    await establishOutboundSession(
-      aliceAddress,
-      bobAddress,
-      {
-        registrationId: bobPublicBundle.registrationId,
-        deviceId: 1,
-        identityPublicKeyB64: bobPublicBundle.identityPublicKey,
-        signedPreKeyId: bobPublicBundle.signedPreKeyId,
-        signedPreKeyPublicKeyB64: bobPublicBundle.signedPreKeyPublicKey,
-        signedPreKeySignatureB64: bobPublicBundle.signedPreKeySignature,
-        oneTimePreKeyId: bobPublicBundle.oneTimePreKeys[0].id,
-        oneTimePreKeyPublicKeyB64: bobPublicBundle.oneTimePreKeys[0].publicKey,
-        kyberPreKeyId: bobPublicBundle.kyberPreKeyId,
-        kyberPreKeyPublicKeyB64: bobPublicBundle.kyberPreKeyPublicKey,
-        kyberPreKeySignatureB64: bobPublicBundle.kyberPreKeySignature,
-      },
-      aliceStore
-    );
-
-    const session = await aliceStore.getSession(bobAddress);
-    expect(session).not.toBeNull();
+    const cached = aliceStore.getPeerKey('bob-user-id', bobBundle.deviceId);
+    expect(cached).toEqual(base64ToBytes(bobBundle.identityPublicKey));
   });
 
-  // 4. Message encryption & 5. Message decryption
+  // 4 & 5. Message encryption & decryption
   it('4 & 5. should encrypt and decrypt 1-to-1 messages successfully', async () => {
-    const bobPublicBundle = await generateDeviceKeys(bobStore, 2002, 1, 5);
-
-    await establishOutboundSession(
-      aliceAddress,
-      bobAddress,
-      {
-        registrationId: bobPublicBundle.registrationId,
-        deviceId: 1,
-        identityPublicKeyB64: bobPublicBundle.identityPublicKey,
-        signedPreKeyId: bobPublicBundle.signedPreKeyId,
-        signedPreKeyPublicKeyB64: bobPublicBundle.signedPreKeyPublicKey,
-        signedPreKeySignatureB64: bobPublicBundle.signedPreKeySignature,
-        oneTimePreKeyId: bobPublicBundle.oneTimePreKeys[0].id,
-        oneTimePreKeyPublicKeyB64: bobPublicBundle.oneTimePreKeys[0].publicKey,
-        kyberPreKeyId: bobPublicBundle.kyberPreKeyId,
-        kyberPreKeyPublicKeyB64: bobPublicBundle.kyberPreKeyPublicKey,
-        kyberPreKeySignatureB64: bobPublicBundle.kyberPreKeySignature,
-      },
-      aliceStore
-    );
+    const bobBundle = await generateDeviceKeys(bobStore);
 
     const plaintext = 'Secret 1-to-1 message content';
-    const encryptedPayload = await encrypt1to1Message(plaintext, aliceAddress, bobAddress, aliceStore);
+    const encryptedPayload = await encrypt1to1Message(
+      plaintext,
+      bytesToBase64(aliceStore.requireIdentity().privateKey),
+      bobBundle.identityPublicKey
+    );
 
     expect(encryptedPayload.ciphertext).not.toBe(plaintext);
+    expect(encryptedPayload.ciphertext).not.toBe(bytesToBase64(new TextEncoder().encode(plaintext)));
 
-    const decryptedText = await decrypt1to1Message(encryptedPayload, bobAddress, aliceAddress, bobStore);
+    const decryptedText = await decrypt1to1Message(
+      encryptedPayload,
+      bytesToBase64(bobStore.requireIdentity().privateKey),
+      bytesToBase64(aliceStore.requireIdentity().publicKey)
+    );
     expect(decryptedText).toBe(plaintext);
   });
 
-  // 6. Wrong-session failure
-  it('6. should fail to decrypt message using wrong session store', async () => {
-    const bobPublicBundle = await generateDeviceKeys(bobStore, 2002, 1, 5);
+  // 5b. Sender can decrypt their own sent message (shared secret is symmetric)
+  it('5b. should let the sender decrypt their own sent message using the recipient\'s public key', async () => {
+    const bobBundle = await generateDeviceKeys(bobStore);
 
-    await establishOutboundSession(
-      aliceAddress,
-      bobAddress,
-      {
-        registrationId: bobPublicBundle.registrationId,
-        deviceId: 1,
-        identityPublicKeyB64: bobPublicBundle.identityPublicKey,
-        signedPreKeyId: bobPublicBundle.signedPreKeyId,
-        signedPreKeyPublicKeyB64: bobPublicBundle.signedPreKeyPublicKey,
-        signedPreKeySignatureB64: bobPublicBundle.signedPreKeySignature,
-        kyberPreKeyId: bobPublicBundle.kyberPreKeyId,
-        kyberPreKeyPublicKeyB64: bobPublicBundle.kyberPreKeyPublicKey,
-        kyberPreKeySignatureB64: bobPublicBundle.kyberPreKeySignature,
-      },
-      aliceStore
+    const encryptedPayload = await encrypt1to1Message(
+      'A message Alice sent to Bob',
+      bytesToBase64(aliceStore.requireIdentity().privateKey),
+      bobBundle.identityPublicKey
     );
 
-    const encryptedPayload = await encrypt1to1Message('Hello Bob', aliceAddress, bobAddress, aliceStore);
+    // Alice re-reads her own sent message (e.g. after a realtime echo or a
+    // history reload) using the SAME key pair she encrypted it with: her own
+    // private key + Bob's public key. This must not require Bob's private key.
+    const decrypted = await decrypt1to1Message(
+      encryptedPayload,
+      bytesToBase64(aliceStore.requireIdentity().privateKey),
+      bobBundle.identityPublicKey
+    );
+    expect(decrypted).toBe('A message Alice sent to Bob');
+  });
 
-    // Charlie tries to decrypt Alice's message to Bob using Charlie's store
-    await generateDeviceKeys(charlieStore, 3003, 1, 5);
+  // 6. Wrong-recipient failure
+  it('6. should fail to decrypt message using the wrong recipient private key', async () => {
+    const bobBundle = await generateDeviceKeys(bobStore);
+    await generateDeviceKeys(charlieStore);
+
+    const encryptedPayload = await encrypt1to1Message(
+      'Hello Bob',
+      bytesToBase64(aliceStore.requireIdentity().privateKey),
+      bobBundle.identityPublicKey
+    );
+
     await expect(
-      decrypt1to1Message(encryptedPayload, charlieAddress, aliceAddress, charlieStore)
+      decrypt1to1Message(
+        encryptedPayload,
+        bytesToBase64(charlieStore.requireIdentity().privateKey),
+        bytesToBase64(aliceStore.requireIdentity().publicKey)
+      )
     ).rejects.toThrow();
   });
 
   // 7. Ciphertext tampering
   it('7. should fail decryption if ciphertext is tampered with', async () => {
-    const bobPublicBundle = await generateDeviceKeys(bobStore, 2002, 1, 5);
+    const bobBundle = await generateDeviceKeys(bobStore);
 
-    await establishOutboundSession(
-      aliceAddress,
-      bobAddress,
-      {
-        registrationId: bobPublicBundle.registrationId,
-        deviceId: 1,
-        identityPublicKeyB64: bobPublicBundle.identityPublicKey,
-        signedPreKeyId: bobPublicBundle.signedPreKeyId,
-        signedPreKeyPublicKeyB64: bobPublicBundle.signedPreKeyPublicKey,
-        signedPreKeySignatureB64: bobPublicBundle.signedPreKeySignature,
-        kyberPreKeyId: bobPublicBundle.kyberPreKeyId,
-        kyberPreKeyPublicKeyB64: bobPublicBundle.kyberPreKeyPublicKey,
-        kyberPreKeySignatureB64: bobPublicBundle.kyberPreKeySignature,
-      },
-      aliceStore
+    const encryptedPayload = await encrypt1to1Message(
+      'Integrity check',
+      bytesToBase64(aliceStore.requireIdentity().privateKey),
+      bobBundle.identityPublicKey
     );
 
-    const encryptedPayload = await encrypt1to1Message('Integrity check', aliceAddress, bobAddress, aliceStore);
-
-    // Tamper ciphertext
-    const tamperedBuffer = Buffer.from(encryptedPayload.ciphertext, 'base64');
-    tamperedBuffer[tamperedBuffer.length - 1] ^= 0xff;
-    encryptedPayload.ciphertext = tamperedBuffer.toString('base64');
+    const tamperedBytes = base64ToBytes(encryptedPayload.ciphertext);
+    tamperedBytes[tamperedBytes.length - 1] ^= 0xff;
+    encryptedPayload.ciphertext = bytesToBase64(tamperedBytes);
 
     await expect(
-      decrypt1to1Message(encryptedPayload, bobAddress, aliceAddress, bobStore)
+      decrypt1to1Message(
+        encryptedPayload,
+        bytesToBase64(bobStore.requireIdentity().privateKey),
+        bytesToBase64(aliceStore.requireIdentity().publicKey)
+      )
     ).rejects.toThrow();
   });
 
-  // 8. Metadata tampering
-  it('8. should fail decryption if nonce/metadata is tampered with', async () => {
-    const bobPublicBundle = await generateDeviceKeys(bobStore, 2002, 1, 5);
+  // 8. Nonce tampering
+  it('8. should fail decryption if the nonce is tampered with', async () => {
+    const bobBundle = await generateDeviceKeys(bobStore);
 
-    await establishOutboundSession(
-      aliceAddress,
-      bobAddress,
-      {
-        registrationId: bobPublicBundle.registrationId,
-        deviceId: 1,
-        identityPublicKeyB64: bobPublicBundle.identityPublicKey,
-        signedPreKeyId: bobPublicBundle.signedPreKeyId,
-        signedPreKeyPublicKeyB64: bobPublicBundle.signedPreKeyPublicKey,
-        signedPreKeySignatureB64: bobPublicBundle.signedPreKeySignature,
-        kyberPreKeyId: bobPublicBundle.kyberPreKeyId,
-        kyberPreKeyPublicKeyB64: bobPublicBundle.kyberPreKeyPublicKey,
-        kyberPreKeySignatureB64: bobPublicBundle.kyberPreKeySignature,
-      },
-      aliceStore
+    const encryptedPayload = await encrypt1to1Message(
+      'Nonce check',
+      bytesToBase64(aliceStore.requireIdentity().privateKey),
+      bobBundle.identityPublicKey
     );
 
-    const encryptedPayload = await encrypt1to1Message('Metadata check', aliceAddress, bobAddress, aliceStore);
-    encryptedPayload.nonce = Buffer.from(JSON.stringify({ type: 999 }), 'utf-8').toString('base64');
+    const tamperedNonce = base64ToBytes(encryptedPayload.nonce);
+    tamperedNonce[0] ^= 0xff;
+    encryptedPayload.nonce = bytesToBase64(tamperedNonce);
 
     await expect(
-      decrypt1to1Message(encryptedPayload, bobAddress, aliceAddress, bobStore)
+      decrypt1to1Message(
+        encryptedPayload,
+        bytesToBase64(bobStore.requireIdentity().privateKey),
+        bytesToBase64(aliceStore.requireIdentity().publicKey)
+      )
     ).rejects.toThrow();
   });
 
   // 9. Private-key isolation
   it('9. should ensure private keys are never exposed in exported public bundles', async () => {
-    const bundle = await generateDeviceKeys(aliceStore, 1001, 1, 5);
-
+    const bundle = await generateDeviceKeys(new DeviceKeyStore());
     const serializedBundle = JSON.stringify(bundle);
     expect(serializedBundle).not.toContain('privateKey');
-    expect(serializedBundle).not.toContain('secretKey');
+    expect(Object.keys(bundle)).not.toContain('privateKey');
   });
 
   // 10. Multi-device behavior
-  it('10. should handle distinct sessions per device ID for the same user', async () => {
-    const bobDevice1Address = ProtocolAddress.new('bob-user-id', 1);
-    const bobDevice2Address = ProtocolAddress.new('bob-user-id', 2);
+  it('10. should handle distinct keys per device for the same user', async () => {
+    const bobDev1Store = new DeviceKeyStore();
+    const bobDev2Store = new DeviceKeyStore();
+    const bobDev1Bundle = await generateDeviceKeys(bobDev1Store);
+    const bobDev2Bundle = await generateDeviceKeys(bobDev2Store);
 
-    const bobDev1Bundle = await generateDeviceKeys(bobStore, 2001, 1, 5);
-    const bobDev2Store = new SignalKeyStore();
-    const bobDev2Bundle = await generateDeviceKeys(bobDev2Store, 2002, 1, 5);
+    expect(bobDev1Bundle.deviceId).not.toBe(bobDev2Bundle.deviceId);
+    expect(bobDev1Bundle.identityPublicKey).not.toBe(bobDev2Bundle.identityPublicKey);
 
-    await establishOutboundSession(aliceAddress, bobDevice1Address, {
-      registrationId: bobDev1Bundle.registrationId,
-      deviceId: 1,
-      identityPublicKeyB64: bobDev1Bundle.identityPublicKey,
-      signedPreKeyId: bobDev1Bundle.signedPreKeyId,
-      signedPreKeyPublicKeyB64: bobDev1Bundle.signedPreKeyPublicKey,
-      signedPreKeySignatureB64: bobDev1Bundle.signedPreKeySignature,
-      kyberPreKeyId: bobDev1Bundle.kyberPreKeyId,
-      kyberPreKeyPublicKeyB64: bobDev1Bundle.kyberPreKeyPublicKey,
-      kyberPreKeySignatureB64: bobDev1Bundle.kyberPreKeySignature,
-    }, aliceStore);
-
-    await establishOutboundSession(aliceAddress, bobDevice2Address, {
-      registrationId: bobDev2Bundle.registrationId,
-      deviceId: 2,
-      identityPublicKeyB64: bobDev2Bundle.identityPublicKey,
-      signedPreKeyId: bobDev2Bundle.signedPreKeyId,
-      signedPreKeyPublicKeyB64: bobDev2Bundle.signedPreKeyPublicKey,
-      signedPreKeySignatureB64: bobDev2Bundle.signedPreKeySignature,
-      kyberPreKeyId: bobDev2Bundle.kyberPreKeyId,
-      kyberPreKeyPublicKeyB64: bobDev2Bundle.kyberPreKeyPublicKey,
-      kyberPreKeySignatureB64: bobDev2Bundle.kyberPreKeySignature,
-    }, aliceStore);
-
-    const msgDev1 = await encrypt1to1Message('Hello Bob Device 1', aliceAddress, bobDevice1Address, aliceStore);
-    const msgDev2 = await encrypt1to1Message('Hello Bob Device 2', aliceAddress, bobDevice2Address, aliceStore);
-
-    expect(await decrypt1to1Message(msgDev1, bobDevice1Address, aliceAddress, bobStore)).toBe('Hello Bob Device 1');
-    expect(await decrypt1to1Message(msgDev2, bobDevice2Address, aliceAddress, bobDev2Store)).toBe('Hello Bob Device 2');
-  });
-
-  // 11. Group encryption & 12. Group membership rotation
-  it('11 & 12. should encrypt group messages and enforce key rotation on member removal', async () => {
-    const distIdV1 = '12345678-1234-4234-8234-123456789011';
-
-    // Alice creates Sender Key for distribution V1
-    const distMsgV1 = await createGroupSenderKey(aliceAddress, distIdV1, aliceStore);
-
-    // Bob processes Alice's Sender Key
-    await processReceivedGroupSenderKey(aliceAddress, distMsgV1, bobStore);
-
-    // Alice encrypts group message
-    const groupMsg = await encryptGroupMessage('Group announcement V1', aliceAddress, distIdV1, 1, aliceStore);
-
-    // Bob decrypts
-    const decryptedBob = await decryptGroupMessage(groupMsg, aliceAddress, bobStore);
-    expect(decryptedBob).toBe('Group announcement V1');
-
-    // Charlie was removed from group, so Charlie does NOT receive distMsgV1
-    await generateDeviceKeys(charlieStore, 3003, 1, 5);
-    await expect(
-      decryptGroupMessage(groupMsg, aliceAddress, charlieStore)
-    ).rejects.toThrow();
-
-    // Rotate keys for V2 after member change
-    const distIdV2 = '12345678-1234-4234-8234-123456789022';
-    const bobBundle = await generateDeviceKeys(bobStore, 2002, 1, 5);
-    await establishOutboundSession(aliceAddress, bobAddress, {
-      registrationId: bobBundle.registrationId,
-      deviceId: 1,
-      identityPublicKeyB64: bobBundle.identityPublicKey,
-      signedPreKeyId: bobBundle.signedPreKeyId,
-      signedPreKeyPublicKeyB64: bobBundle.signedPreKeyPublicKey,
-      signedPreKeySignatureB64: bobBundle.signedPreKeySignature,
-      kyberPreKeyId: bobBundle.kyberPreKeyId,
-      kyberPreKeyPublicKeyB64: bobBundle.kyberPreKeyPublicKey,
-      kyberPreKeySignatureB64: bobBundle.kyberPreKeySignature,
-    }, aliceStore);
-
-    const envelopes = await rotateGroupKeysForMembers(
-      'conv-group-id',
-      distIdV2,
-      2,
-      aliceAddress,
-      [{ userId: 'bob-user-id', deviceId: '1', address: bobAddress }],
-      aliceStore
+    const msgDev1 = await encrypt1to1Message(
+      'Hello Bob Device 1',
+      bytesToBase64(aliceStore.requireIdentity().privateKey),
+      bobDev1Bundle.identityPublicKey
+    );
+    const msgDev2 = await encrypt1to1Message(
+      'Hello Bob Device 2',
+      bytesToBase64(aliceStore.requireIdentity().privateKey),
+      bobDev2Bundle.identityPublicKey
     );
 
-    expect(envelopes).toHaveLength(1);
+    expect(
+      await decrypt1to1Message(
+        msgDev1,
+        bytesToBase64(bobDev1Store.requireIdentity().privateKey),
+        bytesToBase64(aliceStore.requireIdentity().publicKey)
+      )
+    ).toBe('Hello Bob Device 1');
+    expect(
+      await decrypt1to1Message(
+        msgDev2,
+        bytesToBase64(bobDev2Store.requireIdentity().privateKey),
+        bytesToBase64(aliceStore.requireIdentity().publicKey)
+      )
+    ).toBe('Hello Bob Device 2');
+  });
 
-    // Bob decrypts envelope payload and processes V2 key
-    const envelopePayload = JSON.parse(envelopes[0].encryptedDistributionMessage);
-    const distMsgV2 = await decrypt1to1Message(envelopePayload, bobAddress, aliceAddress, bobStore);
-    await processReceivedGroupSenderKey(aliceAddress, distMsgV2, bobStore);
+  // 11 & 12. Group encryption & membership rotation
+  it('11 & 12. should encrypt group messages and enforce key rotation on member removal', async () => {
+    const bobBundle = await generateDeviceKeys(bobStore);
+    const charlieBundle = await generateDeviceKeys(charlieStore);
 
-    const groupMsgV2 = await encryptGroupMessage('Group announcement V2', aliceAddress, distIdV2, 2, aliceStore);
-    expect(await decryptGroupMessage(groupMsgV2, aliceAddress, bobStore)).toBe('Group announcement V2');
+    const groupKeyV1 = await generateGroupKey();
+    const envelopesV1 = await distributeGroupKey(groupKeyV1, 1, [
+      { userId: 'bob-user-id', deviceId: bobBundle.deviceId, publicKeyB64: bobBundle.identityPublicKey },
+      { userId: 'charlie-user-id', deviceId: charlieBundle.deviceId, publicKeyB64: charlieBundle.identityPublicKey },
+    ]);
+
+    const bobEnvelope = envelopesV1.find((e) => e.recipientUserId === 'bob-user-id')!;
+    const bobGroupKey = await unwrapGroupKeyEnvelope(
+      bobEnvelope.encryptedGroupKey,
+      bobBundle.identityPublicKey,
+      bytesToBase64(bobStore.requireIdentity().privateKey)
+    );
+
+    const groupMsgV1 = await encryptGroupMessage('Group announcement V1', groupKeyV1, 1);
+    expect(await decryptGroupMessage(groupMsgV1, bobGroupKey)).toBe('Group announcement V1');
+
+    // Rotate keys for V2 after Charlie is removed from the group.
+    const groupKeyV2 = await generateGroupKey();
+    const envelopesV2 = await distributeGroupKey(groupKeyV2, 2, [
+      { userId: 'bob-user-id', deviceId: bobBundle.deviceId, publicKeyB64: bobBundle.identityPublicKey },
+    ]);
+
+    expect(envelopesV2).toHaveLength(1);
+
+    const groupMsgV2 = await encryptGroupMessage('Group announcement V2', groupKeyV2, 2);
+
+    // Charlie was removed: he never receives the V2 envelope, so his cached
+    // V1 key cannot decrypt the V2 message.
+    await expect(decryptGroupMessage(groupMsgV2, groupKeyV1)).rejects.toThrow();
+
+    const bobGroupKeyV2 = await unwrapGroupKeyEnvelope(
+      envelopesV2[0].encryptedGroupKey,
+      bobBundle.identityPublicKey,
+      bytesToBase64(bobStore.requireIdentity().privateKey)
+    );
+    expect(await decryptGroupMessage(groupMsgV2, bobGroupKeyV2)).toBe('Group announcement V2');
   });
 
   // 13. Attachment encryption
@@ -343,7 +278,7 @@ describe('End-to-End Encryption (E2EE) Signal Protocol Suite', () => {
     expect(decryptedText).toBe(rawFileText);
   });
 
-  // 14. Backup encryption, 15. Restoration, 16. Incorrect password, 17. Backup tampering
+  // 14, 15, 16 & 17. Backup encryption, restoration, wrong password, tampering
   it('14, 15, 16 & 17. should encrypt/restore key store backup with Argon2id and reject wrong passphrases', async () => {
     const passphrase = 'SuperSecretMasterPassword123!';
     const backup = await createKeyBackup(passphrase, aliceStore);
@@ -352,30 +287,42 @@ describe('End-to-End Encryption (E2EE) Signal Protocol Suite', () => {
     expect(backup.ciphertextB64).toBeTruthy();
 
     // 15. Restoration with correct password
-    const restoredStore = new SignalKeyStore();
+    const restoredStore = new DeviceKeyStore();
     await restoreKeyBackup(passphrase, backup, restoredStore);
-
-    const origPair = await aliceStore.getIdentityKeyPair();
-    const restPair = await restoredStore.getIdentityKeyPair();
-    expect(
-      wasmToBuffer(restPair!.publicKey.serialize()).equals(
-        wasmToBuffer(origPair!.publicKey.serialize())
-      )
-    ).toBe(true);
+    expect(restoredStore.requireIdentity().publicKey).toEqual(aliceStore.requireIdentity().publicKey);
 
     // 16. Incorrect password failure
     await expect(
-      restoreKeyBackup('WrongPassword!', backup, new SignalKeyStore())
+      restoreKeyBackup('WrongPassword!', backup, new DeviceKeyStore())
     ).rejects.toThrow('Invalid passphrase or corrupted backup ciphertext');
 
     // 17. Tampered backup ciphertext failure
     const tamperedBackup = { ...backup };
-    const buf = Buffer.from(tamperedBackup.ciphertextB64, 'base64');
+    const buf = base64ToBytes(tamperedBackup.ciphertextB64);
     buf[0] ^= 0xff;
-    tamperedBackup.ciphertextB64 = buf.toString('base64');
+    tamperedBackup.ciphertextB64 = bytesToBase64(buf);
 
     await expect(
-      restoreKeyBackup(passphrase, tamperedBackup, new SignalKeyStore())
+      restoreKeyBackup(passphrase, tamperedBackup, new DeviceKeyStore())
     ).rejects.toThrow('Invalid passphrase or corrupted backup ciphertext');
+  });
+
+  // 18. Safety number / fingerprint verification
+  it('18. should compute a stable, order-independent safety number for two parties', async () => {
+    const bobBundle = await generateDeviceKeys(bobStore);
+    const aliceFingerprint = await computeDeviceFingerprint(
+      bytesToBase64(aliceStore.requireIdentity().publicKey)
+    );
+    expect(aliceFingerprint).toMatch(/^[0-9A-F-]+$/);
+
+    const numberAB = await computeSafetyNumber(
+      bytesToBase64(aliceStore.requireIdentity().publicKey),
+      bobBundle.identityPublicKey
+    );
+    const numberBA = await computeSafetyNumber(
+      bobBundle.identityPublicKey,
+      bytesToBase64(aliceStore.requireIdentity().publicKey)
+    );
+    expect(numberAB).toBe(numberBA);
   });
 });

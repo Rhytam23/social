@@ -39,7 +39,7 @@ export const PeopleDirectory: React.FC<PeopleDirectoryProps> = ({
             People & Contacts
           </h2>
           <p className="text-xs text-slate-400">
-            Verified members on your private Signal-encrypted network.
+            Verified members on your private end-to-end encrypted network.
           </p>
         </div>
 

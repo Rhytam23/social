@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation';
+
 export default function GroupSettingsPage() {
-  return null;
+  redirect('/');
 }

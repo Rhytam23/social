@@ -1,10 +1,7 @@
 import { createServerClient as createSupabaseServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@/types/database';
-
-const DEFAULT_SUPABASE_URL = 'https://placeholder-project.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2MDA0ODAwMDAsImV4cCI6MTkxNjA1NjAwMH0.placeholder';
+import { getSupabaseUrl, getSupabaseAnonKey } from './env';
 
 export async function createClient() {
   let cookieStore: { getAll: () => { name: string; value: string }[]; set?: (name: string, value: string, options: CookieOptions) => void };
@@ -18,8 +15,8 @@ export async function createClient() {
   }
 
   return createSupabaseServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL || DEFAULT_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY,
+    getSupabaseUrl(),
+    getSupabaseAnonKey(),
     {
       cookies: {
         getAll() {

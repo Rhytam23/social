@@ -86,7 +86,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-slate-400 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider">
                 <IconShield className="w-3.5 h-3.5 text-emerald-400" />
-                Signal Identity Verification
+                Identity Key Verification
               </span>
               <span className="text-emerald-400 font-semibold flex items-center gap-1 text-[11px]">
                 <IconCheck className="w-3 h-3" />

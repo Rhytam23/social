@@ -5,6 +5,7 @@ import { Dialog } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { IconLock, IconShield, IconUsers } from '../ui/icons';
 import { createClient } from '../../lib/supabase/client';
+import { isSupabaseConfigured } from '../../lib/supabase/env';
 
 export interface OnboardingModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [displayName, setDisplayName] = useState(initialName || 'New User');
   const [avatarColor, setAvatarColor] = useState('emerald');
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const colors = [
     { name: 'emerald', bg: 'bg-emerald-600', text: 'text-emerald-300', border: 'border-emerald-500' },
@@ -39,23 +41,20 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const handleSaveProfile = async () => {
     if (!displayName.trim()) return;
     setIsSaving(true);
+    setSaveError(null);
     try {
-      const isSupabaseConfigured =
-        typeof process !== 'undefined' &&
-        process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
-
-      if (isSupabaseConfigured) {
+      if (isSupabaseConfigured()) {
         const supabase = createClient();
-        await supabase
+        const { error } = await supabase
           .from('profiles')
           .update({ display_name: displayName.trim() })
           .eq('id', userId);
+        if (error) throw error;
       }
       onProfileUpdated(displayName.trim());
       setStep(2);
-    } catch {
-      setStep(2);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save your profile. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -155,6 +154,12 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 className="w-full bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500/60 transition-all"
               />
             </div>
+
+            {saveError && (
+              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl text-[11px]">
+                {saveError}
+              </div>
+            )}
           </div>
         )}
 
@@ -166,9 +171,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <IconShield className="w-4 h-4" />
               </div>
               <div className="flex flex-col gap-1">
-                <span className="font-bold text-emerald-300">Signal Double Ratchet Active</span>
+                <span className="font-bold text-emerald-300">End-to-End Encryption Active</span>
                 <p className="text-slate-300 leading-relaxed">
-                  Every direct message, voice note, and group communication is encrypted with ratchet keys stored only on your current device.
+                  Every direct message, voice note, and group communication is encrypted client-side with keys stored only on your current device. The server only ever sees ciphertext.
                 </p>
               </div>
             </div>

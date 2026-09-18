@@ -23,6 +23,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'conversationId parameter is required.' }, { status: 400 });
   }
 
+  const limitParam = parseInt(request.nextUrl.searchParams.get('limit') || '100', 10);
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 100;
+  const before = request.nextUrl.searchParams.get('before'); // ISO timestamp cursor for pagination
+
   // IDOR Protection: Verify caller is an active member of this conversation
   const { data: membership } = await supabase
     .from('conversation_members')
@@ -39,18 +43,79 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const { data: messages, error: msgError } = await supabase
+  let query = supabase
     .from('messages')
     .select('id, conversation_id, sender_id, ciphertext, nonce, encryption_version, reply_to_message_id, created_at, edited_at, deleted_at')
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
-    .limit(100);
+    .order('created_at', { ascending: false })
+    .limit(limit);
+
+  if (before) {
+    query = query.lt('created_at', before);
+  }
+
+  const { data: messages, error: msgError } = await query;
 
   if (msgError) {
     return NextResponse.json({ error: msgError.message }, { status: 500 });
   }
 
-  return NextResponse.json(messages);
+  return NextResponse.json((messages || []).reverse());
+}
+
+export async function PATCH(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+  const rateLimit = await checkRateLimit(`msg-edit:${ip}`, { limit: 60, windowMs: 60 * 1000 });
+
+  if (!rateLimit.success) {
+    return NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429 });
+  }
+
+  const supabase = await createServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json();
+    const { messageId, ciphertext, nonce, encryptionVersion, deleted } = body;
+
+    if (!messageId) {
+      return NextResponse.json({ error: 'messageId is required.' }, { status: 400 });
+    }
+
+    const update: Database['public']['Tables']['messages']['Update'] = deleted
+      ? { deleted_at: new Date().toISOString() }
+      : { ciphertext, nonce, encryption_version: encryptionVersion, edited_at: new Date().toISOString() };
+
+    if (!deleted && (!ciphertext || !nonce)) {
+      return NextResponse.json({ error: 'ciphertext and nonce are required for an edit.' }, { status: 400 });
+    }
+
+    // RLS (messages_update_policy) additionally enforces sender_id = auth.uid()
+    // and current conversation membership - this filter is defense in depth.
+    const { data: updated, error: updateError } = await supabase
+      .from('messages')
+      .update(update as unknown as never)
+      .eq('id', messageId)
+      .eq('sender_id', user.id)
+      .select('id, conversation_id, sender_id, ciphertext, nonce, encryption_version, edited_at, deleted_at')
+      .maybeSingle();
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+    if (!updated) {
+      return NextResponse.json({ error: 'Message not found or you are not its sender.' }, { status: 404 });
+    }
+
+    return NextResponse.json(updated);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Invalid request payload.';
+    return NextResponse.json({ error: message }, { status: 400 });
+  }
 }
 
 export async function POST(request: NextRequest) {

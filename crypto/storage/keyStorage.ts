@@ -1,204 +1,187 @@
-import {
-  IdentityKeyPair,
-  PrivateKey,
-  PublicKey,
-  ProtocolAddress,
-  PreKeyRecord,
-  SignedPreKeyRecord,
-  SessionRecord,
-  SenderKeyRecord,
-  KyberPreKeyRecord,
-  IdentityChange,
-} from '@signalapp/libsignal-client';
+import { bytesToBase64, base64ToBytes } from '../utils/encoding';
 
-function wasmToBuffer(u8: Uint8Array): Buffer {
-  return Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength);
+export interface DeviceIdentity {
+  deviceId: string;
+  publicKey: Uint8Array; // X25519 public key
+  privateKey: Uint8Array; // X25519 secret key - NEVER leaves the device unencrypted
 }
 
-export class SignalKeyStore {
-  private identityKeyPair: IdentityKeyPair | null = null;
-  private localRegistrationId: number = 0;
-  private trustedIdentities: Map<string, PublicKey> = new Map();
-  private preKeys: Map<number, PreKeyRecord> = new Map();
-  private signedPreKeys: Map<number, SignedPreKeyRecord> = new Map();
-  private kyberPreKeys: Map<number, KyberPreKeyRecord> = new Map();
-  private sessions: Map<string, SessionRecord> = new Map();
-  private senderKeys: Map<string, SenderKeyRecord> = new Map();
+interface StoredGroupKey {
+  key: Uint8Array;
+  version: number;
+}
 
-  constructor() {}
+interface SerializedState {
+  version: 2;
+  identity: { deviceId: string; publicKeyB64: string; privateKeyB64: string } | null;
+  peerKeys: Array<[string, string]>; // [`${userId}:${deviceId}`, publicKeyB64]
+  groupKeys: Array<[string, { keyB64: string; version: number }]>; // [conversationId, {...}]
+}
 
-  // --- Identity Key Store ---
-  public async getIdentityKeyPair(): Promise<IdentityKeyPair> {
-    if (!this.identityKeyPair) {
-      throw new Error('Identity key pair not initialized');
+const DB_NAME = 'private-chat-keystore';
+const STORE_NAME = 'device-state';
+const RECORD_KEY = 'current-device';
+
+/**
+ * Holds this browser's E2EE identity key pair, cached peer public keys, and
+ * per-conversation group keys. Private key material never leaves this class
+ * except through `exportSerializedState`, which is only ever handed to the
+ * passphrase-encrypted backup flow (crypto/backup/keyBackup.ts).
+ */
+export class DeviceKeyStore {
+  private identity: DeviceIdentity | null = null;
+  private peerKeys: Map<string, Uint8Array> = new Map();
+  private groupKeys: Map<string, StoredGroupKey> = new Map();
+
+  setIdentity(identity: DeviceIdentity): void {
+    this.identity = identity;
+  }
+
+  getIdentity(): DeviceIdentity | null {
+    return this.identity;
+  }
+
+  requireIdentity(): DeviceIdentity {
+    if (!this.identity) {
+      throw new Error('Device identity has not been generated yet');
     }
-    return this.identityKeyPair;
+    return this.identity;
   }
 
-  public async getIdentityKey(): Promise<PrivateKey> {
-    if (!this.identityKeyPair) {
-      throw new Error('Identity key pair not initialized');
-    }
-    return this.identityKeyPair.privateKey;
+  private peerKeyMapKey(userId: string, deviceId: string): string {
+    return `${userId}::${deviceId}`;
   }
 
-  public async getLocalRegistrationId(): Promise<number> {
-    return this.localRegistrationId;
+  savePeerKey(userId: string, deviceId: string, publicKey: Uint8Array): void {
+    this.peerKeys.set(this.peerKeyMapKey(userId, deviceId), publicKey);
   }
 
-  public async setIdentityKeyPair(keyPair: IdentityKeyPair, registrationId: number): Promise<void> {
-    this.identityKeyPair = keyPair;
-    this.localRegistrationId = registrationId;
+  getPeerKey(userId: string, deviceId: string): Uint8Array | null {
+    return this.peerKeys.get(this.peerKeyMapKey(userId, deviceId)) || null;
   }
 
-  public async saveIdentity(address: ProtocolAddress, key: PublicKey): Promise<IdentityChange> {
-    const keyStr = address.toString();
-    const existing = this.trustedIdentities.get(keyStr);
-    this.trustedIdentities.set(keyStr, key);
-    if (!existing || wasmToBuffer(existing.serialize()).equals(wasmToBuffer(key.serialize()))) {
-      return IdentityChange.NewOrUnchanged;
-    }
-    return IdentityChange.ReplacedExisting;
+  saveGroupKey(conversationId: string, key: Uint8Array, version: number): void {
+    this.groupKeys.set(conversationId, { key, version });
   }
 
-  public async isTrustedIdentity(address: ProtocolAddress, key: PublicKey): Promise<boolean> {
-    const existing = this.trustedIdentities.get(address.toString());
-    if (!existing) return true;
-    return wasmToBuffer(existing.serialize()).equals(wasmToBuffer(key.serialize()));
+  getGroupKey(conversationId: string): StoredGroupKey | null {
+    return this.groupKeys.get(conversationId) || null;
   }
 
-  public async getIdentity(address: ProtocolAddress): Promise<PublicKey | null> {
-    return this.trustedIdentities.get(address.toString()) || null;
-  }
+  // --- Serialization (used by crypto/backup/keyBackup.ts) ---
 
-  // --- PreKey Store ---
-  public async getPreKey(id: number): Promise<PreKeyRecord> {
-    const record = this.preKeys.get(id);
-    if (!record) {
-      throw new Error(`PreKey ${id} not found`);
-    }
-    return record;
-  }
-
-  public async savePreKey(id: number, record: PreKeyRecord): Promise<void> {
-    this.preKeys.set(id, record);
-  }
-
-  public async removePreKey(id: number): Promise<void> {
-    this.preKeys.delete(id);
-  }
-
-  // --- Signed PreKey Store ---
-  public async getSignedPreKey(id: number): Promise<SignedPreKeyRecord> {
-    const record = this.signedPreKeys.get(id);
-    if (!record) {
-      throw new Error(`SignedPreKey ${id} not found`);
-    }
-    return record;
-  }
-
-  public async saveSignedPreKey(id: number, record: SignedPreKeyRecord): Promise<void> {
-    this.signedPreKeys.set(id, record);
-  }
-
-  // --- Kyber PreKey Store ---
-  public async getKyberPreKey(id: number): Promise<KyberPreKeyRecord> {
-    const record = this.kyberPreKeys.get(id);
-    if (!record) {
-      throw new Error(`KyberPreKey ${id} not found`);
-    }
-    return record;
-  }
-
-  public async saveKyberPreKey(id: number, record: KyberPreKeyRecord): Promise<void> {
-    this.kyberPreKeys.set(id, record);
-  }
-
-  public async markKyberPreKeyUsed(): Promise<void> {
-    // No-op for testing/local store
-  }
-
-  // --- Session Store ---
-  public async getSession(address: ProtocolAddress): Promise<SessionRecord | null> {
-    return this.sessions.get(address.toString()) || null;
-  }
-
-  public async saveSession(address: ProtocolAddress, record: SessionRecord): Promise<void> {
-    this.sessions.set(address.toString(), record);
-  }
-
-  public async getExistingSessions(addresses: ProtocolAddress[]): Promise<SessionRecord[]> {
-    const result: SessionRecord[] = [];
-    for (const addr of addresses) {
-      const s = await this.getSession(addr);
-      if (s) result.push(s);
-    }
-    return result;
-  }
-
-  // --- Sender Key Store ---
-  private getSenderKeyMapKey(sender: ProtocolAddress, distributionId: string): string {
-    return `${sender.toString()}::${distributionId}`;
-  }
-
-  public async getSenderKey(sender: ProtocolAddress, distributionId: string): Promise<SenderKeyRecord | null> {
-    return this.senderKeys.get(this.getSenderKeyMapKey(sender, distributionId)) || null;
-  }
-
-  public async saveSenderKey(sender: ProtocolAddress, distributionId: string, record: SenderKeyRecord): Promise<void> {
-    this.senderKeys.set(this.getSenderKeyMapKey(sender, distributionId), record);
-  }
-
-  // --- Backup Serialization ---
-  public async exportSerializedState(): Promise<string> {
-    if (!this.identityKeyPair) {
-      throw new Error('Cannot export empty key store');
+  exportSerializedState(): string {
+    if (!this.identity) {
+      throw new Error('Cannot export an empty key store');
     }
 
-    const state = {
-      registrationId: this.localRegistrationId,
-      identityKeyPair: wasmToBuffer(this.identityKeyPair.serialize()).toString('base64'),
-      preKeys: Array.from(this.preKeys.entries()).map(([id, rec]) => [id, wasmToBuffer(rec.serialize()).toString('base64')]),
-      signedPreKeys: Array.from(this.signedPreKeys.entries()).map(([id, rec]) => [id, wasmToBuffer(rec.serialize()).toString('base64')]),
-      kyberPreKeys: Array.from(this.kyberPreKeys.entries()).map(([id, rec]) => [id, wasmToBuffer(rec.serialize()).toString('base64')]),
-      sessions: Array.from(this.sessions.entries()).map(([addr, rec]) => [addr, wasmToBuffer(rec.serialize()).toString('base64')]),
-      senderKeys: Array.from(this.senderKeys.entries()).map(([key, rec]) => [key, wasmToBuffer(rec.serialize()).toString('base64')]),
+    const state: SerializedState = {
+      version: 2,
+      identity: {
+        deviceId: this.identity.deviceId,
+        publicKeyB64: bytesToBase64(this.identity.publicKey),
+        privateKeyB64: bytesToBase64(this.identity.privateKey),
+      },
+      peerKeys: Array.from(this.peerKeys.entries()).map(([key, pub]) => [key, bytesToBase64(pub)]),
+      groupKeys: Array.from(this.groupKeys.entries()).map(([convId, g]) => [
+        convId,
+        { keyB64: bytesToBase64(g.key), version: g.version },
+      ]),
     };
 
     return JSON.stringify(state);
   }
 
-  public async importSerializedState(jsonStr: string): Promise<void> {
-    const state = JSON.parse(jsonStr);
-    this.localRegistrationId = state.registrationId;
-    this.identityKeyPair = IdentityKeyPair.deserialize(Buffer.from(state.identityKeyPair, 'base64'));
+  importSerializedState(jsonStr: string): void {
+    const state = JSON.parse(jsonStr) as SerializedState;
 
-    this.preKeys.clear();
-    for (const [id, b64] of state.preKeys) {
-      this.preKeys.set(id, PreKeyRecord.deserialize(Buffer.from(b64, 'base64')));
+    this.identity = state.identity
+      ? {
+          deviceId: state.identity.deviceId,
+          publicKey: base64ToBytes(state.identity.publicKeyB64),
+          privateKey: base64ToBytes(state.identity.privateKeyB64),
+        }
+      : null;
+
+    this.peerKeys = new Map(state.peerKeys.map(([key, b64]) => [key, base64ToBytes(b64)]));
+    this.groupKeys = new Map(
+      state.groupKeys.map(([convId, g]) => [convId, { key: base64ToBytes(g.keyB64), version: g.version }])
+    );
+  }
+
+  // --- Browser persistence (IndexedDB) ---
+  // Without this, a page refresh would lose the device's private key and the
+  // user would be permanently unable to decrypt their own message history.
+
+  async persist(): Promise<void> {
+    if (typeof indexedDB === 'undefined') return;
+    const db = await openDb();
+    try {
+      await idbPut(db, RECORD_KEY, this.exportSerializedState());
+    } finally {
+      db.close();
     }
+  }
 
-    this.signedPreKeys.clear();
-    for (const [id, b64] of state.signedPreKeys) {
-      this.signedPreKeys.set(id, SignedPreKeyRecord.deserialize(Buffer.from(b64, 'base64')));
+  static async load(): Promise<DeviceKeyStore | null> {
+    if (typeof indexedDB === 'undefined') return null;
+    const db = await openDb();
+    try {
+      const raw = await idbGet(db, RECORD_KEY);
+      if (!raw) return null;
+      const store = new DeviceKeyStore();
+      store.importSerializedState(raw);
+      return store;
+    } finally {
+      db.close();
     }
+  }
 
-    this.kyberPreKeys.clear();
-    if (state.kyberPreKeys) {
-      for (const [id, b64] of state.kyberPreKeys) {
-        this.kyberPreKeys.set(id, KyberPreKeyRecord.deserialize(Buffer.from(b64, 'base64')));
-      }
-    }
-
-    this.sessions.clear();
-    for (const [addr, b64] of state.sessions) {
-      this.sessions.set(addr, SessionRecord.deserialize(Buffer.from(b64, 'base64')));
-    }
-
-    this.senderKeys.clear();
-    for (const [key, b64] of state.senderKeys) {
-      this.senderKeys.set(key, SenderKeyRecord.deserialize(Buffer.from(b64, 'base64')));
+  static async clear(): Promise<void> {
+    if (typeof indexedDB === 'undefined') return;
+    const db = await openDb();
+    try {
+      await idbDelete(db, RECORD_KEY);
+    } finally {
+      db.close();
     }
   }
 }
 
+function openDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(STORE_NAME);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('Failed to open key store database'));
+  });
+}
+
+function idbPut(db: IDBDatabase, key: string, value: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).put(value, key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Failed to persist key store'));
+  });
+}
+
+function idbGet(db: IDBDatabase, key: string): Promise<string | null> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const req = tx.objectStore(STORE_NAME).get(key);
+    req.onsuccess = () => resolve((req.result as string) ?? null);
+    req.onerror = () => reject(req.error || new Error('Failed to read key store'));
+  });
+}
+
+function idbDelete(db: IDBDatabase, key: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error || new Error('Failed to clear key store'));
+  });
+}
