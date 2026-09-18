@@ -333,6 +333,166 @@ export class ChatStore {
     this.listeners.forEach((listener) => listener());
   }
 
+  public setUserProfile(profile: Partial<UserItem> & { id: string; name: string }) {
+    const regId =
+      profile.registrationId ||
+      Math.abs(parseInt(profile.id.replace(/-/g, '').slice(0, 8), 16) % 90000) + 10000;
+
+    this.state.currentUser = {
+      id: profile.id,
+      name: profile.name,
+      username: profile.username,
+      email: profile.email,
+      phoneNumber: profile.phoneNumber,
+      registrationId: regId,
+      role: profile.role || 'member',
+      deviceCount: profile.deviceCount || 1,
+      joinedAt: profile.joinedAt || 'Active',
+      identityFingerprint:
+        profile.identityFingerprint ||
+        (profile.id.replace(/-/g, '').slice(0, 16) + '...').toUpperCase(),
+      presence: 'online',
+    };
+    this.persist();
+    this.notify();
+  }
+
+  public setConversations(conversations: ConversationItem[]) {
+    this.state.conversations = conversations;
+    if (
+      conversations.length > 0 &&
+      !conversations.some((c) => c.id === this.state.activeConversationId)
+    ) {
+      this.state.activeConversationId = conversations[0].id;
+    }
+    this.persist();
+    this.notify();
+  }
+
+  public setMessagesForConversation(conversationId: string, messages: MessageData[]) {
+    this.state.messagesMap = {
+      ...this.state.messagesMap,
+      [conversationId]: messages,
+    };
+    this.persist();
+    this.notify();
+  }
+
+  public receiveSupabaseMessage(payload: {
+    id: string;
+    conversation_id: string;
+    sender_id: string;
+    sender_name?: string;
+    content?: string;
+    ciphertext?: string;
+    nonce?: string;
+    created_at: string;
+    reply_to_id?: string | null;
+    reply_to_message_id?: string | null;
+    attachments?: Array<{ id: string; fileName: string; fileSize?: string; mimeType: string; isEncrypted?: boolean }>;
+    reactions?: Array<{ emoji: string; count: number; userReacted?: boolean }>;
+  }) {
+    const convId = payload.conversation_id;
+    const isSelf = payload.sender_id === this.state.currentUser.id;
+    const currentMsgs = this.state.messagesMap[convId] || [];
+
+    // Deduplicate
+    if (currentMsgs.some((m) => m.id === payload.id)) return;
+
+    let content = payload.content || payload.ciphertext || '';
+    if (payload.ciphertext && !payload.content) {
+      try {
+        if (typeof window !== 'undefined' && window.atob) {
+          content = window.atob(payload.ciphertext);
+        }
+      } catch {
+        content = payload.ciphertext;
+      }
+    }
+
+    const timestamp = new Date(payload.created_at).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+
+    const replyId = payload.reply_to_id || payload.reply_to_message_id;
+
+    const newMsg: MessageData = {
+      id: payload.id,
+      conversationId: convId,
+      senderId: payload.sender_id,
+      senderName: payload.sender_name || (isSelf ? this.state.currentUser.name : 'Contact'),
+      isSelf,
+      content,
+      timestamp,
+      status: 'delivered',
+      replyTo: replyId
+        ? {
+            id: replyId,
+            senderName: 'Message',
+            snippet: 'Quoted message',
+          }
+        : undefined,
+      reactions: Array.isArray(payload.reactions)
+        ? payload.reactions.map((r) => ({
+            emoji: r.emoji,
+            count: r.count,
+            userReacted: Boolean(r.userReacted),
+          }))
+        : [],
+      attachments: Array.isArray(payload.attachments)
+        ? payload.attachments.map((a) => ({
+            id: a.id,
+            fileName: a.fileName,
+            fileSize: a.fileSize || '0 KB',
+            mimeType: a.mimeType || 'application/octet-stream',
+            isEncrypted: a.isEncrypted ?? true,
+          }))
+        : undefined,
+      encryptionVersion: 1,
+    };
+
+    this.state.messagesMap = {
+      ...this.state.messagesMap,
+      [convId]: [...currentMsgs, newMsg],
+    };
+
+    this.state.conversations = this.state.conversations.map((c) => {
+      if (c.id === convId) {
+        const isCurrentActive = this.state.activeConversationId === convId;
+        const newUnread = !isCurrentActive && !isSelf ? c.unreadCount + 1 : c.unreadCount;
+        return {
+          ...c,
+          unreadCount: newUnread,
+          lastMessage: {
+            snippet: content || (newMsg.attachments?.length ? 'Sent attachment' : ''),
+            timestamp,
+            status: 'delivered',
+          },
+        };
+      }
+      return c;
+    });
+
+    this.persist();
+    this.notify();
+  }
+
+  public logout() {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(CURRENT_USER_KEY);
+      } catch {
+        // Ignore
+      }
+    }
+    this.state.conversations = [];
+    this.state.messagesMap = {};
+    this.state.activeConversationId = '';
+    this.notify();
+  }
+
   public selectConversation(conversationId: string) {
     this.state.activeConversationId = conversationId;
     this.state.conversations = this.state.conversations.map((c) =>

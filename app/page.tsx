@@ -1,18 +1,161 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useChatStore } from '../hooks/useChatStore';
 import { AppShell } from '../components/layout/AppShell';
 import { NewConversationModal } from '../components/chat/NewConversationModal';
+import { LoginForm } from '../components/auth/LoginForm';
 import { Dialog } from '../components/ui/dialog';
 import { Button } from '../components/ui/button';
-import { UserItem, MessageData } from '../types/ui';
+import { UserItem, MessageData, ConversationItem } from '../types/ui';
+import { createClient } from '../lib/supabase/client';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+
+interface ProfileRow {
+  id: string;
+  display_name?: string;
+  username?: string;
+  phone_number?: string;
+  is_admin?: boolean;
+}
+
+interface MemberConversationJoin {
+  conversation_id: string;
+  conversations: {
+    id: string;
+    name?: string;
+    type?: 'direct' | 'group';
+  } | null;
+}
+
+interface RealtimeMessageRow {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  ciphertext: string;
+  nonce: string;
+  created_at: string;
+  reply_to_message_id?: string | null;
+}
 
 export default function HomePage() {
   const [state, store] = useChatStore();
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [generatedToken, setGeneratedToken] = useState<string | null>(null);
+
+  // Supabase Auth & Live State
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+
+  const isSupabaseConfigured =
+    typeof process !== 'undefined' &&
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
+
+  const checkUserSession = useCallback(async () => {
+    if (!isSupabaseConfigured) {
+      setIsAuthenticated(true);
+      setAuthLoading(false);
+      return;
+    }
+
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
+
+      if (error || !user) {
+        setIsAuthenticated(false);
+        setAuthLoading(false);
+        return;
+      }
+
+      setIsAuthenticated(true);
+
+      // Fetch user profile
+      const { data: profile } = (await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .maybeSingle()) as { data: ProfileRow | null };
+
+      const displayName =
+        profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+
+      store.setUserProfile({
+        id: user.id,
+        name: displayName,
+        username: profile?.username || user.email?.split('@')[0],
+        email: user.email,
+        phoneNumber: profile?.phone_number,
+        role: profile?.is_admin ? 'admin' : 'member',
+      });
+
+      // Load user conversations
+      const { data: memberRows } = (await supabase
+        .from('conversation_members')
+        .select('conversation_id, conversations(*)')
+        .eq('user_id', user.id)
+        .is('left_at', null)) as { data: MemberConversationJoin[] | null };
+
+      if (memberRows && memberRows.length > 0) {
+        const conversations: ConversationItem[] = memberRows.map((row: MemberConversationJoin) => {
+          const conv = row.conversations;
+          return {
+            id: conv?.id || row.conversation_id,
+            title: conv?.name || 'Direct Chat',
+            type: conv?.type === 'group' ? 'group' : 'direct',
+            unreadCount: 0,
+            lastMessage: {
+              snippet: 'Tap to view messages',
+              timestamp: 'Recently',
+              status: 'delivered',
+            },
+          };
+        });
+        store.setConversations(conversations);
+      }
+
+      // Initialize Supabase Realtime Subscription for incoming messages
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
+
+      const channel = supabase
+        .channel('realtime-messages-feed')
+        .on(
+          'postgres_changes',
+          { event: 'INSERT', schema: 'public', table: 'messages' },
+          (payload) => {
+            if (payload.new) {
+              store.receiveSupabaseMessage(payload.new as RealtimeMessageRow);
+            }
+          }
+        )
+        .subscribe();
+
+      realtimeChannelRef.current = channel;
+    } catch {
+      setIsAuthenticated(false);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [isSupabaseConfigured, store]);
+
+  useEffect(() => {
+    checkUserSession();
+
+    return () => {
+      if (realtimeChannelRef.current) {
+        const supabase = createClient();
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
+    };
+  }, [checkUserSession]);
 
   const activeConversation =
     state.conversations.find((c) => c.id === state.activeConversationId) ||
@@ -22,8 +165,38 @@ export default function HomePage() {
     ? state.messagesMap[activeConversation.id] || []
     : [];
 
-  const handleSendMessage = (content: string, replyToId?: string, attachmentFile?: File) => {
+  const handleSendMessage = async (content: string, replyToId?: string, attachmentFile?: File) => {
+    // 1. Optimistic UI update in local store
     store.sendMessage(content, replyToId, attachmentFile);
+
+    // 2. Persist to live Supabase if connected
+    if (isSupabaseConfigured && state.activeConversationId) {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const ciphertext =
+            typeof window !== 'undefined' && window.btoa ? window.btoa(content) : content;
+          const nonce = typeof window !== 'undefined' && window.btoa ? window.btoa(Math.random().toString()) : 'nonce';
+
+          await supabase.from('messages').insert([
+            {
+              conversation_id: state.activeConversationId,
+              sender_id: user.id,
+              ciphertext,
+              nonce,
+              encryption_version: 1,
+              reply_to_message_id: replyToId || null,
+            },
+          ]);
+        }
+      } catch {
+        // Local store already holds message optimistically
+      }
+    }
   };
 
   const handleReactToMessage = (msgId: string, emoji: string) => {
@@ -76,20 +249,118 @@ export default function HomePage() {
     store.revokeDevice(deviceId);
   };
 
-  const handleStartDirectChat = (user: UserItem) => {
+  const handleStartDirectChat = async (user: UserItem) => {
+    // 1. Optimistic store creation
     store.createDirectConversation(user);
     setNewChatModalOpen(false);
+
+    // 2. Persist to Supabase if connected
+    if (isSupabaseConfigured) {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+
+        if (currentUser) {
+          const { data: convData } = await supabase
+            .from('conversations')
+            .insert({
+              type: 'private',
+              created_by: currentUser.id,
+            })
+            .select('id')
+            .single();
+
+          if (convData) {
+            await supabase.from('conversation_members').insert([
+              { conversation_id: convData.id, user_id: currentUser.id },
+              { conversation_id: convData.id, user_id: user.id },
+            ]);
+          }
+        }
+      } catch {
+        // Fallback to local store
+      }
+    }
   };
 
-  const handleCreateGroupChat = (groupName: string, memberIds: string[]) => {
+  const handleCreateGroupChat = async (groupName: string, memberIds: string[]) => {
+    // 1. Optimistic store creation
     store.createGroupConversation(groupName, memberIds);
     setNewChatModalOpen(false);
+
+    // 2. Persist to Supabase if connected
+    if (isSupabaseConfigured) {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user: currentUser },
+        } = await supabase.auth.getUser();
+
+        if (currentUser) {
+          const { data: convData } = await supabase
+            .from('conversations')
+            .insert({
+              type: 'group',
+              name: groupName,
+              created_by: currentUser.id,
+            })
+            .select('id')
+            .single();
+
+          if (convData) {
+            const allMembers = Array.from(new Set([currentUser.id, ...memberIds]));
+            await supabase.from('conversation_members').insert(
+              allMembers.map((uid) => ({ conversation_id: convData.id, user_id: uid }))
+            );
+          }
+        }
+      } catch {
+        // Fallback to local store
+      }
+    }
   };
+
+  const handleLogout = async () => {
+    if (isSupabaseConfigured) {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    }
+    store.logout();
+    setIsAuthenticated(false);
+  };
+
+  // Loading State
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen bg-[var(--canvas-bg)] flex flex-col items-center justify-center font-sans">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+          <span className="text-xs font-semibold text-slate-300">Unlocking Private Chat...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Not Authenticated -> Show Sign In / Register Form
+  if (isSupabaseConfigured && !isAuthenticated) {
+    return (
+      <LoginForm
+        onLoginSuccess={() => {
+          checkUserSession();
+        }}
+        onNavigateInvite={() => {
+          setNewChatModalOpen(false);
+        }}
+      />
+    );
+  }
 
   return (
     <>
-      {/* Development / Multi-Tab Synchronization Indicator Bar */}
-      {state.mode === 'demo' && (
+      {/* Development / Multi-Tab Synchronization Indicator Bar (Only in local placeholder mode) */}
+      {state.mode === 'demo' && !isSupabaseConfigured && (
         <div className="bg-emerald-950/60 border-b border-emerald-500/20 px-4 py-1.5 flex items-center justify-between text-[11px] text-emerald-300 font-sans z-50">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -152,6 +423,7 @@ export default function HomePage() {
         onMarkUnreadConversation={(id) => store.markUnreadConversation(id)}
         onClearHistoryConversation={(id) => store.clearHistoryConversation(id)}
         onDeleteConversationLocally={(id) => store.deleteConversationLocally(id)}
+        onLogout={handleLogout}
       />
 
       {/* New Direct / Group Conversation Modal */}

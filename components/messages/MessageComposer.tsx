@@ -63,24 +63,102 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     }
   };
 
-  // Record simulated voice note
-  const handleToggleVoiceRecord = () => {
-    if (isRecordingVoice) {
-      setIsRecordingVoice(false);
-      // Create a dummy voice file
-      const voiceFile = new File(['voice_audio_bytes'], `voice-note-${Date.now()}.wav`, {
-        type: 'audio/wav',
-      });
-      onSendMessage('', replyTarget?.id, voiceFile);
-      setRecordingSeconds(0);
-    } else {
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Clean up recording resources on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
+  const handleStartVoiceRecord = async () => {
+    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      alert('Microphone access is not supported in your browser.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      audioChunksRef.current = [];
+
+      let mimeType = 'audio/webm';
+      if (typeof MediaRecorder !== 'undefined') {
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+          mimeType = 'audio/webm;codecs=opus';
+        } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
+          mimeType = 'audio/mp4';
+        } else if (MediaRecorder.isTypeSupported('audio/ogg')) {
+          mimeType = 'audio/ogg';
+        }
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        if (audioChunksRef.current.length > 0) {
+          const audioBlob = new Blob(audioChunksRef.current, {
+            type: mediaRecorder.mimeType || 'audio/webm',
+          });
+          const ext = audioBlob.type.includes('mp4') ? 'm4a' : 'webm';
+          const voiceFile = new File([audioBlob], `voice-note-${Date.now()}.${ext}`, {
+            type: audioBlob.type,
+          });
+          onSendMessage('', replyTarget?.id, voiceFile);
+        }
+        // Cleanup tracks
+        stream.getTracks().forEach((track) => track.stop());
+        streamRef.current = null;
+        audioChunksRef.current = [];
+      };
+
+      mediaRecorder.start(250);
       setIsRecordingVoice(true);
       setRecordingSeconds(0);
-      const interval = setInterval(() => {
+
+      timerRef.current = setInterval(() => {
         setRecordingSeconds((prev) => prev + 1);
       }, 1000);
-      setTimeout(() => clearInterval(interval), 30000);
+    } catch {
+      alert('Microphone access was denied or is unavailable.');
     }
+  };
+
+  const handleStopAndSendVoiceRecord = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecordingVoice(false);
+    setRecordingSeconds(0);
+  };
+
+  const handleCancelVoiceRecord = () => {
+    if (timerRef.current) clearInterval(timerRef.current);
+    audioChunksRef.current = [];
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsRecordingVoice(false);
+    setRecordingSeconds(0);
   };
 
   const canSend = (content.trim().length > 0 || selectedFile !== null || editingMessage !== undefined) && !disabled;
@@ -158,15 +236,25 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
               </span>
               <span className="font-semibold text-rose-300">Recording Encrypted Voice Note...</span>
-              <span className="font-mono text-slate-300">0:0{recordingSeconds}</span>
+              <span className="font-mono text-slate-300">{Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, '0')}</span>
             </div>
 
-            <button
-              onClick={handleToggleVoiceRecord}
-              className="py-1 px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs"
-            >
-              Send Voice Note
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={handleCancelVoiceRecord}
+                className="py-1 px-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg text-xs transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleStopAndSendVoiceRecord}
+                className="py-1 px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs transition-colors"
+              >
+                Send Voice Note
+              </button>
+            </div>
           </div>
         ) : (
           /* Main Input Row */
@@ -193,7 +281,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             {/* Record Voice Note Button */}
             <button
               type="button"
-              onClick={handleToggleVoiceRecord}
+              onClick={handleStartVoiceRecord}
               disabled={disabled}
               className="p-2.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-all disabled:opacity-40 shrink-0"
               title="Record encrypted voice note"

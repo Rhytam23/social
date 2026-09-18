@@ -9,6 +9,7 @@ export interface SecuritySettingsProps {
   onExportKeyBackup: (passphrase: string) => Promise<void>;
   onRestoreKeyBackup: (passphrase: string, backupJson: string) => Promise<void>;
   onRevokeDevice: (deviceId: string) => void;
+  onLogout?: () => void;
 }
 
 export const SecuritySettings: React.FC<SecuritySettingsProps> = ({
@@ -18,6 +19,7 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({
   onExportKeyBackup,
   onRestoreKeyBackup,
   onRevokeDevice,
+  onLogout,
 }) => {
   const [backupPassphrase, setBackupPassphrase] = useState('');
   const [restorePassphrase, setRestorePassphrase] = useState('');
@@ -244,6 +246,23 @@ export const SecuritySettings: React.FC<SecuritySettingsProps> = ({
           </button>
         </div>
       </div>
+
+      {/* 4. Session Sign Out */}
+      {onLogout && (
+        <div className="p-6 bg-slate-950/40 border border-slate-800 rounded-2xl flex items-center justify-between shadow-xs">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-bold text-slate-100">Sign Out</span>
+            <span className="text-xs text-slate-400">Lock your keys and end your session on this browser.</span>
+          </div>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="py-2.5 px-5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+          >
+            Sign Out
+          </button>
+        </div>
+      )}
     </div>
   );
 };

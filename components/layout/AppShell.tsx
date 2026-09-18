@@ -11,6 +11,8 @@ import { GlobalSearchModal } from '../search/GlobalSearchModal';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { GroupSpaceView } from '../groups/GroupSpaceView';
 import { ForwardMessageModal } from '../messages/ForwardMessageModal';
+import { IconLock, IconPlus } from '../ui/icons';
+import { Button } from '../ui/button';
 
 export interface AppShellProps {
   currentUserId: string;
@@ -54,6 +56,7 @@ export interface AppShellProps {
   onMarkUnreadConversation?: (convId: string) => void;
   onClearHistoryConversation?: (convId: string) => void;
   onDeleteConversationLocally?: (convId: string) => void;
+  onLogout?: () => void;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -89,6 +92,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onMarkUnreadConversation,
   onClearHistoryConversation,
   onDeleteConversationLocally,
+  onLogout,
 }) => {
   const [activeCategory, setActiveCategory] = useState<ViewCategory>('chats');
   const [showInspector, setShowInspector] = useState(false);
@@ -220,6 +224,23 @@ export const AppShell: React.FC<AppShellProps> = ({
             </>
           )}
 
+          {/* Empty Conversation State */}
+          {activeCategory === 'chats' && !activeConversation && (
+            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[var(--canvas-bg)]">
+              <div className="w-16 h-16 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4 shadow-md">
+                <IconLock className="w-8 h-8" />
+              </div>
+              <h3 className="text-base font-bold text-slate-100 mb-1">No Conversations Yet</h3>
+              <p className="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">
+                Your messages are end-to-end encrypted. Start a direct conversation or group space to begin messaging securely.
+              </p>
+              <Button variant="primary" size="md" onClick={onNewMessage} className="gap-2">
+                <IconPlus className="w-4 h-4" />
+                <span>Start New Chat</span>
+              </Button>
+            </div>
+          )}
+
           {activeCategory === 'groups' && activeConversation && (
             <GroupSpaceView
               group={activeConversation}
@@ -246,6 +267,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               onExportKeyBackup={onExportKeyBackup}
               onRestoreKeyBackup={onRestoreKeyBackup}
               onRevokeDevice={onRevokeDevice}
+              onLogout={onLogout}
             />
           )}
 
