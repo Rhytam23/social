@@ -10,7 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@signalapp/libsignal-client": "^0.102.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.1",
     "hash-wasm": "^4.12.0",

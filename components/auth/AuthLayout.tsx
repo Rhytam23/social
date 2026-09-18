@@ -67,7 +67,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
         {/* Security Footer Note */}
         <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 font-sans">
           <IconShield className="w-3.5 h-3.5 text-emerald-400/80" />
-          <span>Client-side Signal E2EE • Zero Plaintext Server Access</span>
+          <span>Client-side End-to-End Encryption • Zero Plaintext Server Access</span>
         </div>
       </div>
     </div>

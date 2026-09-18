@@ -2,8 +2,10 @@ import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { MessageData, ReplyReference } from '../../types/ui';
 import { IconFile, IconMic, IconPaperclip, IconSend, IconX } from '../ui/icons';
 
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
+
 export interface MessageComposerProps {
-  onSendMessage: (content: string, replyToId?: string, attachmentFile?: File) => void;
+  onSendMessage: (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number) => void;
   replyTarget?: ReplyReference;
   onClearReply?: () => void;
   editingMessage?: MessageData;
@@ -25,6 +27,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [composerError, setComposerError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -58,15 +61,22 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0]);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > MAX_FILE_BYTES) {
+      setComposerError(`"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB - the limit is 25MB.`);
+      e.target.value = '';
+      return;
     }
+    setComposerError(null);
+    setSelectedFile(file);
   };
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingSecondsRef = useRef(0);
 
   // Clean up recording resources on unmount
   useEffect(() => {
@@ -80,10 +90,11 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
   const handleStartVoiceRecord = async () => {
     if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
-      alert('Microphone access is not supported in your browser.');
+      setComposerError('Microphone access is not supported in this browser.');
       return;
     }
 
+    setComposerError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -118,7 +129,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
           const voiceFile = new File([audioBlob], `voice-note-${Date.now()}.${ext}`, {
             type: audioBlob.type,
           });
-          onSendMessage('', replyTarget?.id, voiceFile);
+          onSendMessage('', replyTarget?.id, voiceFile, recordingSecondsRef.current * 1000);
         }
         // Cleanup tracks
         stream.getTracks().forEach((track) => track.stop());
@@ -129,12 +140,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
       mediaRecorder.start(250);
       setIsRecordingVoice(true);
       setRecordingSeconds(0);
+      recordingSecondsRef.current = 0;
 
       timerRef.current = setInterval(() => {
-        setRecordingSeconds((prev) => prev + 1);
+        setRecordingSeconds((prev) => {
+          recordingSecondsRef.current = prev + 1;
+          return prev + 1;
+        });
       }, 1000);
     } catch {
-      alert('Microphone access was denied or is unavailable.');
+      setComposerError('Microphone access was denied or is unavailable.');
     }
   };
 
@@ -166,7 +181,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   return (
     <div className="p-3 sm:p-4 bg-gradient-to-t from-[var(--canvas-bg)] to-transparent flex flex-col gap-2 font-sans shrink-0">
       <div className="bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl p-2.5 shadow-lg flex flex-col gap-2 transition-all focus-within:border-slate-500/50">
-        
+
+        {composerError && (
+          <div className="flex items-center justify-between px-3 py-2 bg-rose-950/30 border border-rose-500/30 rounded-xl text-xs text-rose-300">
+            <span>{composerError}</span>
+            <button onClick={() => setComposerError(null)} className="p-1 text-rose-400 hover:text-white rounded-lg hover:bg-rose-900/40 transition-colors">
+              <IconX className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+
         {/* Editing Message Banner */}
         {editingMessage && (
           <div className="flex items-center justify-between px-3 py-2 bg-slate-950/60 border border-amber-500/30 rounded-xl text-xs">

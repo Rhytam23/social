@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { isSupabaseConfigured, isDemoModeAllowed } from "@/lib/supabase/env";
 
 export async function middleware(request: NextRequest) {
   const { supabase, user, supabaseResponse } = await updateSession(request);
@@ -15,12 +16,18 @@ export async function middleware(request: NextRequest) {
     "microphone=(self), camera=(), geolocation=()"
   );
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const isPlaceholderDev = !supabaseUrl || supabaseUrl.includes("placeholder");
-
-  // In local dev/prototype mode with placeholder credentials, bypass auth redirects
-  if (isPlaceholderDev) {
-    return supabaseResponse;
+  if (!isSupabaseConfigured()) {
+    // Only ever bypass auth gating in local development. A production
+    // deployment with missing/placeholder env vars is a misconfiguration and
+    // must fail loudly, not silently grant unauthenticated access to every
+    // route (this was previously a real security hole).
+    if (isDemoModeAllowed()) {
+      return supabaseResponse;
+    }
+    return new NextResponse(
+      "Server misconfiguration: Supabase environment variables are not set.",
+      { status: 500 }
+    );
   }
 
   // Protected user routes

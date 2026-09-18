@@ -1,66 +1,57 @@
-import {
-  PreKeyBundle,
-  PublicKey,
-  KEMPublicKey,
-  KEMKeyPair,
-  ProtocolAddress,
-  processPreKeyBundle,
-} from '@signalapp/libsignal-client';
-import { SignalKeyStore } from '../storage/keyStorage';
+import { getSodium } from '../sodium';
+import { DeviceKeyStore } from '../storage/keyStorage';
+import { base64ToBytes, concatBytes } from '../utils/encoding';
 
-export interface RemotePreKeyBundleParams {
-  registrationId: number;
-  deviceId: number;
-  identityPublicKeyB64: string;
-  signedPreKeyId: number;
-  signedPreKeyPublicKeyB64: string;
-  signedPreKeySignatureB64: string;
-  oneTimePreKeyId?: number;
-  oneTimePreKeyPublicKeyB64?: string;
-  kyberPreKeyId?: number;
-  kyberPreKeyPublicKeyB64?: string;
-  kyberPreKeySignatureB64?: string;
+/**
+ * "Session establishment" for a crypto_box (X25519) scheme is simply trusting
+ * the peer's long-term public key. There is no negotiated ratchet state to
+ * set up ahead of time - the first message IS the session. This module's job
+ * is caching that trusted key and computing a human-verifiable fingerprint of
+ * it, so the UI can show users something they can compare out-of-band (the
+ * same purpose Signal's "safety number" serves).
+ */
+export function registerPeerKey(
+  store: DeviceKeyStore,
+  userId: string,
+  deviceId: string,
+  identityPublicKeyB64: string
+): void {
+  store.savePeerKey(userId, deviceId, base64ToBytes(identityPublicKeyB64));
 }
 
-export async function establishOutboundSession(
-  localAddress: ProtocolAddress,
-  remoteAddress: ProtocolAddress,
-  remoteBundleParams: RemotePreKeyBundleParams,
-  store: SignalKeyStore
-): Promise<void> {
-  const identityKey = PublicKey.deserialize(Buffer.from(remoteBundleParams.identityPublicKeyB64, 'base64'));
-  const signedPreKey = PublicKey.deserialize(Buffer.from(remoteBundleParams.signedPreKeyPublicKeyB64, 'base64'));
-  const signedPreKeySignature = Buffer.from(remoteBundleParams.signedPreKeySignatureB64, 'base64');
-
-  let oneTimePreKey: PublicKey | null = null;
-  if (remoteBundleParams.oneTimePreKeyPublicKeyB64) {
-    oneTimePreKey = PublicKey.deserialize(Buffer.from(remoteBundleParams.oneTimePreKeyPublicKeyB64, 'base64'));
+function toHexGroups(bytes: Uint8Array, groupSize = 4): string {
+  const hex = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+    .toUpperCase();
+  const groups: string[] = [];
+  for (let i = 0; i < hex.length; i += groupSize) {
+    groups.push(hex.slice(i, i + groupSize));
   }
+  return groups.join('-');
+}
 
-  let kyberPublicKey: KEMPublicKey;
-  let kyberSignature: Uint8Array;
-  if (remoteBundleParams.kyberPreKeyPublicKeyB64 && remoteBundleParams.kyberPreKeySignatureB64) {
-    kyberPublicKey = KEMPublicKey.deserialize(Buffer.from(remoteBundleParams.kyberPreKeyPublicKeyB64, 'base64'));
-    kyberSignature = Buffer.from(remoteBundleParams.kyberPreKeySignatureB64, 'base64');
-  } else {
-    const dummyKp = KEMKeyPair.generate();
-    kyberPublicKey = dummyKp.getPublicKey();
-    kyberSignature = new Uint8Array(64);
-  }
+/** A short fingerprint of a single device's public key, for device lists. */
+export async function computeDeviceFingerprint(identityPublicKeyB64: string): Promise<string> {
+  const sodium = await getSodium();
+  const publicKey = base64ToBytes(identityPublicKeyB64);
+  const digest = sodium.crypto_generichash(16, publicKey, null);
+  return toHexGroups(digest);
+}
 
-  const bundle = PreKeyBundle.new(
-    remoteBundleParams.registrationId,
-    remoteBundleParams.deviceId,
-    remoteBundleParams.oneTimePreKeyId ?? null,
-    oneTimePreKey,
-    remoteBundleParams.signedPreKeyId,
-    signedPreKey,
-    signedPreKeySignature,
-    identityKey,
-    remoteBundleParams.kyberPreKeyId ?? 0,
-    kyberPublicKey,
-    kyberSignature as unknown as Uint8Array<ArrayBuffer>
-  );
-
-  await processPreKeyBundle(bundle, remoteAddress, localAddress, store, store);
+/**
+ * A combined, order-independent fingerprint of two parties' public keys -
+ * a "safety number" both sides can compute and compare to detect a
+ * man-in-the-middle key substitution.
+ */
+export async function computeSafetyNumber(
+  myPublicKeyB64: string,
+  theirPublicKeyB64: string
+): Promise<string> {
+  const sodium = await getSodium();
+  const a = myPublicKeyB64 < theirPublicKeyB64 ? myPublicKeyB64 : theirPublicKeyB64;
+  const b = myPublicKeyB64 < theirPublicKeyB64 ? theirPublicKeyB64 : myPublicKeyB64;
+  const combined = concatBytes(base64ToBytes(a), base64ToBytes(b));
+  const digest = sodium.crypto_generichash(20, combined, null);
+  return toHexGroups(digest, 5);
 }

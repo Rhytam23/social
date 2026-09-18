@@ -26,19 +26,23 @@ export interface AppShellProps {
 
   messagesMap: Record<string, MessageData[]>;
   messages: MessageData[];
-  onSendMessage: (content: string, replyToId?: string, attachmentFile?: File) => void;
+  onSendMessage: (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number) => void;
   onReactToMessage: (msgId: string, emoji: string) => void;
   onEditMessageSubmit?: (msgId: string, newContent: string) => void;
   onDeleteMessageLocal?: (msgId: string) => void;
   onForwardMessageToTarget?: (targetConvId: string, msg: MessageData) => void;
   onPinMessageToggle?: (msgId: string) => void;
   onStarMessageToggle?: (msgId: string) => void;
+  onDownloadAttachment?: (msgId: string, attachmentId: string) => void;
+  onRetryFailedMessage?: (msgId: string) => void;
+  onAddGroupMember?: (groupId: string, userId: string) => void;
+  onRemoveGroupMember?: (groupId: string, userId: string) => void;
 
   devices: DeviceItem[];
   users: UserItem[];
   invites: InviteItem[];
 
-  onGenerateInvite: () => Promise<string>;
+  onGenerateInvite: (assignedEmail: string) => Promise<string | null>;
   onRevokeInvite: (inviteId: string) => void;
   onToggleUserRole: (userId: string, currentRole: 'admin' | 'member') => void;
 
@@ -76,6 +80,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   onForwardMessageToTarget,
   onPinMessageToggle,
   onStarMessageToggle,
+  onDownloadAttachment,
+  onRetryFailedMessage,
+  onAddGroupMember,
+  onRemoveGroupMember,
   devices,
   users,
   invites,
@@ -107,6 +115,10 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const activeConversation =
     conversations.find((c) => c.id === activeConversationId) || conversations[0];
+
+  const groupConversations = conversations.filter((c) => c.type === 'group');
+  const activeGroupConversation =
+    (activeConversation?.type === 'group' ? activeConversation : undefined) || groupConversations[0];
 
   const unreadTotal = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
 
@@ -192,6 +204,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onForwardMessage={(msg) => setForwardingMessage(msg)}
                 onPinMessage={onPinMessageToggle}
                 onStarMessage={onStarMessageToggle}
+                onDownloadAttachment={onDownloadAttachment}
+                onRetryFailedMessage={onRetryFailedMessage}
                 editingMessage={editingMessage}
                 onSaveEditMessage={(msgId, newContent) => {
                   if (onEditMessageSubmit) onEditMessageSubmit(msgId, newContent);
@@ -242,13 +256,34 @@ export const AppShell: React.FC<AppShellProps> = ({
             </div>
           )}
 
-          {activeCategory === 'groups' && activeConversation && (
+          {activeCategory === 'groups' && activeGroupConversation && (
             <GroupSpaceView
-              group={activeConversation}
-              members={users}
-              messages={messages}
-              onOpenChat={() => setActiveCategory('chats')}
+              group={activeGroupConversation}
+              members={[
+                ...(activeGroupConversation.groupMeta?.memberIds?.includes(currentUserId)
+                  ? [{ id: currentUserId, name: currentUserName, registrationId: currentUserRegistrationId, role: currentUserRole, deviceCount: 1, joinedAt: '', identityFingerprint: '', presence: 'online' as const }]
+                  : []),
+                ...users.filter((u) => u.id !== currentUserId && activeGroupConversation.groupMeta?.memberIds?.includes(u.id)),
+              ]}
+              availableUsersToAdd={users.filter((u) => u.id !== currentUserId && !activeGroupConversation.groupMeta?.memberIds?.includes(u.id))}
+              messages={messagesMap[activeGroupConversation.id] || []}
+              onOpenChat={(id) => {
+                onSelectConversation(id);
+                setActiveCategory('chats');
+              }}
+              onAddMember={onAddGroupMember ? (userId) => onAddGroupMember(activeGroupConversation.id, userId) : undefined}
+              onRemoveMember={onRemoveGroupMember ? (userId) => onRemoveGroupMember(activeGroupConversation.id, userId) : undefined}
             />
+          )}
+
+          {activeCategory === 'groups' && !activeGroupConversation && (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center p-8">
+              <p className="text-sm text-slate-400 max-w-xs">You&apos;re not in any groups yet. Start a new chat and choose &quot;Group&quot; to create one.</p>
+              <Button variant="primary" size="sm" onClick={onNewMessage} className="flex items-center gap-1.5">
+                <IconPlus className="w-4 h-4" />
+                <span>Create Group</span>
+              </Button>
+            </div>
           )}
 
           {activeCategory === 'people' && (

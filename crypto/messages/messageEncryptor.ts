@@ -1,94 +1,68 @@
-import {
-  ProtocolAddress,
-  signalEncrypt,
-  signalDecrypt,
-  signalDecryptPreKey,
-  PreKeySignalMessage,
-  SignalMessage,
-  CiphertextMessageType,
-} from '@signalapp/libsignal-client';
-import { SignalKeyStore } from '../storage/keyStorage';
-
-function wasmToBuffer(u8: Uint8Array): Buffer {
-  return Buffer.from(u8.buffer, u8.byteOffset, u8.byteLength);
-}
+import { getSodium } from '../sodium';
+import { bytesToBase64, base64ToBytes, bytesToUtf8, utf8ToBytes } from '../utils/encoding';
 
 export interface EncryptedMessagePayload {
-  ciphertext: string; // Base64 encoded payload
-  nonce: string; // Base64 encoded message type & metadata
+  ciphertext: string; // Base64
+  nonce: string; // Base64, crypto_box_NONCEBYTES random bytes
   encryptionVersion: number;
 }
 
+// Version 1 was `window.btoa(content)` - not encryption at all. Version 2 is
+// real X25519 + XSalsa20-Poly1305 authenticated public-key encryption
+// (libsodium crypto_box). Bumping the version lets old fake-encrypted rows
+// (if any exist from a prior deploy) be detected and rejected instead of
+// silently mis-decrypted.
+export const MESSAGE_ENCRYPTION_VERSION = 2;
+
+/**
+ * Encrypts `plaintext` for a specific recipient device using their long-term
+ * X25519 public key. Authenticated: the recipient can verify it was sent by
+ * the holder of `myPrivateKeyB64`, and nobody without `theirPrivateKey` can
+ * read it - real E2EE. (See docs/20_E2EE_SPEC.md for why this replaces the
+ * originally-specified Signal Double Ratchet: libsignal-client cannot run in
+ * a browser.)
+ */
 export async function encrypt1to1Message(
   plaintext: string,
-  localAddress: ProtocolAddress,
-  remoteAddress: ProtocolAddress,
-  store: SignalKeyStore
+  myPrivateKeyB64: string,
+  theirPublicKeyB64: string
 ): Promise<EncryptedMessagePayload> {
-  const plaintextBuffer = Buffer.from(plaintext, 'utf-8');
-  const ciphertextMessage = await signalEncrypt(
-    plaintextBuffer,
-    remoteAddress,
-    localAddress,
-    store,
-    store
+  const sodium = await getSodium();
+  const nonce = sodium.randombytes_buf(sodium.crypto_box_NONCEBYTES);
+  const ciphertext = sodium.crypto_box_easy(
+    utf8ToBytes(plaintext),
+    nonce,
+    base64ToBytes(theirPublicKeyB64),
+    base64ToBytes(myPrivateKeyB64)
   );
 
-  const serializedCiphertext = wasmToBuffer(ciphertextMessage.serialize()).toString('base64');
-  const messageType = ciphertextMessage.type();
-
-  const metadataJson = JSON.stringify({
-    type: messageType,
-    senderDevice: localAddress.deviceId(),
-  });
-
   return {
-    ciphertext: serializedCiphertext,
-    nonce: Buffer.from(metadataJson, 'utf-8').toString('base64'),
-    encryptionVersion: 1,
+    ciphertext: bytesToBase64(ciphertext),
+    nonce: bytesToBase64(nonce),
+    encryptionVersion: MESSAGE_ENCRYPTION_VERSION,
   };
 }
 
 export async function decrypt1to1Message(
   payload: EncryptedMessagePayload,
-  localAddress: ProtocolAddress,
-  remoteAddress: ProtocolAddress,
-  store: SignalKeyStore
+  myPrivateKeyB64: string,
+  theirPublicKeyB64: string
 ): Promise<string> {
-  const ciphertextBuffer = Buffer.from(payload.ciphertext, 'base64');
-  const metadataJson = Buffer.from(payload.nonce, 'base64').toString('utf-8');
-  const metadata = JSON.parse(metadataJson);
-
-  let decryptedBuffer: Buffer;
-
-  if (metadata.type === CiphertextMessageType.PreKey) {
-    const preKeyMsg = PreKeySignalMessage.deserialize(ciphertextBuffer);
-    decryptedBuffer = Buffer.from(
-      await signalDecryptPreKey(
-        preKeyMsg,
-        remoteAddress,
-        localAddress,
-        store,
-        store,
-        store,
-        store,
-        store
-      )
-    );
-  } else if (metadata.type === CiphertextMessageType.Whisper) {
-    const signalMsg = SignalMessage.deserialize(ciphertextBuffer);
-    decryptedBuffer = Buffer.from(
-      await signalDecrypt(
-        signalMsg,
-        remoteAddress,
-        localAddress,
-        store,
-        store
-      )
-    );
-  } else {
-    throw new Error(`Unsupported Signal message type: ${metadata.type}`);
+  if (payload.encryptionVersion !== MESSAGE_ENCRYPTION_VERSION) {
+    throw new Error(`Unsupported message encryption version: ${payload.encryptionVersion}`);
   }
 
-  return Buffer.from(decryptedBuffer).toString('utf-8');
+  const sodium = await getSodium();
+  const plaintextBytes = sodium.crypto_box_open_easy(
+    base64ToBytes(payload.ciphertext),
+    base64ToBytes(payload.nonce),
+    base64ToBytes(theirPublicKeyB64),
+    base64ToBytes(myPrivateKeyB64)
+  );
+
+  if (!plaintextBytes) {
+    throw new Error('Decryption failed: ciphertext is invalid, tampered, or from the wrong sender');
+  }
+
+  return bytesToUtf8(plaintextBytes);
 }

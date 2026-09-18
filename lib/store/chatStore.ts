@@ -1,4 +1,11 @@
-import { ConversationItem, MessageData, UserItem, DeviceItem, InviteItem } from '../../types/ui';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { ConversationItem, MessageData, UserItem, DeviceItem, InviteItem, AttachmentItem } from '../../types/ui';
+import type { Database } from '../../types/database';
+import { MessagingCrypto } from '../messaging/messagingCrypto';
+import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
+import { uploadEncryptedAttachment, downloadAndDecryptAttachment, MAX_ATTACHMENT_BYTES } from '../messaging/attachments';
+import type { MessageEnvelope } from '../messaging/envelope';
+import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
 
 export type StoreMode = 'connected' | 'demo';
 
@@ -10,315 +17,191 @@ export interface ChatStoreState {
   conversations: ConversationItem[];
   activeConversationId: string;
   messagesMap: Record<string, MessageData[]>;
+  messagesLoading: Record<string, boolean>;
   devices: DeviceItem[];
   invites: InviteItem[];
+  error: string | null;
 }
 
 type Listener = () => void;
 
-const STORAGE_KEY = 'private_chat_v1_store_data';
-const CURRENT_USER_KEY = 'private_chat_v1_current_user_id';
-const BROADCAST_CHANNEL_NAME = 'private_chat_v1_channel';
+const STORAGE_KEY = 'private_chat_v1_demo_store';
+const CURRENT_USER_KEY = 'private_chat_v1_demo_current_user_id';
+const BROADCAST_CHANNEL_NAME = 'private_chat_v1_demo_channel';
+const VIEW_PREFS_KEY_PREFIX = 'private_chat_v1_view_prefs_';
 
-const INITIAL_USERS: UserItem[] = [
+// ============================================================
+// Local DEMO mode only (see lib/supabase/env.ts#isDemoModeAllowed).
+// Never reachable in production - it exists purely so the UI can be
+// previewed without provisioning Supabase. Nothing here talks to a real
+// backend, and it must stay unmistakably separate from the real (mode ===
+// 'connected') implementation below.
+// ============================================================
+
+const DEMO_USERS: UserItem[] = [
+  { id: 'usr-alice', name: 'Alice Vance', registrationId: 84920, role: 'admin', deviceCount: 2, joinedAt: 'Sep 1, 2026', identityFingerprint: '45A8-99F1-20B3-881C-00D9-FF41-92A3-77E5', presence: 'online' },
+  { id: 'usr-bob', name: 'Bob Miller', registrationId: 10482, role: 'member', deviceCount: 1, joinedAt: 'Sep 1, 2026', identityFingerprint: '992A-44B1-0081-F09C-1192-33E4-AA11-22BB', presence: 'online' },
+  { id: 'usr-carol', name: 'Carol Danvers', registrationId: 30291, role: 'member', deviceCount: 1, joinedAt: 'Sep 2, 2026', identityFingerprint: '77A1-88C2-11D0-99E1-44B2-55C3-CC33-44DD', presence: 'away' },
+  { id: 'usr-david', name: 'David Wright', registrationId: 90218, role: 'member', deviceCount: 3, joinedAt: 'Aug 28, 2026', identityFingerprint: '11B2-22C3-33D4-44E5-55F6-66A7-EE55-66FF', presence: 'offline' },
+];
+
+const DEMO_CONVERSATIONS: ConversationItem[] = [
   {
-    id: 'usr-alice',
-    name: 'Alice Vance',
-    registrationId: 84920,
-    role: 'admin',
-    deviceCount: 2,
-    joinedAt: 'Sep 1, 2026',
-    identityFingerprint: '45A8-99F1-20B3-881C-00D9-FF41-92A3-77E5',
-    presence: 'online',
+    id: 'conv-alice-bob', title: 'Bob Miller', type: 'direct', unreadCount: 0, isPinned: true,
+    lastMessage: { snippet: 'Welcome to Private Chat! (demo data)', timestamp: '10:30 AM', status: 'read' },
+    recipientUser: { id: 'usr-bob', name: 'Bob Miller', registrationId: 10482, identityFingerprint: '992A-44B1-0081-F09C-1192-33E4-AA11-22BB', isVerified: true, presence: 'online' },
   },
   {
-    id: 'usr-bob',
-    name: 'Bob Miller',
-    registrationId: 10482,
-    role: 'member',
-    deviceCount: 1,
-    joinedAt: 'Sep 1, 2026',
-    identityFingerprint: '992A-44B1-0081-F09C-1192-33E4-AA11-22BB',
-    presence: 'online',
-  },
-  {
-    id: 'usr-carol',
-    name: 'Carol Danvers',
-    registrationId: 30291,
-    role: 'member',
-    deviceCount: 1,
-    joinedAt: 'Sep 2, 2026',
-    identityFingerprint: '77A1-88C2-11D0-99E1-44B2-55C3-CC33-44DD',
-    presence: 'away',
-  },
-  {
-    id: 'usr-david',
-    name: 'David Wright',
-    registrationId: 90218,
-    role: 'member',
-    deviceCount: 3,
-    joinedAt: 'Aug 28, 2026',
-    identityFingerprint: '11B2-22C3-33D4-44E5-55F6-66A7-EE55-66FF',
-    presence: 'offline',
+    id: 'conv-security-team', title: 'Security Architecture Group', type: 'group', unreadCount: 0,
+    lastMessage: { snippet: 'This is local demo data, not a real conversation.', timestamp: '09:15 AM', status: 'read' },
+    groupMeta: { groupId: 'grp-security', memberCount: 4, senderKeyVersion: 1, memberIds: ['usr-alice', 'usr-bob', 'usr-carol', 'usr-david'] },
   },
 ];
 
-const INITIAL_CONVERSATIONS: ConversationItem[] = [
-  {
-    id: 'conv-alice-bob',
-    title: 'Bob Miller',
-    type: 'direct',
-    unreadCount: 0,
-    isPinned: true,
-    lastMessage: {
-      snippet: 'Welcome to Private Chat! Signals are verified.',
-      timestamp: '10:30 AM',
-      status: 'read',
-    },
-    recipientUser: {
-      id: 'usr-bob',
-      name: 'Bob Miller',
-      registrationId: 10482,
-      identityFingerprint: '992A-44B1-0081-F09C-1192-33E4-AA11-22BB',
-      isVerified: true,
-      presence: 'online',
-    },
-  },
-  {
-    id: 'conv-security-team',
-    title: 'Security Architecture Group',
-    type: 'group',
-    unreadCount: 0,
-    lastMessage: {
-      snippet: 'End-to-end Signal Sender Keys initialized.',
-      timestamp: '09:15 AM',
-      status: 'read',
-    },
-    groupMeta: {
-      groupId: 'grp-security',
-      memberCount: 4,
-      senderKeyVersion: 1,
-    },
-  },
-];
-
-const INITIAL_MESSAGES: Record<string, MessageData[]> = {
+const DEMO_MESSAGES: Record<string, MessageData[]> = {
   'conv-alice-bob': [
-    {
-      id: 'msg-init-1',
-      conversationId: 'conv-alice-bob',
-      senderId: 'usr-bob',
-      senderName: 'Bob Miller',
-      isSelf: false,
-      content: 'Hey Alice! Ready to test client-side private messaging.',
-      timestamp: '10:28 AM',
-      status: 'read',
-      reactions: [{ emoji: '👋', count: 1, userReacted: true }],
-      encryptionVersion: 1,
-    },
-    {
-      id: 'msg-init-2',
-      conversationId: 'conv-alice-bob',
-      senderId: 'usr-alice',
-      senderName: 'Alice Vance',
-      isSelf: true,
-      content: 'Welcome to Private Chat! Signals are verified.',
-      timestamp: '10:30 AM',
-      status: 'read',
-      replyTo: {
-        id: 'msg-init-1',
-        senderName: 'Bob Miller',
-        snippet: 'Hey Alice! Ready to test client-side private messaging.',
-      },
-      reactions: [{ emoji: '🔒', count: 1, userReacted: false }],
-      encryptionVersion: 1,
-    },
+    { id: 'msg-init-1', conversationId: 'conv-alice-bob', senderId: 'usr-bob', senderName: 'Bob Miller', isSelf: false, content: 'Hey Alice! This is local demo mode - nothing here is sent to a server.', timestamp: '10:28 AM', status: 'read', reactions: [{ emoji: '👋', count: 1, userReacted: true }], encryptionVersion: 0 },
+    { id: 'msg-init-2', conversationId: 'conv-alice-bob', senderId: 'usr-alice', senderName: 'Alice Vance', isSelf: true, content: 'Welcome to Private Chat! (demo data, not encrypted)', timestamp: '10:30 AM', status: 'read', replyTo: { id: 'msg-init-1', senderName: 'Bob Miller', snippet: 'Hey Alice! This is local demo mode - nothing here is sent to a server.' }, reactions: [{ emoji: '🔒', count: 1, userReacted: false }], encryptionVersion: 0 },
   ],
   'conv-security-team': [
-    {
-      id: 'gmsg-init-1',
-      conversationId: 'conv-security-team',
-      senderId: 'usr-alice',
-      senderName: 'Alice Vance',
-      isSelf: true,
-      content: 'End-to-end Signal Sender Keys initialized.',
-      timestamp: '09:15 AM',
-      status: 'read',
-      reactions: [{ emoji: '🚀', count: 3, userReacted: true }],
-      encryptionVersion: 1,
-    },
+    { id: 'gmsg-init-1', conversationId: 'conv-security-team', senderId: 'usr-alice', senderName: 'Alice Vance', isSelf: true, content: 'This is local demo data, not a real conversation.', timestamp: '09:15 AM', status: 'read', reactions: [{ emoji: '🚀', count: 3, userReacted: true }], encryptionVersion: 0 },
   ],
 };
 
-const INITIAL_DEVICES: DeviceItem[] = [
-  {
-    id: 'dev-primary',
-    deviceName: 'Primary Workstation (Web)',
-    registrationId: 84920,
-    lastActive: 'Active now',
-    isCurrentDevice: true,
-  },
-  {
-    id: 'dev-mobile',
-    deviceName: 'Mobile Client (iOS)',
-    registrationId: 84921,
-    lastActive: '20 minutes ago',
-    isCurrentDevice: false,
-  },
+const DEMO_DEVICES: DeviceItem[] = [
+  { id: 'dev-primary', deviceName: 'Primary Workstation (Web)', registrationId: 84920, lastActive: 'Active now', isCurrentDevice: true },
 ];
 
-const INITIAL_INVITES: InviteItem[] = [
-  {
-    id: 'inv-1',
-    token: 'INV-SEC-8821-V1',
-    createdByName: 'Alice Vance',
-    createdAt: 'Sep 3, 2026',
-    status: 'pending',
-  },
+const DEMO_INVITES: InviteItem[] = [
+  { id: 'inv-1', token: 'newhire@example.com', createdByName: 'Alice Vance', createdAt: 'Sep 3, 2026', status: 'pending' },
 ];
+
+// ============================================================
+// Shared helpers
+// ============================================================
+
+function nowTimestamp(): string {
+  return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+function envelopeToDisplay(envelope: MessageEnvelope | null, decryptError?: string): { content: string; attachments?: AttachmentItem[] } {
+  if (!envelope) {
+    return { content: decryptError ? `[Unable to decrypt: ${decryptError}]` : '' };
+  }
+
+  if (envelope.kind === 'text') {
+    return { content: envelope.text };
+  }
+
+  const isVoice = envelope.kind === 'voice';
+  const attachment: AttachmentItem = {
+    id: envelope.attachment.storagePath,
+    fileName: envelope.attachment.fileName,
+    fileSize: formatFileSize(envelope.attachment.size),
+    mimeType: envelope.attachment.mimeType,
+    isEncrypted: true,
+    isVoiceNote: isVoice,
+    duration: isVoice ? formatDuration(envelope.durationMs) : undefined,
+    storagePath: envelope.attachment.storagePath,
+    keyB64: envelope.attachment.keyB64,
+    ivB64: envelope.attachment.ivB64,
+  };
+
+  return { content: envelope.kind === 'attachment' ? envelope.text || '' : '', attachments: [attachment] };
+}
+
+function summaryToConversationItem(summary: ConversationSummary, existing?: ConversationItem): ConversationItem {
+  return {
+    id: summary.id,
+    title: summary.type === 'private' ? summary.otherParticipant?.displayName || 'Direct message' : summary.name || 'Group',
+    type: summary.type === 'private' ? 'direct' : 'group',
+    unreadCount: existing?.unreadCount ?? 0,
+    isPinned: existing?.isPinned,
+    isMuted: existing?.isMuted,
+    isArchived: existing?.isArchived,
+    lastMessage: existing?.lastMessage || { snippet: 'No messages yet', timestamp: '' },
+    recipientUser:
+      summary.type === 'private' && summary.otherParticipant
+        ? {
+            id: summary.otherParticipant.id,
+            name: summary.otherParticipant.displayName,
+            registrationId: 0,
+            identityFingerprint: '',
+            isVerified: false,
+            presence: 'offline',
+          }
+        : undefined,
+    groupMeta:
+      summary.type === 'group'
+        ? { groupId: summary.id, memberCount: summary.memberCount, senderKeyVersion: 1, memberIds: summary.memberIds }
+        : undefined,
+  };
+}
+
+function decryptedRowToMessage(row: DecryptedMessageRow, currentUserId: string, senderName: string): MessageData {
+  const { content, attachments } = row.deletedAt
+    ? { content: '', attachments: undefined }
+    : envelopeToDisplay(row.envelope, row.decryptError);
+
+  return {
+    id: row.id,
+    conversationId: row.conversationId,
+    senderId: row.senderId,
+    senderName,
+    isSelf: row.senderId === currentUserId,
+    content,
+    timestamp: new Date(row.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    status: 'delivered',
+    reactions: [],
+    attachments,
+    encryptionVersion: 2,
+    isEdited: !!row.editedAt,
+    isDeletedLocally: !!row.deletedAt,
+  };
+}
 
 export class ChatStore {
   private state: ChatStoreState;
   private listeners: Set<Listener> = new Set();
   private broadcastChannel: BroadcastChannel | null = null;
 
+  // Real-mode session context, set by initializeForUser() after login.
+  private supabase: SupabaseClient<Database> | null = null;
+  private crypto: MessagingCrypto | null = null;
+  private conversationSummaries: Map<string, ConversationSummary> = new Map();
+  private loadedConversations: Set<string> = new Set();
+  private participantNames: Map<string, string> = new Map();
+
   constructor() {
-    const isSupabaseConfigured =
-      typeof process !== 'undefined' &&
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
-
-    const mode: StoreMode = isSupabaseConfigured ? 'connected' : 'demo';
-
     this.state = {
-      mode,
+      mode: 'demo',
       isLoading: true,
-      currentUser: INITIAL_USERS[0],
-      allUsers: INITIAL_USERS,
-      conversations: INITIAL_CONVERSATIONS,
-      activeConversationId: INITIAL_CONVERSATIONS[0].id,
-      messagesMap: INITIAL_MESSAGES,
-      devices: INITIAL_DEVICES,
-      invites: INITIAL_INVITES,
+      currentUser: DEMO_USERS[0],
+      allUsers: [],
+      conversations: [],
+      activeConversationId: '',
+      messagesMap: {},
+      messagesLoading: {},
+      devices: [],
+      invites: [],
+      error: null,
     };
-
-    if (typeof window !== 'undefined') {
-      this.initClientStore();
-    }
   }
 
-  private initClientStore() {
-    try {
-      if ('BroadcastChannel' in window) {
-        this.broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
-        this.broadcastChannel.onmessage = (event) => {
-          this.handleBroadcastEvent(event.data);
-        };
-      }
-
-      const savedData = localStorage.getItem(STORAGE_KEY);
-      const savedUserId = localStorage.getItem(CURRENT_USER_KEY);
-
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        if (parsed.allUsers && parsed.conversations && parsed.messagesMap) {
-          this.state.allUsers = parsed.allUsers;
-          this.state.conversations = parsed.conversations;
-          this.state.messagesMap = parsed.messagesMap;
-          this.state.devices = parsed.devices || INITIAL_DEVICES;
-          this.state.invites = parsed.invites || INITIAL_INVITES;
-        }
-      }
-
-      const activeUser =
-        this.state.allUsers.find((u) => u.id === savedUserId) || this.state.allUsers[0];
-      this.state.currentUser = activeUser;
-
-      if (this.state.conversations.length > 0) {
-        this.state.activeConversationId = this.state.conversations[0].id;
-      }
-
-      this.state.isLoading = false;
-      this.notify();
-    } catch {
-      this.state.isLoading = false;
-      this.notify();
-    }
-  }
-
-  private persist() {
-    if (typeof window === 'undefined') return;
-    try {
-      const dataToSave = {
-        allUsers: this.state.allUsers,
-        conversations: this.state.conversations,
-        messagesMap: this.state.messagesMap,
-        devices: this.state.devices,
-        invites: this.state.invites,
-      };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
-      localStorage.setItem(CURRENT_USER_KEY, this.state.currentUser.id);
-    } catch {
-      // Ignore local storage quota limits safely
-    }
-  }
-
-  private broadcast(type: string, payload: unknown) {
-    if (this.broadcastChannel) {
-      this.broadcastChannel.postMessage({ type, payload, senderId: this.state.currentUser.id });
-    }
-  }
-
-  private handleBroadcastEvent(data: { type: string; payload: unknown; senderId?: string }) {
-    if (!data) return;
-
-    if (data.type === 'MESSAGE_SENT') {
-      const newMsg = data.payload as MessageData;
-      const convId = newMsg.conversationId;
-
-      this.state.messagesMap = {
-        ...this.state.messagesMap,
-        [convId]: [...(this.state.messagesMap[convId] || []).filter((m) => m.id !== newMsg.id), newMsg],
-      };
-
-      this.state.conversations = this.state.conversations.map((c) => {
-        if (c.id === convId) {
-          const isCurrentActive = this.state.activeConversationId === convId;
-          const isSender = newMsg.senderId === this.state.currentUser.id;
-          const newUnread = !isCurrentActive && !isSender ? c.unreadCount + 1 : c.unreadCount;
-          return {
-            ...c,
-            unreadCount: newUnread,
-            lastMessage: {
-              snippet: newMsg.content || (newMsg.attachments?.[0]?.fileName ? `Attachment: ${newMsg.attachments[0].fileName}` : 'New message'),
-              timestamp: newMsg.timestamp,
-              status: newMsg.status,
-            },
-          };
-        }
-        return c;
-      });
-
-      this.persist();
-      this.notify();
-    } else if (data.type === 'CONVERSATION_CREATED') {
-      const newConv = data.payload as ConversationItem;
-      if (!this.state.conversations.some((c) => c.id === newConv.id)) {
-        this.state.conversations = [newConv, ...this.state.conversations];
-        this.persist();
-        this.notify();
-      }
-    } else if (data.type === 'REACTION_UPDATED' || data.type === 'MESSAGE_EDITED' || data.type === 'MESSAGE_DELETED') {
-      const savedData = localStorage.getItem(STORAGE_KEY);
-      if (savedData) {
-        const parsed = JSON.parse(savedData);
-        if (parsed.messagesMap) {
-          this.state.messagesMap = parsed.messagesMap;
-          this.notify();
-        }
-      }
-    }
-  }
+  // --- Core store plumbing ---
 
   public getState(): ChatStoreState {
     return this.state;
@@ -330,534 +213,744 @@ export class ChatStore {
   }
 
   private notify() {
+    // Many methods in this class mutate individual properties of `this.state`
+    // in place (e.g. `this.state.messagesMap = {...}`) rather than going
+    // through setState(). That's fine for the nested value itself, but the
+    // top-level `this.state` object reference never changes as a result, and
+    // useSyncExternalStore only re-renders when getSnapshot() returns a
+    // reference that differs (via Object.is) from the last one it read.
+    // Cloning the top level here - exactly once per notify(), never between
+    // notifies - guarantees every call to notify() produces a genuinely new
+    // snapshot without risking the infinite-loop React warns about if
+    // getSnapshot() itself always returned a fresh object.
+    this.state = { ...this.state };
     this.listeners.forEach((listener) => listener());
   }
 
-  public setUserProfile(profile: Partial<UserItem> & { id: string; name: string }) {
-    const regId =
-      profile.registrationId ||
-      Math.abs(parseInt(profile.id.replace(/-/g, '').slice(0, 8), 16) % 90000) + 10000;
-
-    this.state.currentUser = {
-      id: profile.id,
-      name: profile.name,
-      username: profile.username,
-      email: profile.email,
-      phoneNumber: profile.phoneNumber,
-      registrationId: regId,
-      role: profile.role || 'member',
-      deviceCount: profile.deviceCount || 1,
-      joinedAt: profile.joinedAt || 'Active',
-      identityFingerprint:
-        profile.identityFingerprint ||
-        (profile.id.replace(/-/g, '').slice(0, 16) + '...').toUpperCase(),
-      presence: 'online',
-    };
-    this.persist();
+  private setState(patch: Partial<ChatStoreState>) {
+    this.state = { ...this.state, ...patch };
     this.notify();
   }
 
-  public setConversations(conversations: ConversationItem[]) {
-    this.state.conversations = conversations;
-    if (
-      conversations.length > 0 &&
-      !conversations.some((c) => c.id === this.state.activeConversationId)
-    ) {
-      this.state.activeConversationId = conversations[0].id;
-    }
-    this.persist();
-    this.notify();
-  }
-
-  public setMessagesForConversation(conversationId: string, messages: MessageData[]) {
+  private updateMessage(conversationId: string, messageId: string, patch: Partial<MessageData>) {
+    const list = this.state.messagesMap[conversationId] || [];
     this.state.messagesMap = {
       ...this.state.messagesMap,
-      [conversationId]: messages,
+      [conversationId]: list.map((m) => (m.id === messageId ? { ...m, ...patch } : m)),
     };
-    this.persist();
     this.notify();
   }
 
-  public receiveSupabaseMessage(payload: {
-    id: string;
-    conversation_id: string;
-    sender_id: string;
-    sender_name?: string;
-    content?: string;
-    ciphertext?: string;
-    nonce?: string;
-    created_at: string;
-    reply_to_id?: string | null;
-    reply_to_message_id?: string | null;
-    attachments?: Array<{ id: string; fileName: string; fileSize?: string; mimeType: string; isEncrypted?: boolean }>;
-    reactions?: Array<{ emoji: string; count: number; userReacted?: boolean }>;
-  }) {
-    const convId = payload.conversation_id;
-    const isSelf = payload.sender_id === this.state.currentUser.id;
-    const currentMsgs = this.state.messagesMap[convId] || [];
+  // --- Local per-device view preferences (pin/mute/archive) ---
+  // Legitimate use of localStorage: this is per-viewer UI state, not message
+  // content or a substitute for the real Supabase-backed message store.
 
-    // Deduplicate
-    if (currentMsgs.some((m) => m.id === payload.id)) return;
+  private viewPrefsKey(): string {
+    return `${VIEW_PREFS_KEY_PREFIX}${this.state.currentUser.id}`;
+  }
 
-    let content = payload.content || payload.ciphertext || '';
-    if (payload.ciphertext && !payload.content) {
-      try {
-        if (typeof window !== 'undefined' && window.atob) {
-          content = window.atob(payload.ciphertext);
+  private loadViewPrefs(): Record<string, { pinned?: boolean; muted?: boolean; archived?: boolean }> {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(this.viewPrefsKey());
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  private saveViewPrefs(prefs: Record<string, { pinned?: boolean; muted?: boolean; archived?: boolean }>) {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(this.viewPrefsKey(), JSON.stringify(prefs));
+    } catch {
+      // Ignore storage quota errors.
+    }
+  }
+
+  private applyViewPrefs(conversations: ConversationItem[]): ConversationItem[] {
+    const prefs = this.loadViewPrefs();
+    return conversations
+      .map((c) => ({ ...c, isPinned: !!prefs[c.id]?.pinned, isMuted: !!prefs[c.id]?.muted, isArchived: !!prefs[c.id]?.archived }))
+      .filter((c) => !c.isArchived);
+  }
+
+  // ============================================================
+  // REAL (Supabase-backed) mode
+  // ============================================================
+
+  public async initializeForUser(
+    supabase: SupabaseClient<Database>,
+    crypto: MessagingCrypto,
+    profile: { id: string; name: string; username?: string; email?: string; phoneNumber?: string; role: 'admin' | 'member' }
+  ): Promise<void> {
+    this.supabase = supabase;
+    this.crypto = crypto;
+
+    const fingerprint = crypto.hasIdentity() ? await crypto.myFingerprint() : '';
+
+    this.setState({
+      mode: 'connected',
+      isLoading: true,
+      error: null,
+      currentUser: {
+        id: profile.id,
+        name: profile.name,
+        username: profile.username,
+        email: profile.email,
+        phoneNumber: profile.phoneNumber,
+        registrationId: Math.abs(hashCode(profile.id)) % 90000 + 10000,
+        role: profile.role,
+        deviceCount: 1,
+        joinedAt: 'Active',
+        identityFingerprint: fingerprint,
+        presence: 'online',
+      },
+    });
+
+    try {
+      await Promise.all([this.loadConversationsReal(), this.loadAllUsersReal(), this.loadDevicesReal(), this.loadInvitesReal()]);
+    } catch (err) {
+      this.setState({ error: err instanceof Error ? err.message : 'Failed to load your data' });
+    } finally {
+      this.setState({ isLoading: false });
+    }
+  }
+
+  private async loadConversationsReal(): Promise<void> {
+    if (!this.supabase) return;
+    const summaries = await fetchConversations(this.supabase, this.state.currentUser.id);
+    this.conversationSummaries = new Map(summaries.map((s) => [s.id, s]));
+    for (const s of summaries) {
+      if (s.otherParticipant) this.participantNames.set(s.otherParticipant.id, s.otherParticipant.displayName);
+    }
+
+    const existingById = new Map(this.state.conversations.map((c) => [c.id, c]));
+    const items = this.applyViewPrefs(summaries.map((s) => summaryToConversationItem(s, existingById.get(s.id))));
+
+    this.setState({
+      conversations: items,
+      activeConversationId: this.state.activeConversationId || items[0]?.id || '',
+    });
+
+    // Best-effort safety-number computation for each 1:1 conversation, so
+    // Settings -> Verify safety number shows a real, comparable fingerprint
+    // instead of an empty string.
+    if (this.crypto) {
+      await Promise.all(
+        summaries
+          .filter((s) => s.type === 'private' && s.otherParticipant)
+          .map(async (s) => {
+            try {
+              const peer = await this.crypto!.getPeerDevice(s.otherParticipant!.id);
+              if (!peer) return;
+              const safetyNumber = await computeSafetyNumber(this.crypto!.myPublicKeyB64(), peer.publicKeyB64);
+              this.state.conversations = this.state.conversations.map((c) =>
+                c.id === s.id && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, identityFingerprint: safetyNumber } } : c
+              );
+            } catch {
+              // Peer hasn't set up a device yet - leave the fingerprint blank.
+            }
+          })
+      );
+      this.notify();
+    }
+
+    // Best-effort last-message preview for each conversation.
+    await Promise.all(
+      summaries.map(async (s) => {
+        try {
+          const history = await fetchMessageHistory(this.supabase!, this.crypto!, s, 1);
+          const last = history[history.length - 1];
+          if (!last) return;
+          const { content } = envelopeToDisplay(last.envelope, last.decryptError);
+          this.state.conversations = this.state.conversations.map((c) =>
+            c.id === s.id
+              ? { ...c, lastMessage: { snippet: content || (last.envelope?.kind !== 'text' ? 'Attachment' : ''), timestamp: new Date(last.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } }
+              : c
+          );
+        } catch {
+          // Preview is best-effort only; leave the default snippet.
         }
-      } catch {
-        content = payload.ciphertext;
-      }
-    }
-
-    const timestamp = new Date(payload.created_at).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    const replyId = payload.reply_to_id || payload.reply_to_message_id;
-
-    const newMsg: MessageData = {
-      id: payload.id,
-      conversationId: convId,
-      senderId: payload.sender_id,
-      senderName: payload.sender_name || (isSelf ? this.state.currentUser.name : 'Contact'),
-      isSelf,
-      content,
-      timestamp,
-      status: 'delivered',
-      replyTo: replyId
-        ? {
-            id: replyId,
-            senderName: 'Message',
-            snippet: 'Quoted message',
-          }
-        : undefined,
-      reactions: Array.isArray(payload.reactions)
-        ? payload.reactions.map((r) => ({
-            emoji: r.emoji,
-            count: r.count,
-            userReacted: Boolean(r.userReacted),
-          }))
-        : [],
-      attachments: Array.isArray(payload.attachments)
-        ? payload.attachments.map((a) => ({
-            id: a.id,
-            fileName: a.fileName,
-            fileSize: a.fileSize || '0 KB',
-            mimeType: a.mimeType || 'application/octet-stream',
-            isEncrypted: a.isEncrypted ?? true,
-          }))
-        : undefined,
-      encryptionVersion: 1,
-    };
-
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [convId]: [...currentMsgs, newMsg],
-    };
-
-    this.state.conversations = this.state.conversations.map((c) => {
-      if (c.id === convId) {
-        const isCurrentActive = this.state.activeConversationId === convId;
-        const newUnread = !isCurrentActive && !isSelf ? c.unreadCount + 1 : c.unreadCount;
-        return {
-          ...c,
-          unreadCount: newUnread,
-          lastMessage: {
-            snippet: content || (newMsg.attachments?.length ? 'Sent attachment' : ''),
-            timestamp,
-            status: 'delivered',
-          },
-        };
-      }
-      return c;
-    });
-
-    this.persist();
+      })
+    );
     this.notify();
   }
 
-  public logout() {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.removeItem(CURRENT_USER_KEY);
-      } catch {
-        // Ignore
-      }
-    }
-    this.state.conversations = [];
-    this.state.messagesMap = {};
-    this.state.activeConversationId = '';
-    this.notify();
+  private async loadAllUsersReal(): Promise<void> {
+    const res = await fetch('/api/users');
+    if (!res.ok) return;
+    const profiles = (await res.json()) as Array<{ id: string; username: string; display_name: string; avatar_url: string | null }>;
+    const users: UserItem[] = profiles.map((p) => ({
+      id: p.id,
+      name: p.display_name,
+      username: p.username,
+      registrationId: Math.abs(hashCode(p.id)) % 90000 + 10000,
+      role: 'member',
+      deviceCount: 1,
+      joinedAt: '',
+      identityFingerprint: '',
+      presence: 'offline',
+    }));
+    this.setState({ allUsers: users });
+  }
+
+  private async loadDevicesReal(): Promise<void> {
+    if (!this.supabase || !this.crypto) return;
+    const { data } = await this.supabase
+      .from('user_devices')
+      .select('device_id, identity_public_key, last_seen_at')
+      .eq('user_id', this.state.currentUser.id)
+      .order('last_seen_at', { ascending: false });
+
+    const myDeviceId = this.crypto.myDeviceId();
+    const devices: DeviceItem[] = await Promise.all(
+      (data || []).map(async (d) => ({
+        id: d.device_id,
+        deviceName: d.device_id === myDeviceId ? 'This device' : `Device ${(await computeDeviceFingerprint(d.identity_public_key)).slice(0, 9)}`,
+        registrationId: 0,
+        lastActive: new Date(d.last_seen_at).toLocaleString(),
+        isCurrentDevice: d.device_id === myDeviceId,
+      }))
+    );
+    this.setState({ devices });
+  }
+
+  private async loadInvitesReal(): Promise<void> {
+    if (!this.supabase) return;
+    const { data } = await this.supabase
+      .from('invites')
+      .select('id, token_hash, assigned_email, status, created_at, used_by')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    // RLS restricts this to admins; a non-admin caller gets an empty/denied result.
+    const invites: InviteItem[] = (data || []).map((i) => ({
+      id: i.id,
+      token: i.assigned_email, // the raw token is never stored/returned - the recipient's email is shown instead
+      createdByName: '',
+      createdAt: new Date(i.created_at).toLocaleDateString(),
+      status: i.status === 'used' ? 'consumed' : i.status === 'revoked' ? 'revoked' : 'pending',
+    }));
+    this.setState({ invites });
   }
 
   public selectConversation(conversationId: string) {
     this.state.activeConversationId = conversationId;
-    this.state.conversations = this.state.conversations.map((c) =>
-      c.id === conversationId ? { ...c, unreadCount: 0 } : c
-    );
-    this.persist();
+    this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c));
     this.notify();
+
+    if (this.state.mode === 'connected' && !this.loadedConversations.has(conversationId)) {
+      void this.loadMessagesForConversation(conversationId);
+    }
   }
 
-  public sendMessage(content: string, replyToId?: string, attachmentFile?: File) {
-    const activeConvId = this.state.activeConversationId;
-    if (!activeConvId) return;
+  public async loadMessagesForConversation(conversationId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.supabase || !this.crypto) return;
+    const summary = this.conversationSummaries.get(conversationId);
+    if (!summary) return;
 
-    const currentMsgs = this.state.messagesMap[activeConvId] || [];
-    let replyRef;
-    if (replyToId) {
-      const target = currentMsgs.find((m) => m.id === replyToId);
-      if (target) {
-        replyRef = {
-          id: target.id,
-          senderName: target.senderName,
-          snippet: target.content,
-        };
-      }
+    this.state.messagesLoading = { ...this.state.messagesLoading, [conversationId]: true };
+    this.notify();
+
+    try {
+      const rows = await fetchMessageHistory(this.supabase, this.crypto, summary);
+      const senderName = (id: string) =>
+        id === this.state.currentUser.id ? this.state.currentUser.name : this.participantNames.get(id) || this.state.allUsers.find((u) => u.id === id)?.name || 'Member';
+
+      const messages = rows.map((r) => decryptedRowToMessage(r, this.state.currentUser.id, senderName(r.senderId)));
+      this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: messages };
+      this.loadedConversations.add(conversationId);
+    } catch (err) {
+      this.setState({ error: err instanceof Error ? err.message : 'Failed to load messages' });
+    } finally {
+      this.state.messagesLoading = { ...this.state.messagesLoading, [conversationId]: false };
+      this.notify();
+    }
+  }
+
+  /** Called by the realtime postgres_changes subscription in app/page.tsx. */
+  public async receiveRealtimeMessageRow(row: {
+    id: string;
+    conversation_id: string;
+    sender_id: string;
+    ciphertext: string;
+    nonce: string;
+    encryption_version: number;
+    created_at: string;
+    reply_to_message_id: string | null;
+  }): Promise<void> {
+    if (!this.crypto) return;
+    const summary = this.conversationSummaries.get(row.conversation_id);
+    if (!summary) {
+      // A message arrived for a conversation we don't know about yet
+      // (e.g. we were just added to a group) - refresh the list.
+      await this.loadConversationsReal();
+      return;
     }
 
-    const attachments = attachmentFile
-      ? [
-          {
-            id: `att-${Date.now()}`,
-            fileName: attachmentFile.name,
-            fileSize: `${(attachmentFile.size / 1024).toFixed(1)} KB`,
-            mimeType: attachmentFile.type || 'application/octet-stream',
-            isEncrypted: true,
-            isVoiceNote: attachmentFile.name.startsWith('voice-note-'),
-            duration: attachmentFile.name.startsWith('voice-note-') ? '0:03' : undefined,
-          },
-        ]
-      : undefined;
+    const currentMsgs = this.state.messagesMap[row.conversation_id] || [];
+    if (currentMsgs.some((m) => m.id === row.id)) return; // already reconciled from our own send
 
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    let decrypted: DecryptedMessageRow;
+    try {
+      let envelope: MessageEnvelope;
+      if (summary.type === 'private') {
+        if (!summary.otherParticipant) throw new Error('Missing participant');
+        envelope = await this.crypto.decryptWithParticipant(summary.otherParticipant.id, {
+          ciphertext: row.ciphertext,
+          nonce: row.nonce,
+          encryptionVersion: row.encryption_version,
+        });
+      } else {
+        const { nonce, keyVersion } = JSON.parse(row.nonce) as { nonce: string; keyVersion: number };
+        envelope = await this.crypto.decryptGroupEnvelope(row.conversation_id, {
+          ciphertext: row.ciphertext,
+          nonce,
+          keyVersion,
+          encryptionVersion: row.encryption_version,
+        });
+      }
+      decrypted = {
+        id: row.id,
+        conversationId: row.conversation_id,
+        senderId: row.sender_id,
+        createdAt: row.created_at,
+        editedAt: null,
+        deletedAt: null,
+        replyToMessageId: row.reply_to_message_id,
+        envelope,
+      };
+    } catch (err) {
+      decrypted = {
+        id: row.id,
+        conversationId: row.conversation_id,
+        senderId: row.sender_id,
+        createdAt: row.created_at,
+        editedAt: null,
+        deletedAt: null,
+        replyToMessageId: row.reply_to_message_id,
+        envelope: null,
+        decryptError: err instanceof Error ? err.message : 'Decryption failed',
+      };
+    }
 
-    const newMsg: MessageData = {
-      id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-      conversationId: activeConvId,
-      senderId: this.state.currentUser.id,
-      senderName: this.state.currentUser.name,
-      isSelf: true,
-      content,
-      timestamp,
-      status: 'delivered',
-      replyTo: replyRef,
-      reactions: [],
-      attachments,
-      encryptionVersion: 1,
-    };
+    const senderName = decrypted.senderId === this.state.currentUser.id ? this.state.currentUser.name : this.participantNames.get(decrypted.senderId) || 'Member';
+    const message = decryptedRowToMessage(decrypted, this.state.currentUser.id, senderName);
+    const isSelf = decrypted.senderId === this.state.currentUser.id;
 
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [activeConvId]: [...currentMsgs, newMsg],
-    };
-
+    this.state.messagesMap = { ...this.state.messagesMap, [row.conversation_id]: [...currentMsgs, message] };
     this.state.conversations = this.state.conversations.map((c) =>
-      c.id === activeConvId
+      c.id === row.conversation_id
         ? {
             ...c,
-            lastMessage: {
-              snippet: content || (attachmentFile ? `Attachment: ${attachmentFile.name}` : 'Sent attachment'),
-              timestamp,
-              status: 'delivered',
-            },
+            unreadCount: !isSelf && this.state.activeConversationId !== row.conversation_id ? c.unreadCount + 1 : c.unreadCount,
+            lastMessage: { snippet: message.content || 'Attachment', timestamp: message.timestamp },
           }
         : c
     );
-
-    this.persist();
-    this.broadcast('MESSAGE_SENT', newMsg);
+    this.loadedConversations.add(row.conversation_id);
     this.notify();
   }
 
-  public reactToMessage(msgId: string, emoji: string) {
-    const convId = this.state.activeConversationId;
-    const list = this.state.messagesMap[convId] || [];
+  public async sendMessage(content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number): Promise<void> {
+    if (this.state.mode === 'demo') return this.sendMessageDemo(content, replyToId, attachmentFile);
 
-    const updated = list.map((m) => {
-      if (m.id !== msgId) return m;
-      const existingIdx = m.reactions.findIndex((r) => r.emoji === emoji);
-      const newReactions = [...m.reactions];
-      if (existingIdx >= 0) {
-        const current = newReactions[existingIdx];
-        if (current.userReacted) {
-          if (current.count <= 1) {
-            newReactions.splice(existingIdx, 1);
-          } else {
-            newReactions[existingIdx] = {
-              ...current,
-              count: current.count - 1,
-              userReacted: false,
-            };
-          }
-        } else {
-          newReactions[existingIdx] = {
-            ...current,
-            count: current.count + 1,
-            userReacted: true,
-          };
+    const conversationId = this.state.activeConversationId;
+    const summary = this.conversationSummaries.get(conversationId);
+    if (!conversationId || !summary || !this.crypto) return;
+
+    const localId = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const isVoice = !!attachmentFile && attachmentFile.name.startsWith('voice-note-');
+
+    const optimistic: MessageData = {
+      id: localId,
+      conversationId,
+      senderId: this.state.currentUser.id,
+      senderName: this.state.currentUser.name,
+      isSelf: true,
+      content: isVoice ? '' : content,
+      timestamp: nowTimestamp(),
+      status: 'sending',
+      reactions: [],
+      attachments: attachmentFile
+        ? [
+            {
+              id: localId,
+              fileName: attachmentFile.name,
+              fileSize: formatFileSize(attachmentFile.size),
+              mimeType: attachmentFile.type || 'application/octet-stream',
+              isEncrypted: true,
+              isVoiceNote: isVoice,
+              duration: isVoice && voiceDurationMs ? formatDuration(voiceDurationMs) : undefined,
+              storagePath: '',
+              keyB64: '',
+              ivB64: '',
+            },
+          ]
+        : undefined,
+      encryptionVersion: 2,
+    };
+
+    this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: [...(this.state.messagesMap[conversationId] || []), optimistic] };
+    this.notify();
+
+    try {
+      let envelope: MessageEnvelope;
+      if (attachmentFile) {
+        if (attachmentFile.size > MAX_ATTACHMENT_BYTES) {
+          throw new Error('File exceeds the 25MB limit');
         }
+        const attachmentEnvelope = await uploadEncryptedAttachment(conversationId, attachmentFile);
+        envelope = isVoice
+          ? { v: 1, kind: 'voice', attachment: attachmentEnvelope, durationMs: voiceDurationMs || 0 }
+          : { v: 1, kind: 'attachment', text: content || undefined, attachment: attachmentEnvelope };
       } else {
-        newReactions.push({ emoji, count: 1, userReacted: true });
+        envelope = { v: 1, kind: 'text', text: content };
       }
-      return { ...m, reactions: newReactions };
+
+      const { row } = await sendEnvelope(this.crypto, summary, envelope, replyToId);
+
+      const { content: finalContent, attachments } = envelopeToDisplay(envelope);
+      this.state.messagesMap = {
+        ...this.state.messagesMap,
+        [conversationId]: (this.state.messagesMap[conversationId] || []).map((m) =>
+          m.id === localId ? { ...m, id: row.id, content: finalContent, attachments, status: 'sent' as const, timestamp: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } : m
+        ),
+      };
+      this.state.conversations = this.state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, lastMessage: { snippet: finalContent || 'Attachment', timestamp: nowTimestamp() } } : c
+      );
+      this.notify();
+    } catch (err) {
+      this.updateMessage(conversationId, localId, { status: 'failed' });
+      this.setState({ error: err instanceof Error ? err.message : 'Failed to send message' });
+    }
+  }
+
+  public async retryFailedMessage(messageId: string): Promise<void> {
+    const conversationId = this.state.activeConversationId;
+    const list = this.state.messagesMap[conversationId] || [];
+    const failed = list.find((m) => m.id === messageId && m.status === 'failed');
+    if (!failed) return;
+    this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: list.filter((m) => m.id !== messageId) };
+    await this.sendMessage(failed.content, failed.replyTo?.id);
+  }
+
+  public async downloadAttachment(messageId: string, attachmentId: string): Promise<void> {
+    if (!this.supabase) return;
+    const conversationId = this.state.activeConversationId;
+    const list = this.state.messagesMap[conversationId] || [];
+    const msg = list.find((m) => m.id === messageId);
+    const attachment = msg?.attachments?.find((a) => a.id === attachmentId);
+    if (!attachment || !attachment.storagePath) return;
+
+    this.updateMessage(conversationId, messageId, {
+      attachments: msg!.attachments!.map((a) => (a.id === attachmentId ? { ...a, isDownloading: true, downloadError: undefined } : a)),
     });
 
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [convId]: updated,
-    };
-
-    this.persist();
-    this.broadcast('REACTION_UPDATED', { msgId, emoji });
-    this.notify();
+    try {
+      const blob = await downloadAndDecryptAttachment(this.supabase, attachment);
+      const url = URL.createObjectURL(blob);
+      const current = this.state.messagesMap[conversationId] || [];
+      const target = current.find((m) => m.id === messageId);
+      this.updateMessage(conversationId, messageId, {
+        attachments: target?.attachments?.map((a) => (a.id === attachmentId ? { ...a, url, isDownloading: false } : a)),
+      });
+    } catch (err) {
+      const current = this.state.messagesMap[conversationId] || [];
+      const target = current.find((m) => m.id === messageId);
+      this.updateMessage(conversationId, messageId, {
+        attachments: target?.attachments?.map((a) => (a.id === attachmentId ? { ...a, isDownloading: false, downloadError: err instanceof Error ? err.message : 'Download failed' } : a)),
+      });
+    }
   }
 
-  public editMessage(msgId: string, newContent: string) {
+  public async editMessage(msgId: string, newContent: string): Promise<void> {
+    if (this.state.mode === 'demo') return this.editMessageDemo(msgId, newContent);
+    const conversationId = this.state.activeConversationId;
+    const summary = this.conversationSummaries.get(conversationId);
+    if (!summary || !this.crypto) return;
+
+    try {
+      const envelope: MessageEnvelope = { v: 1, kind: 'text', text: newContent };
+      let ciphertext: string, nonce: string, encryptionVersion: number;
+      if (summary.type === 'private') {
+        const payload = await this.crypto.encryptForRecipient(summary.otherParticipant!.id, envelope);
+        ({ ciphertext, nonce, encryptionVersion } = payload);
+      } else {
+        const payload = await this.crypto.encryptGroupEnvelope(conversationId, envelope);
+        ciphertext = payload.ciphertext;
+        nonce = JSON.stringify({ nonce: payload.nonce, keyVersion: payload.keyVersion });
+        encryptionVersion = payload.encryptionVersion;
+      }
+
+      const res = await fetch('/api/messages', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: msgId, ciphertext, nonce, encryptionVersion }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to edit message');
+      }
+
+      this.updateMessage(conversationId, msgId, { content: newContent, isEdited: true });
+    } catch (err) {
+      this.setState({ error: err instanceof Error ? err.message : 'Failed to edit message' });
+    }
+  }
+
+  public async deleteMessage(msgId: string): Promise<void> {
+    if (this.state.mode === 'demo') return this.deleteMessageDemo(msgId);
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messageId: msgId, deleted: true }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to delete message');
+      }
+      this.updateMessage(this.state.activeConversationId, msgId, { isDeletedLocally: true, content: '' });
+    } catch (err) {
+      this.setState({ error: err instanceof Error ? err.message : 'Failed to delete message' });
+    }
+  }
+
+  public async reactToMessage(msgId: string, emoji: string): Promise<void> {
+    if (this.state.mode === 'demo') return this.reactToMessageDemo(msgId, emoji);
+    if (!this.supabase) return;
     const convId = this.state.activeConversationId;
     const list = this.state.messagesMap[convId] || [];
+    const msg = list.find((m) => m.id === msgId);
+    if (!msg) return;
 
-    const updated = list.map((m) =>
-      m.id === msgId ? { ...m, content: newContent, isEdited: true } : m
-    );
+    const existing = msg.reactions.find((r) => r.emoji === emoji);
+    const optimisticReactions = existing?.userReacted
+      ? msg.reactions.map((r) => (r.emoji === emoji ? { ...r, count: Math.max(0, r.count - 1), userReacted: false } : r)).filter((r) => r.count > 0)
+      : [...msg.reactions.filter((r) => r.emoji !== emoji), { emoji, count: (existing?.count || 0) + 1, userReacted: true }];
+    this.updateMessage(convId, msgId, { reactions: optimisticReactions });
 
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [convId]: updated,
-    };
+    try {
+      if (existing?.userReacted) {
+        await this.supabase.from('message_reactions').delete().eq('message_id', msgId).eq('user_id', this.state.currentUser.id).eq('reaction', emoji);
+      } else {
+        await this.supabase.from('message_reactions').insert({ message_id: msgId, user_id: this.state.currentUser.id, reaction: emoji } as never);
+      }
+    } catch (err) {
+      this.updateMessage(convId, msgId, { reactions: msg.reactions }); // roll back
+      this.setState({ error: err instanceof Error ? err.message : 'Failed to react to message' });
+    }
+  }
 
-    this.persist();
-    this.broadcast('MESSAGE_EDITED', { msgId, newContent });
+  public async forwardMessage(targetConvId: string, msgToForward: MessageData): Promise<void> {
+    if (this.state.mode === 'demo') return this.forwardMessageDemo(targetConvId, msgToForward);
+    const summary = this.conversationSummaries.get(targetConvId);
+    if (!summary || !this.crypto) return;
+    const previousActive = this.state.activeConversationId;
+    this.state.activeConversationId = targetConvId;
+    await this.sendMessage(msgToForward.content);
+    this.state.activeConversationId = previousActive;
     this.notify();
   }
 
-  public deleteMessage(msgId: string) {
-    const convId = this.state.activeConversationId;
-    const list = this.state.messagesMap[convId] || [];
+  public async createDirectConversation(targetUser: UserItem): Promise<string> {
+    if (this.state.mode === 'demo') return this.createDirectConversationDemo(targetUser);
 
-    const updated = list.map((m) =>
-      m.id === msgId ? { ...m, isDeletedLocally: true } : m
-    );
-
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [convId]: updated,
-    };
-
-    this.persist();
-    this.broadcast('MESSAGE_DELETED', { msgId });
-    this.notify();
-  }
-
-  public forwardMessage(targetConvId: string, msgToForward: MessageData) {
-    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    const fwdMsg: MessageData = {
-      id: `fwd-${Date.now()}`,
-      conversationId: targetConvId,
-      senderId: this.state.currentUser.id,
-      senderName: this.state.currentUser.name,
-      isSelf: true,
-      content: msgToForward.content,
-      timestamp,
-      status: 'delivered',
-      reactions: [],
-      attachments: msgToForward.attachments,
-      encryptionVersion: 1,
-    };
-
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [targetConvId]: [...(this.state.messagesMap[targetConvId] || []), fwdMsg],
-    };
-
-    this.state.conversations = this.state.conversations.map((c) =>
-      c.id === targetConvId
-        ? {
-            ...c,
-            lastMessage: {
-              snippet: fwdMsg.content || 'Forwarded attachment',
-              timestamp,
-              status: 'delivered',
-            },
-          }
-        : c
-    );
-
-    this.persist();
-    this.broadcast('MESSAGE_SENT', fwdMsg);
-    this.notify();
-  }
-
-  public pinMessage(msgId: string) {
-    const convId = this.state.activeConversationId;
-    const list = this.state.messagesMap[convId] || [];
-
-    const updated = list.map((m) =>
-      m.id === msgId ? { ...m, isPinned: !m.isPinned } : m
-    );
-
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [convId]: updated,
-    };
-
-    this.state.conversations = this.state.conversations.map((c) =>
-      c.id === convId
-        ? { ...c, pinnedMessageId: c.pinnedMessageId === msgId ? undefined : msgId }
-        : c
-    );
-
-    this.persist();
-    this.notify();
-  }
-
-  public starMessage(msgId: string) {
-    const convId = this.state.activeConversationId;
-    const list = this.state.messagesMap[convId] || [];
-
-    const updated = list.map((m) =>
-      m.id === msgId ? { ...m, isStarred: !m.isStarred } : m
-    );
-
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [convId]: updated,
-    };
-
-    this.persist();
-    this.notify();
-  }
-
-  public createDirectConversation(targetUser: UserItem): string {
-    const existing = this.state.conversations.find(
-      (c) => c.type === 'direct' && c.recipientUser?.id === targetUser.id
-    );
-
+    const existing = Array.from(this.conversationSummaries.values()).find((s) => s.type === 'private' && s.otherParticipant?.id === targetUser.id);
     if (existing) {
       this.selectConversation(existing.id);
       return existing.id;
     }
 
-    const newId = `conv-dm-${Date.now()}`;
-    const newConv: ConversationItem = {
-      id: newId,
-      title: targetUser.name,
-      type: 'direct',
-      unreadCount: 0,
-      lastMessage: {
-        snippet: 'Conversation established',
-        timestamp: 'Just now',
-      },
-      recipientUser: {
-        id: targetUser.id,
-        name: targetUser.name,
-        registrationId: targetUser.registrationId,
-        identityFingerprint: targetUser.identityFingerprint,
-        isVerified: true,
-        presence: targetUser.presence || 'online',
-      },
-    };
-
-    this.state.conversations = [newConv, ...this.state.conversations];
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [newId]: [],
-    };
-    this.state.activeConversationId = newId;
-
-    this.persist();
-    this.broadcast('CONVERSATION_CREATED', newConv);
-    this.notify();
-    return newId;
+    const res = await fetch('/api/conversations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'private', participantIds: [targetUser.id] }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to start conversation' });
+      return '';
+    }
+    const conv = await res.json();
+    await this.loadConversationsReal();
+    this.selectConversation(conv.id);
+    return conv.id;
   }
 
-  public createGroupConversation(groupName: string, memberUserIds: string[]): string {
-    const newId = `grp-${Date.now()}`;
-    const membersCount = memberUserIds.length + 1;
+  public async createGroupConversation(groupName: string, memberUserIds: string[]): Promise<string> {
+    if (this.state.mode === 'demo') return this.createGroupConversationDemo(groupName, memberUserIds);
+    if (!this.crypto || !this.supabase) return '';
 
-    const newConv: ConversationItem = {
-      id: newId,
-      title: groupName,
-      type: 'group',
-      unreadCount: 0,
-      lastMessage: {
-        snippet: `Group created with ${membersCount} members`,
-        timestamp: 'Just now',
-      },
-      groupMeta: {
-        groupId: newId,
-        memberCount: membersCount,
-        senderKeyVersion: 1,
-      },
-    };
+    const res = await fetch('/api/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: groupName, memberIds: memberUserIds }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to create group' });
+      return '';
+    }
+    const group = await res.json();
 
-    this.state.conversations = [newConv, ...this.state.conversations];
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [newId]: [
-        {
-          id: `gmsg-${Date.now()}`,
-          conversationId: newId,
-          senderId: this.state.currentUser.id,
-          senderName: this.state.currentUser.name,
-          isSelf: true,
-          content: `Created group "${groupName}" with encrypted Signal Sender Keys.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          status: 'delivered',
-          reactions: [],
-          encryptionVersion: 1,
-        },
-      ],
-    };
-    this.state.activeConversationId = newId;
-
-    this.persist();
-    this.broadcast('CONVERSATION_CREATED', newConv);
-    this.notify();
-    return newId;
+    await this.distributeNewGroupKey(group.id, [this.state.currentUser.id, ...memberUserIds], 1);
+    await this.loadConversationsReal();
+    this.selectConversation(group.id);
+    return group.id;
   }
+
+  /** Generates a fresh group key and re-shares it with exactly `memberUserIds`. */
+  private async distributeNewGroupKey(conversationId: string, memberUserIds: string[], keyVersion: number): Promise<void> {
+    if (!this.crypto || !this.supabase) return;
+
+    const members: Array<{ userId: string; deviceId: string; publicKeyB64: string }> = [];
+    for (const userId of memberUserIds) {
+      const device = await this.crypto.getPeerDevice(userId);
+      if (device) members.push({ userId, deviceId: device.deviceId, publicKeyB64: device.publicKeyB64 });
+    }
+    // Always include our own device so we can read our own group messages back.
+    if (!members.some((m) => m.userId === this.state.currentUser.id)) {
+      members.push({ userId: this.state.currentUser.id, deviceId: this.crypto.myDeviceId(), publicKeyB64: this.crypto.myPublicKeyB64() });
+    }
+
+    const envelopes = await this.crypto.createAndDistributeGroupKey(conversationId, keyVersion, members);
+    if (envelopes.length === 0) return;
+
+    const rows = envelopes.map((e) => ({
+      conversation_id: conversationId,
+      user_id: e.recipientUserId,
+      device_id: e.recipientDeviceId,
+      encrypted_group_key: e.encryptedGroupKey,
+      key_version: e.keyVersion,
+    }));
+    await this.supabase.from('group_key_envelopes').insert(rows as never);
+  }
+
+  public async addGroupMember(groupId: string, userId: string): Promise<void> {
+    if (!this.supabase) return;
+    const res = await fetch('/api/groups/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, userId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to add member' });
+      return;
+    }
+
+    const { data: members } = await this.supabase.from('conversation_members').select('user_id').eq('conversation_id', groupId).is('left_at', null);
+    const nextVersion = ((await this.crypto?.ensureGroupKey(groupId))?.version || 0) + 1;
+    await this.distributeNewGroupKey(groupId, (members || []).map((m) => m.user_id), nextVersion);
+    await this.loadConversationsReal();
+  }
+
+  public async removeGroupMember(groupId: string, userId: string): Promise<void> {
+    if (!this.supabase) return;
+    const params = new URLSearchParams({ groupId, userId });
+    const res = await fetch(`/api/groups/members?${params.toString()}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to remove member' });
+      return;
+    }
+
+    const { data: members } = await this.supabase.from('conversation_members').select('user_id').eq('conversation_id', groupId).is('left_at', null);
+    const nextVersion = ((await this.crypto?.ensureGroupKey(groupId))?.version || 0) + 1;
+    // Rotating to only the remaining members means the removed member never
+    // receives this envelope and can't decrypt anything sent after this point.
+    await this.distributeNewGroupKey(groupId, (members || []).map((m) => m.user_id), nextVersion);
+    await this.loadConversationsReal();
+  }
+
+  public async generateInvite(assignedEmail: string): Promise<string | null> {
+    if (this.state.mode === 'demo') return this.generateInviteDemo();
+    const res = await fetch('/api/invites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assignedEmail }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to generate invite' });
+      return null;
+    }
+    await this.loadInvitesReal();
+    const body = await res.json();
+    return body.rawToken as string;
+  }
+
+  public async revokeInvite(inviteId: string): Promise<void> {
+    if (this.state.mode === 'demo') return this.revokeInviteDemo(inviteId);
+    if (!this.supabase) return;
+    await this.supabase.from('invites').update({ status: 'revoked', revoked_at: new Date().toISOString() } as never).eq('id', inviteId);
+    await this.loadInvitesReal();
+  }
+
+  public async toggleUserRole(userId: string, currentRole: 'admin' | 'member'): Promise<void> {
+    if (this.state.mode === 'demo') return this.toggleUserRoleDemo(userId, currentRole);
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, isAdmin: currentRole !== 'admin' }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to update role' });
+      return;
+    }
+    this.state.allUsers = this.state.allUsers.map((u) => (u.id === userId ? { ...u, role: currentRole === 'admin' ? 'member' : 'admin' } : u));
+    this.notify();
+  }
+
+  public async revokeDevice(deviceId: string): Promise<void> {
+    if (this.state.mode === 'demo') return this.revokeDeviceDemo(deviceId);
+    if (!this.supabase) return;
+    const device = this.state.devices.find((d) => d.id === deviceId);
+    if (device?.isCurrentDevice) {
+      this.setState({ error: 'Use "Log out" to sign out this device.' });
+      return;
+    }
+    await this.supabase.from('user_devices').delete().eq('user_id', this.state.currentUser.id).eq('device_id', deviceId);
+    this.state.devices = this.state.devices.filter((d) => d.id !== deviceId);
+    this.notify();
+  }
+
+  // ============================================================
+  // Local, view-only conversation preferences (both modes)
+  // ============================================================
 
   public pinConversation(convId: string) {
-    this.state.conversations = this.state.conversations.map((c) =>
-      c.id === convId ? { ...c, isPinned: !c.isPinned } : c
-    );
-    this.persist();
-    this.notify();
+    this.toggleViewPref(convId, 'pinned');
   }
-
   public muteConversation(convId: string) {
-    this.state.conversations = this.state.conversations.map((c) =>
-      c.id === convId ? { ...c, isMuted: !c.isMuted } : c
-    );
-    this.persist();
-    this.notify();
+    this.toggleViewPref(convId, 'muted');
+  }
+  public archiveConversation(convId: string) {
+    this.toggleViewPref(convId, 'archived');
   }
 
-  public archiveConversation(convId: string) {
-    this.state.conversations = this.state.conversations.map((c) =>
-      c.id === convId ? { ...c, isArchived: !c.isArchived } : c
-    );
-    this.persist();
+  private toggleViewPref(convId: string, key: 'pinned' | 'muted' | 'archived') {
+    const prefs = this.loadViewPrefs();
+    prefs[convId] = { ...prefs[convId], [key]: !prefs[convId]?.[key] };
+    this.saveViewPrefs(prefs);
+    this.state.conversations =
+      key === 'archived' && prefs[convId].archived
+        ? this.state.conversations.filter((c) => c.id !== convId)
+        : this.state.conversations.map((c) => (c.id === convId ? { ...c, [key === 'pinned' ? 'isPinned' : key === 'muted' ? 'isMuted' : 'isArchived']: prefs[convId][key] } : c));
     this.notify();
   }
 
   public markUnreadConversation(convId: string) {
-    this.state.conversations = this.state.conversations.map((c) =>
-      c.id === convId ? { ...c, unreadCount: c.unreadCount > 0 ? 0 : 1 } : c
-    );
-    this.persist();
+    this.state.conversations = this.state.conversations.map((c) => (c.id === convId ? { ...c, unreadCount: c.unreadCount > 0 ? 0 : 1 } : c));
     this.notify();
   }
 
   public clearHistoryConversation(convId: string) {
-    this.state.messagesMap = {
-      ...this.state.messagesMap,
-      [convId]: [],
-    };
-    this.persist();
+    this.state.messagesMap = { ...this.state.messagesMap, [convId]: [] };
     this.notify();
   }
 
@@ -869,94 +962,313 @@ export class ChatStore {
     if (this.state.activeConversationId === convId && this.state.conversations.length > 0) {
       this.state.activeConversationId = this.state.conversations[0].id;
     }
-    this.persist();
     this.notify();
   }
 
-  public generateInvite(): string {
-    const newToken = `INV-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.random()
-      .toString(36)
-      .substring(2, 6)
-      .toUpperCase()}`;
-    const newInv: InviteItem = {
-      id: `inv-${Date.now()}`,
-      token: newToken,
-      createdByName: this.state.currentUser.name,
-      createdAt: 'Just now',
-      status: 'pending',
+  public pinMessage(msgId: string) {
+    const convId = this.state.activeConversationId;
+    const list = this.state.messagesMap[convId] || [];
+    this.state.messagesMap = { ...this.state.messagesMap, [convId]: list.map((m) => (m.id === msgId ? { ...m, isPinned: !m.isPinned } : m)) };
+    this.state.conversations = this.state.conversations.map((c) => (c.id === convId ? { ...c, pinnedMessageId: c.pinnedMessageId === msgId ? undefined : msgId } : c));
+    this.notify();
+  }
+
+  public starMessage(msgId: string) {
+    const convId = this.state.activeConversationId;
+    const list = this.state.messagesMap[convId] || [];
+    this.state.messagesMap = { ...this.state.messagesMap, [convId]: list.map((m) => (m.id === msgId ? { ...m, isStarred: !m.isStarred } : m)) };
+    this.notify();
+  }
+
+  public clearError() {
+    this.setState({ error: null });
+  }
+
+  /** Updates locally-cached profile fields after a write that already succeeded server-side. */
+  public updateCurrentUserProfile(patch: Partial<UserItem>) {
+    this.setState({ currentUser: { ...this.state.currentUser, ...patch } });
+  }
+
+  public logout() {
+    this.supabase = null;
+    this.crypto = null;
+    this.conversationSummaries.clear();
+    this.loadedConversations.clear();
+    this.participantNames.clear();
+    this.setState({
+      mode: 'demo',
+      isLoading: false,
+      allUsers: [],
+      conversations: [],
+      messagesMap: {},
+      messagesLoading: {},
+      activeConversationId: '',
+      devices: [],
+      invites: [],
+      error: null,
+    });
+  }
+
+  // ============================================================
+  // DEMO mode implementation (see banner at top of file)
+  // ============================================================
+
+  public initDemoMode() {
+    let allUsers = DEMO_USERS;
+    let conversations = DEMO_CONVERSATIONS;
+    let messagesMap = DEMO_MESSAGES;
+    let devices = DEMO_DEVICES;
+    let invites = DEMO_INVITES;
+    let savedUserId: string | null = null;
+
+    // Browser-only: layer any previously-saved local demo data on top of the
+    // defaults, and wire up cross-tab sync. None of this is required for
+    // demo mode to function (e.g. under vitest's Node environment) - it's
+    // purely a nicer experience in an actual browser tab.
+    if (typeof window !== 'undefined') {
+      try {
+        if ('BroadcastChannel' in window) {
+          this.broadcastChannel = new BroadcastChannel(BROADCAST_CHANNEL_NAME);
+          this.broadcastChannel.onmessage = (event) => this.handleBroadcastEvent(event.data);
+        }
+
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        savedUserId = localStorage.getItem(CURRENT_USER_KEY);
+
+        if (savedData) {
+          const parsed = JSON.parse(savedData);
+          if (parsed.allUsers && parsed.conversations && parsed.messagesMap) {
+            allUsers = parsed.allUsers;
+            conversations = parsed.conversations;
+            messagesMap = parsed.messagesMap;
+            devices = parsed.devices || DEMO_DEVICES;
+            invites = parsed.invites || DEMO_INVITES;
+          }
+        }
+      } catch {
+        // Corrupted localStorage - fall back to the defaults set above.
+      }
+    }
+
+    const currentUser = allUsers.find((u) => u.id === savedUserId) || allUsers[0];
+
+    this.state = {
+      mode: 'demo',
+      isLoading: false,
+      currentUser,
+      allUsers,
+      conversations,
+      activeConversationId: conversations[0]?.id || '',
+      messagesMap,
+      messagesLoading: {},
+      devices,
+      invites,
+      error: null,
     };
-    this.state.invites = [newInv, ...this.state.invites];
-    this.persist();
-    this.notify();
-    return newToken;
-  }
-
-  public revokeInvite(inviteId: string) {
-    this.state.invites = this.state.invites.map((i) =>
-      i.id === inviteId ? { ...i, status: 'revoked' } : i
-    );
-    this.persist();
     this.notify();
   }
 
-  public toggleUserRole(userId: string, currentRole: 'admin' | 'member') {
-    const newRole = currentRole === 'admin' ? 'member' : 'admin';
-    this.state.allUsers = this.state.allUsers.map((u) =>
-      u.id === userId ? { ...u, role: newRole } : u
-    );
-    this.persist();
+  private persistDemo() {
+    if (typeof window === 'undefined' || this.state.mode !== 'demo') return;
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ allUsers: this.state.allUsers, conversations: this.state.conversations, messagesMap: this.state.messagesMap, devices: this.state.devices, invites: this.state.invites })
+      );
+      localStorage.setItem(CURRENT_USER_KEY, this.state.currentUser.id);
+    } catch {
+      // Ignore quota errors.
+    }
+  }
+
+  private broadcast(type: string, payload: unknown) {
+    this.broadcastChannel?.postMessage({ type, payload, senderId: this.state.currentUser.id });
+  }
+
+  private handleBroadcastEvent(data: { type: string; payload: unknown }) {
+    if (!data || this.state.mode !== 'demo') return;
+    if (data.type === 'MESSAGE_SENT') {
+      const newMsg = data.payload as MessageData;
+      const convId = newMsg.conversationId;
+      this.state.messagesMap = { ...this.state.messagesMap, [convId]: [...(this.state.messagesMap[convId] || []).filter((m) => m.id !== newMsg.id), newMsg] };
+      this.notify();
+    }
+  }
+
+  private sendMessageDemo(content: string, replyToId?: string, attachmentFile?: File) {
+    const activeConvId = this.state.activeConversationId;
+    if (!activeConvId) return;
+    const currentMsgs = this.state.messagesMap[activeConvId] || [];
+    const replyTarget = replyToId ? currentMsgs.find((m) => m.id === replyToId) : undefined;
+
+    const newMsg: MessageData = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      conversationId: activeConvId,
+      senderId: this.state.currentUser.id,
+      senderName: this.state.currentUser.name,
+      isSelf: true,
+      content,
+      timestamp: nowTimestamp(),
+      status: 'delivered',
+      replyTo: replyTarget ? { id: replyTarget.id, senderName: replyTarget.senderName, snippet: replyTarget.content } : undefined,
+      reactions: [],
+      attachments: attachmentFile
+        ? [{ id: `att-${Date.now()}`, fileName: attachmentFile.name, fileSize: formatFileSize(attachmentFile.size), mimeType: attachmentFile.type, isEncrypted: false, storagePath: '', keyB64: '', ivB64: '' }]
+        : undefined,
+      encryptionVersion: 0,
+    };
+
+    this.state.messagesMap = { ...this.state.messagesMap, [activeConvId]: [...currentMsgs, newMsg] };
+    this.state.conversations = this.state.conversations.map((c) => (c.id === activeConvId ? { ...c, lastMessage: { snippet: content || 'Attachment', timestamp: nowTimestamp() } } : c));
+    this.persistDemo();
+    this.broadcast('MESSAGE_SENT', newMsg);
     this.notify();
   }
 
-  public revokeDevice(deviceId: string) {
+  private reactToMessageDemo(msgId: string, emoji: string) {
+    const convId = this.state.activeConversationId;
+    const list = this.state.messagesMap[convId] || [];
+    const updated = list.map((m) => {
+      if (m.id !== msgId) return m;
+      const idx = m.reactions.findIndex((r) => r.emoji === emoji);
+      const reactions = [...m.reactions];
+      if (idx >= 0) {
+        const cur = reactions[idx];
+        if (cur.userReacted) {
+          if (cur.count <= 1) reactions.splice(idx, 1);
+          else reactions[idx] = { ...cur, count: cur.count - 1, userReacted: false };
+        } else {
+          reactions[idx] = { ...cur, count: cur.count + 1, userReacted: true };
+        }
+      } else {
+        reactions.push({ emoji, count: 1, userReacted: true });
+      }
+      return { ...m, reactions };
+    });
+    this.state.messagesMap = { ...this.state.messagesMap, [convId]: updated };
+    this.persistDemo();
+    this.notify();
+  }
+
+  private editMessageDemo(msgId: string, newContent: string) {
+    const convId = this.state.activeConversationId;
+    const list = this.state.messagesMap[convId] || [];
+    this.state.messagesMap = { ...this.state.messagesMap, [convId]: list.map((m) => (m.id === msgId ? { ...m, content: newContent, isEdited: true } : m)) };
+    this.persistDemo();
+    this.notify();
+  }
+
+  private deleteMessageDemo(msgId: string) {
+    const convId = this.state.activeConversationId;
+    const list = this.state.messagesMap[convId] || [];
+    this.state.messagesMap = { ...this.state.messagesMap, [convId]: list.map((m) => (m.id === msgId ? { ...m, isDeletedLocally: true } : m)) };
+    this.persistDemo();
+    this.notify();
+  }
+
+  private forwardMessageDemo(targetConvId: string, msgToForward: MessageData) {
+    const fwdMsg: MessageData = { ...msgToForward, id: `fwd-${Date.now()}`, conversationId: targetConvId, timestamp: nowTimestamp(), isSelf: true, senderId: this.state.currentUser.id, senderName: this.state.currentUser.name };
+    this.state.messagesMap = { ...this.state.messagesMap, [targetConvId]: [...(this.state.messagesMap[targetConvId] || []), fwdMsg] };
+    this.persistDemo();
+    this.notify();
+  }
+
+  private createDirectConversationDemo(targetUser: UserItem): string {
+    const existing = this.state.conversations.find((c) => c.type === 'direct' && c.recipientUser?.id === targetUser.id);
+    if (existing) {
+      this.selectConversation(existing.id);
+      return existing.id;
+    }
+    const newId = `conv-dm-${Date.now()}`;
+    const newConv: ConversationItem = {
+      id: newId, title: targetUser.name, type: 'direct', unreadCount: 0,
+      lastMessage: { snippet: 'Conversation established', timestamp: 'Just now' },
+      recipientUser: { id: targetUser.id, name: targetUser.name, registrationId: targetUser.registrationId, identityFingerprint: targetUser.identityFingerprint, isVerified: true, presence: targetUser.presence || 'online' },
+    };
+    this.state.conversations = [newConv, ...this.state.conversations];
+    this.state.messagesMap = { ...this.state.messagesMap, [newId]: [] };
+    this.state.activeConversationId = newId;
+    this.persistDemo();
+    this.notify();
+    return newId;
+  }
+
+  private createGroupConversationDemo(groupName: string, memberUserIds: string[]): string {
+    const newId = `grp-${Date.now()}`;
+    const membersCount = memberUserIds.length + 1;
+    const newConv: ConversationItem = {
+      id: newId, title: groupName, type: 'group', unreadCount: 0,
+      lastMessage: { snippet: `Group created with ${membersCount} members`, timestamp: 'Just now' },
+      groupMeta: { groupId: newId, memberCount: membersCount, senderKeyVersion: 1 },
+    };
+    this.state.conversations = [newConv, ...this.state.conversations];
+    this.state.messagesMap = { ...this.state.messagesMap, [newId]: [{ id: `gmsg-${Date.now()}`, conversationId: newId, senderId: this.state.currentUser.id, senderName: this.state.currentUser.name, isSelf: true, content: `Created group "${groupName}".`, timestamp: nowTimestamp(), status: 'delivered', reactions: [], encryptionVersion: 0 }] };
+    this.state.activeConversationId = newId;
+    this.persistDemo();
+    this.notify();
+    return newId;
+  }
+
+  private generateInviteDemo(): string {
+    const token = `INV-${Math.random().toString(36).slice(2, 6).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    this.state.invites = [{ id: `inv-${Date.now()}`, token, createdByName: this.state.currentUser.name, createdAt: 'Just now', status: 'pending' }, ...this.state.invites];
+    this.persistDemo();
+    this.notify();
+    return token;
+  }
+
+  private revokeInviteDemo(inviteId: string) {
+    this.state.invites = this.state.invites.map((i) => (i.id === inviteId ? { ...i, status: 'revoked' } : i));
+    this.persistDemo();
+    this.notify();
+  }
+
+  private toggleUserRoleDemo(userId: string, currentRole: 'admin' | 'member') {
+    this.state.allUsers = this.state.allUsers.map((u) => (u.id === userId ? { ...u, role: currentRole === 'admin' ? 'member' : 'admin' } : u));
+    this.persistDemo();
+    this.notify();
+  }
+
+  private revokeDeviceDemo(deviceId: string) {
     this.state.devices = this.state.devices.filter((d) => d.id !== deviceId);
-    this.persist();
+    this.persistDemo();
     this.notify();
   }
 
   public switchDemoUser(userId: string) {
     const target = this.state.allUsers.find((u) => u.id === userId);
     if (!target) return;
-
     this.state.currentUser = target;
-
-    const updatedMessagesMap: Record<string, MessageData[]> = {};
+    const updated: Record<string, MessageData[]> = {};
     for (const [convId, msgs] of Object.entries(this.state.messagesMap)) {
-      updatedMessagesMap[convId] = msgs.map((m) => ({
-        ...m,
-        isSelf: m.senderId === target.id,
-      }));
+      updated[convId] = msgs.map((m) => ({ ...m, isSelf: m.senderId === target.id }));
     }
-    this.state.messagesMap = updatedMessagesMap;
-
-    this.persist();
+    this.state.messagesMap = updated;
+    this.persistDemo();
     this.notify();
   }
 
   public registerUser(name: string): UserItem {
-    const newId = `usr-${Date.now()}`;
     const newUser: UserItem = {
-      id: newId,
-      name: name.trim(),
-      registrationId: Math.floor(10000 + Math.random() * 90000),
-      role: 'member',
-      deviceCount: 1,
-      joinedAt: 'Just now',
-      identityFingerprint: Array.from({ length: 8 }, () =>
-        Math.floor(Math.random() * 65536)
-          .toString(16)
-          .toUpperCase()
-          .padStart(4, '0')
-      ).join('-'),
+      id: `usr-${Date.now()}`, name: name.trim(), registrationId: Math.floor(10000 + Math.random() * 90000), role: 'member', deviceCount: 1, joinedAt: 'Just now',
+      identityFingerprint: Array.from({ length: 8 }, () => Math.floor(Math.random() * 65536).toString(16).toUpperCase().padStart(4, '0')).join('-'),
       presence: 'online',
     };
-
     this.state.allUsers = [...this.state.allUsers, newUser];
     this.state.currentUser = newUser;
-    this.persist();
+    this.persistDemo();
     this.notify();
     return newUser;
   }
+}
+
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return hash;
 }
 
 let storeInstance: ChatStore | null = null;

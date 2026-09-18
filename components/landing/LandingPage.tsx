@@ -62,7 +62,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
           {/* Subtle Security Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium mb-8">
             <IconShield className="w-3.5 h-3.5" />
-            <span>Zero-Knowledge Architecture • Signal Double Ratchet Protocol</span>
+            <span>Zero-Knowledge Architecture • Client-Side X25519 Encryption</span>
           </div>
 
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white max-w-3xl leading-[1.15]">
@@ -113,7 +113,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
               {/* E2EE Info pill */}
               <div className="self-center px-3 py-1 bg-slate-950/80 border border-slate-800/80 rounded-full text-[11px] text-slate-400 font-sans flex items-center gap-1.5 shadow-xs">
                 <IconLock className="w-3 h-3 text-emerald-400" />
-                <span>Messages and media are end-to-end encrypted with Signal Double Ratchet.</span>
+                <span>Messages and media are end-to-end encrypted on your device before sending.</span>
               </div>
 
               {/* Incoming Message */}
@@ -130,7 +130,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                   <span className="font-semibold block text-[10px] text-emerald-200">Bob Miller</span>
                   <span className="truncate block">Hey Alice! Ready to test client-side private messaging?</span>
                 </div>
-                <p className="text-slate-950">Welcome to Private Chat! Signals are verified and keys are stored securely.</p>
+                <p className="text-slate-950">Welcome to Private Chat! Keys are verified and stored securely on your device.</p>
                 <div className="flex items-center justify-end gap-1 text-[10px] text-emerald-950/80 font-mono">
                   <span>10:30 AM</span>
                   <IconCheckCheck className="w-3.5 h-3.5" />
@@ -176,7 +176,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 </div>
                 <h3 className="text-base font-bold text-white">Direct 1-on-1 Chats</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Powered by the Signal Protocol Double Ratchet with cryptographic identity keys and forward secrecy.
+                  Powered by X25519 public-key encryption with per-device cryptographic identity keys.
                 </p>
               </div>
 
@@ -187,7 +187,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 </div>
                 <h3 className="text-base font-bold text-white">Group Spaces</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Group messaging utilizing Signal Sender Keys. Only verified group members can decrypt messages.
+                  Group messaging uses a per-group encryption key distributed to each member&apos;s device. Only current members can decrypt messages.
                 </p>
               </div>
 
@@ -220,7 +220,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
                 </div>
                 <h3 className="text-base font-bold text-white">Encrypted Key Backup</h3>
                 <p className="text-xs text-slate-400 leading-relaxed">
-                  Export and restore your Signal sessions using memory-hard Argon2id key derivation and passphrase encryption.
+                  Export and restore your device identity key using memory-hard Argon2id key derivation and passphrase encryption.
                 </p>
               </div>
 

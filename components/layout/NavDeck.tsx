@@ -77,6 +77,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   const filteredConversations = conversations.filter((c) => {
     if (showArchived) return c.isArchived;
     if (c.isArchived) return false;
+    if (activeCategory === 'groups' && c.type !== 'group') return false;
     if (!searchQuery.trim()) return true;
     return (
       c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||

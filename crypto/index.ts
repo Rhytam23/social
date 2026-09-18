@@ -1,3 +1,5 @@
+export * from './utils/encoding';
+export * from './sodium';
 export * from './storage/keyStorage';
 export * from './identity/deviceKeys';
 export * from './sessions/dhSession';

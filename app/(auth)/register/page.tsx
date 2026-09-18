@@ -1,16 +1,18 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
-import { InviteFlow } from '../../../components/auth/InviteFlow';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { LoginForm } from '../../../components/auth/LoginForm';
 
 export default function RegisterPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   return (
-    <InviteFlow
-      onComplete={() => router.push('/')}
-      onNavigateLogin={() => router.push('/login')}
+    <LoginForm
+      initialTab="signup"
+      initialInviteToken={searchParams.get('token') || ''}
+      onLoginSuccess={() => router.push('/')}
     />
   );
 }

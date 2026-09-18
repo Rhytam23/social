@@ -57,10 +57,10 @@ export const MessageInfoModal: React.FC<MessageInfoModalProps> = ({
           </div>
 
           <div className="flex items-center justify-between p-2.5 bg-slate-950/40 border border-slate-800 rounded-xl">
-            <span className="text-slate-400">Signal Ratchet Engine</span>
+            <span className="text-slate-400">Encryption</span>
             <span className="text-slate-200 font-mono text-[11px] flex items-center gap-1">
               <IconLock className="w-3 h-3 text-emerald-400" />
-              v{message.encryptionVersion} Double Ratchet
+              v{message.encryptionVersion} X25519/XSalsa20-Poly1305
             </span>
           </div>
         </div>

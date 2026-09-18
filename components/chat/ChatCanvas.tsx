@@ -12,7 +12,7 @@ export interface ChatCanvasProps {
   onReplyToMessage: (msg: MessageData) => void;
   onClearReply: () => void;
   onReactToMessage: (msgId: string, emoji: string) => void;
-  onDownloadAttachment?: (attachmentId: string) => void;
+  onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
   onRetryFailedMessage?: (msgId: string) => void;
   onToggleInspector?: () => void;
   onEditMessage?: (msg: MessageData) => void;
@@ -107,7 +107,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
         <div className="absolute inset-0 z-40 bg-emerald-950/80 backdrop-blur-xs border-2 border-dashed border-emerald-400 flex flex-col items-center justify-center text-emerald-300 font-sans gap-2">
           <IconLock className="w-8 h-8 text-emerald-400" />
           <span className="font-bold text-base">Drop File to Encrypt & Attach</span>
-          <span className="text-xs text-emerald-400">File will be encrypted client-side using Signal keys</span>
+          <span className="text-xs text-emerald-400">File will be encrypted client-side before upload</span>
         </div>
       )}
 
@@ -142,7 +142,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span>Signal E2EE Active</span>
+                <span>End-to-End Encrypted</span>
               </div>
             </div>
           </div>
@@ -229,7 +229,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           <div className="py-1.5 px-3 my-2 bg-slate-900/60 border border-slate-800/80 rounded-full text-xs text-center flex items-center justify-center gap-2 max-w-fit mx-auto shadow-xs text-slate-400">
             <IconLock className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-[11px] font-medium text-slate-300">
-              End-to-End Encrypted via {conversation.type === 'group' ? 'Signal Sender Key Protocol' : 'Signal Double Ratchet'}
+              End-to-End Encrypted via {conversation.type === 'group' ? 'Per-Device Group Key Distribution' : 'X25519 Authenticated Encryption'}
             </span>
           </div>
 
@@ -258,7 +258,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                     message={msg}
                     onReplyToMessage={onReplyToMessage}
                     onReactToMessage={onReactToMessage}
-                    onDownloadAttachment={onDownloadAttachment}
+                    onDownloadAttachment={onDownloadAttachment ? (attId) => onDownloadAttachment(msg.id, attId) : undefined}
                     onRetryFailedMessage={onRetryFailedMessage}
                     onEditMessage={onEditMessage}
                     onDeleteMessage={onDeleteMessage}

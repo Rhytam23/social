@@ -5,7 +5,7 @@ import { IconCheck, IconPlus } from '../ui/icons';
 export interface AdminDashboardProps {
   invites: InviteItem[];
   users: UserItem[];
-  onGenerateInvite: () => Promise<string>;
+  onGenerateInvite: (assignedEmail: string) => Promise<string | null>;
   onRevokeInvite: (inviteId: string) => void;
   onToggleUserRole: (userId: string, currentRole: 'admin' | 'member') => void;
 }
@@ -19,15 +19,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const [createdToken, setCreatedToken] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [genError, setGenError] = useState<string | null>(null);
 
   const handleGenerate = async () => {
+    if (!inviteEmail.trim() || !inviteEmail.includes('@')) {
+      setGenError('Enter a valid email address to invite.');
+      return;
+    }
     setIsGenerating(true);
     setCreatedToken(null);
+    setGenError(null);
     try {
-      const token = await onGenerateInvite();
-      setCreatedToken(token);
-    } catch {
-      // Handled
+      const token = await onGenerateInvite(inviteEmail.trim());
+      if (token) {
+        setCreatedToken(token);
+        setInviteEmail('');
+      } else {
+        setGenError('Failed to generate invite. See the error banner above.');
+      }
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Failed to generate invite.');
     } finally {
       setIsGenerating(false);
     }
@@ -58,18 +70,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               Single-Use Invitation Tokens
             </h3>
             <p className="text-xs text-slate-400 font-sans mt-0.5">
-              Generate cryptographic invitation links for new team members.
+              Generate a single-use invitation for a specific email address.
             </p>
           </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="email"
+            value={inviteEmail}
+            onChange={(e) => setInviteEmail(e.target.value)}
+            placeholder="newmember@example.com"
+            className="flex-1 bg-slate-950/70 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+          />
           <button
             onClick={handleGenerate}
             disabled={isGenerating}
-            className="py-2 px-3.5 bg-slate-100 hover:bg-white text-slate-950 font-semibold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0"
+            className="py-2 px-3.5 bg-slate-100 hover:bg-white text-slate-950 font-semibold text-xs rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50"
           >
             <IconPlus className="w-4 h-4" />
-            <span>Generate invitation</span>
+            <span>{isGenerating ? 'Generating...' : 'Generate invitation'}</span>
           </button>
         </div>
+
+        {genError && (
+          <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl text-xs">{genError}</div>
+        )}
 
         {createdToken && (
           <div className="p-4 bg-slate-950/60 border border-emerald-500/30 rounded-xl flex flex-col gap-2 font-sans text-xs">
@@ -104,8 +130,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <table className="w-full text-left text-xs font-sans">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 uppercase text-[10px] tracking-wider">
-                <th className="pb-3 font-semibold">Token</th>
-                <th className="pb-3 font-semibold">Issued By</th>
+                <th className="pb-3 font-semibold">Recipient Email</th>
                 <th className="pb-3 font-semibold">Created At</th>
                 <th className="pb-3 font-semibold">Status</th>
                 <th className="pb-3 font-semibold text-right">Actions</th>
@@ -114,15 +139,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <tbody className="divide-y divide-slate-800/80">
               {invites.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-6 text-center text-slate-500 font-sans">
+                  <td colSpan={4} className="py-6 text-center text-slate-500 font-sans">
                     No active invitation tokens issued.
                   </td>
                 </tr>
               ) : (
                 invites.map((inv) => (
                   <tr key={inv.id} className="text-slate-200">
-                    <td className="py-3 font-mono font-bold truncate max-w-[140px] text-slate-100">{inv.token}</td>
-                    <td className="py-3 text-slate-300">{inv.createdByName}</td>
+                    <td className="py-3 font-mono font-bold truncate max-w-[180px] text-slate-100">{inv.token}</td>
                     <td className="py-3 text-slate-400">{inv.createdAt}</td>
                     <td className="py-3">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${

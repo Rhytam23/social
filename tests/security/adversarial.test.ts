@@ -4,26 +4,28 @@ import { checkRateLimit } from '../../lib/rate-limit/rateLimiter';
 import { encryptAttachment, decryptAttachment } from '../../crypto/attachments/attachmentEncryptor';
 import { isUserAdmin } from '../../lib/auth/roles';
 import { generateSecureToken, hashToken } from '../../lib/utils/crypto';
-import { SignalKeyStore } from '../../crypto/storage/keyStorage';
+import { DeviceKeyStore } from '../../crypto/storage/keyStorage';
+import { generateDeviceKeys } from '../../crypto/identity/deviceKeys';
 import { createKeyBackup, restoreKeyBackup } from '../../crypto/backup/keyBackup';
-import { IdentityKeyPair } from '@signalapp/libsignal-client';
+import { bytesToBase64 } from '../../crypto/utils/encoding';
 
 describe('Adversarial & Security Hardening Test Suite', () => {
   let store: ChatStore;
 
   beforeEach(() => {
     store = new ChatStore();
+    store.initDemoMode();
   });
 
   describe('1. Authorization & IDOR Resistance', () => {
-    it('should prevent non-members from reading or posting to foreign direct conversations', () => {
+    it('should prevent non-members from reading or posting to foreign direct conversations', async () => {
       // Alice and Bob have a conversation: conv-alice-bob
       // Carol (usr-carol) switches in
       store.switchDemoUser('usr-carol');
       const state = store.getState();
 
       // Carol creates a private conversation with David
-      const carolDavidConvId = store.createDirectConversation(
+      const carolDavidConvId = await store.createDirectConversation(
         state.allUsers.find((u) => u.id === 'usr-david')!
       );
 
@@ -109,7 +111,7 @@ describe('Adversarial & Security Hardening Test Suite', () => {
       // Tamper with key
       const wrongKeyBytes = new Uint8Array(32);
       wrongKeyBytes.fill(99);
-      const wrongKeyB64 = Buffer.from(wrongKeyBytes).toString('base64');
+      const wrongKeyB64 = bytesToBase64(wrongKeyBytes);
 
       await expect(
         decryptAttachment(encrypted.encryptedBuffer, wrongKeyB64, encrypted.ivB64)
@@ -150,9 +152,8 @@ describe('Adversarial & Security Hardening Test Suite', () => {
 
   describe('7. Cryptographic Key Store Backup & Passphrase Protection', () => {
     it('should encrypt key store backup with Argon2id and reject brute force with wrong passphrase', async () => {
-      const keyStore = new SignalKeyStore();
-      const identityKeyPair = IdentityKeyPair.generate();
-      await keyStore.setIdentityKeyPair(identityKeyPair, 99481);
+      const keyStore = new DeviceKeyStore();
+      await generateDeviceKeys(keyStore);
 
       const validPassphrase = 'CorrectHorseBatteryStaple!2026';
       const backup = await createKeyBackup(validPassphrase, keyStore);
@@ -160,14 +161,14 @@ describe('Adversarial & Security Hardening Test Suite', () => {
       expect(backup.kdfParams.algorithm).toBe('Argon2id');
 
       // Attempt restore with wrong passphrase
-      const restoreStore = new SignalKeyStore();
+      const restoreStore = new DeviceKeyStore();
       await expect(
         restoreKeyBackup('WrongPassphrase123!', backup, restoreStore)
       ).rejects.toThrow();
 
       // Restore with correct passphrase
       await restoreKeyBackup(validPassphrase, backup, restoreStore);
-      expect(await restoreStore.getLocalRegistrationId()).toBe(99481);
+      expect(restoreStore.requireIdentity().publicKey).toEqual(keyStore.requireIdentity().publicKey);
     });
   });
 });

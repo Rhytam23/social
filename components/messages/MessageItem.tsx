@@ -105,7 +105,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           {isSelf ? 'YOU' : getInitials(message.senderName)}
         </div>
 
-        <div className={`flex flex-col gap-1 ${isSelf ? 'items-end' : 'items-start'}`}>
+        <div className={`flex flex-col gap-1 min-w-0 ${isSelf ? 'items-end' : 'items-start'}`}>
           {/* Header Metadata Line */}
           <div className="flex items-center gap-2 px-1 text-[11px] text-slate-400">
             <span className="font-semibold text-slate-300">
@@ -132,7 +132,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
           {/* Bubble Box */}
           <div
-            className={`p-3.5 rounded-2xl border text-sm leading-relaxed relative group shadow-sm transition-all ${
+            className={`p-3.5 rounded-2xl border text-sm leading-relaxed relative group shadow-sm transition-all min-w-0 max-w-full ${
               isSelf
                 ? 'bg-[var(--surface-2)] border-slate-700/70 text-slate-100 rounded-tr-xs'
                 : 'bg-[var(--surface-1)] border-slate-800 text-slate-200 rounded-tl-xs'
@@ -163,8 +163,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                     return (
                       <VoiceMessagePreview
                         key={att.id}
-                        duration={att.duration || '0:14'}
+                        duration={att.duration || '0:00'}
                         isSelf={isSelf}
+                        url={att.url}
+                        isDownloading={att.isDownloading}
+                        downloadError={att.downloadError}
+                        onRequestDownload={() => onDownloadAttachment && onDownloadAttachment(att.id)}
                       />
                     );
                   }
@@ -185,7 +189,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                             {att.fileName}
                           </span>
                           <span className="text-[10px] text-slate-400 font-mono">
-                            {att.fileSize} • E2EE Encrypted
+                            {att.fileSize} • {att.downloadError ? <span className="text-rose-400">{att.downloadError}</span> : 'E2EE Encrypted'}
                           </span>
                         </div>
                       </div>
@@ -198,14 +202,31 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                             Preview
                           </button>
                         )}
-                        <button
-                          onClick={() => onDownloadAttachment && onDownloadAttachment(att.id)}
-                          className="p-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5 text-xs"
-                          title="Decrypt & Download"
-                        >
-                          <IconDownload className="w-3.5 h-3.5" />
-                          <span>Save</span>
-                        </button>
+                        {att.url ? (
+                          <a
+                            href={att.url}
+                            download={att.fileName}
+                            className="p-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5 text-xs"
+                            title="Save decrypted file"
+                          >
+                            <IconDownload className="w-3.5 h-3.5" />
+                            <span>Save</span>
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => onDownloadAttachment && onDownloadAttachment(att.id)}
+                            disabled={att.isDownloading}
+                            className="p-2 text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors flex items-center gap-1.5 text-xs disabled:opacity-50"
+                            title="Decrypt & Download"
+                          >
+                            {att.isDownloading ? (
+                              <span className="w-3.5 h-3.5 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                            ) : (
+                              <IconDownload className="w-3.5 h-3.5" />
+                            )}
+                            <span>{att.isDownloading ? 'Decrypting...' : 'Decrypt'}</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

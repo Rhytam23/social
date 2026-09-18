@@ -4,34 +4,33 @@ import React, { useState } from 'react';
 import { AuthLayout } from './AuthLayout';
 import { createClient } from '../../lib/supabase/client';
 import { getChatStore } from '../../lib/store/chatStore';
+import { isSupabaseConfigured as checkSupabaseConfigured } from '../../lib/supabase/env';
 import { IconCheck, IconLock } from '../ui/icons';
 
 import Link from 'next/link';
 
 export interface LoginFormProps {
   initialTab?: 'signin' | 'signup';
+  initialInviteToken?: string;
   onLoginSuccess?: (email: string) => void;
-  onNavigateInvite?: () => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   initialTab = 'signin',
+  initialInviteToken = '',
   onLoginSuccess,
-  onNavigateInvite,
 }) => {
   const [tab, setTab] = useState<'signin' | 'signup'>(initialTab);
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [password, setPassword] = useState('');
+  const [inviteToken, setInviteToken] = useState(initialInviteToken);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const isSupabaseConfigured =
-    typeof process !== 'undefined' &&
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    !process.env.NEXT_PUBLIC_SUPABASE_URL.includes('placeholder');
+  const isSupabaseConfigured = checkSupabaseConfigured();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -54,21 +53,52 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         const supabase = createClient();
 
         if (tab === 'signup') {
-          // Real Supabase User Registration
+          // Registration is invite-gated server-side (see the
+          // on_auth_user_created trigger in database/migrations/006_*.sql) -
+          // this pre-check just gives a friendlier error message before we
+          // even attempt to create the account. The trigger is what actually
+          // enforces it; a request that bypasses this UI entirely still
+          // can't create an unauthorized account.
+          if (inviteToken.trim()) {
+            try {
+              const checkRes = await fetch(`/api/invites?token=${encodeURIComponent(inviteToken.trim())}`);
+              const checkResult = await checkRes.json();
+              if (!checkResult.valid) {
+                setErrorMsg('That invitation token is invalid, expired, or already used.');
+                setIsSubmitting(false);
+                return;
+              }
+              if (checkResult.assignedEmail && checkResult.assignedEmail.toLowerCase() !== email.toLowerCase().trim()) {
+                setErrorMsg('This invitation was issued for a different email address.');
+                setIsSubmitting(false);
+                return;
+              }
+            } catch {
+              // If the pre-check itself fails (network), fall through and let
+              // the real server-side trigger be the source of truth.
+            }
+          }
+
           const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
+              emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}/auth/confirm?next=/` : undefined,
               data: {
                 display_name: displayName.trim(),
                 username: email.split('@')[0],
                 phone: phoneNumber.trim() || undefined,
+                invite_token: inviteToken.trim() || undefined,
               },
             },
           });
 
           if (error) {
-            setErrorMsg(error.message);
+            setErrorMsg(
+              error.message.toLowerCase().includes('database error')
+                ? 'Registration failed. Your invitation token may be missing, invalid, expired, or already used.'
+                : error.message
+            );
             setIsSubmitting(false);
             return;
           }
@@ -230,6 +260,22 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </div>
           )}
 
+          {tab === 'signup' && isSupabaseConfigured && (
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <label className="text-slate-300 font-semibold">Invitation Token</label>
+                <span className="text-[10px] text-slate-500">Required unless you&apos;re the first account</span>
+              </div>
+              <input
+                type="text"
+                placeholder="Paste the token your admin sent you"
+                value={inviteToken}
+                onChange={(e) => setInviteToken(e.target.value)}
+                className="w-full bg-slate-950/70 border border-slate-800 p-2.5 rounded-xl text-xs font-mono text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
+              />
+            </div>
+          )}
+
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <label className="text-slate-300 font-semibold">Password</label>
@@ -297,18 +343,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </div>
           )}
 
-          {onNavigateInvite && (
-            <div className="pt-3 text-center text-slate-400 border-t border-slate-800/80">
-              Have an invitation token?{' '}
-              <button
-                type="button"
-                onClick={onNavigateInvite}
-                className="text-slate-200 hover:underline font-semibold"
-              >
-                Redeem token
-              </button>
-            </div>
-          )}
         </form>
       </div>
     </AuthLayout>
