@@ -7,10 +7,21 @@ export interface AttachmentEnvelope {
   size: number;
 }
 
+export interface PollOptionEnvelope {
+  id: string;
+  text: string;
+}
+
+export type CallOutcome = 'ended' | 'missed' | 'declined' | 'busy';
+
 export type MessageEnvelope =
-  | { v: 1; kind: 'text'; text: string }
+  | { v: 1; kind: 'text'; text: string; mentions?: string[] }
   | { v: 1; kind: 'attachment'; text?: string; attachment: AttachmentEnvelope }
-  | { v: 1; kind: 'voice'; attachment: AttachmentEnvelope; durationMs: number };
+  | { v: 1; kind: 'voice'; attachment: AttachmentEnvelope; durationMs: number }
+  | { v: 1; kind: 'system'; text: string }
+  | { v: 1; kind: 'poll'; question: string; options: PollOptionEnvelope[]; multi: boolean; closesAt?: string }
+  | { v: 1; kind: 'poll_vote'; pollId: string; optionIds: string[] }
+  | { v: 1; kind: 'call'; callId: string; outcome: CallOutcome; video: boolean; durationMs?: number };
 
 /**
  * Everything about a message - including that it has an attachment at all,
