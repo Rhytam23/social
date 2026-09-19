@@ -1,13 +1,28 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ConversationItem, MessageData, UserItem, DeviceItem, InviteItem, AttachmentItem } from '../../types/ui';
+import { ConversationItem, MessageData, UserItem, DeviceItem, InviteItem } from '../../types/ui';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
 import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
 import { uploadEncryptedAttachment, downloadAndDecryptAttachment, MAX_ATTACHMENT_BYTES } from '../messaging/attachments';
 import type { MessageEnvelope } from '../messaging/envelope';
+import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } from '../messaging/envelopeDisplay';
 import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
 
 export type StoreMode = 'connected' | 'demo';
+
+/** Shape of a `messages` row as delivered by Supabase Realtime postgres_changes. */
+export interface RealtimeMessageRow {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  ciphertext: string;
+  nonce: string;
+  encryption_version: number;
+  created_at: string;
+  reply_to_message_id: string | null;
+  edited_at?: string | null;
+  deleted_at?: string | null;
+}
 
 export interface ChatStoreState {
   mode: StoreMode;
@@ -84,45 +99,6 @@ function nowTimestamp(): string {
   return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDuration(ms: number): string {
-  const totalSeconds = Math.round(ms / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
-
-function envelopeToDisplay(envelope: MessageEnvelope | null, decryptError?: string): { content: string; attachments?: AttachmentItem[] } {
-  if (!envelope) {
-    return { content: decryptError ? `[Unable to decrypt: ${decryptError}]` : '' };
-  }
-
-  if (envelope.kind === 'text') {
-    return { content: envelope.text };
-  }
-
-  const isVoice = envelope.kind === 'voice';
-  const attachment: AttachmentItem = {
-    id: envelope.attachment.storagePath,
-    fileName: envelope.attachment.fileName,
-    fileSize: formatFileSize(envelope.attachment.size),
-    mimeType: envelope.attachment.mimeType,
-    isEncrypted: true,
-    isVoiceNote: isVoice,
-    duration: isVoice ? formatDuration(envelope.durationMs) : undefined,
-    storagePath: envelope.attachment.storagePath,
-    keyB64: envelope.attachment.keyB64,
-    ivB64: envelope.attachment.ivB64,
-  };
-
-  return { content: envelope.kind === 'attachment' ? envelope.text || '' : '', attachments: [attachment] };
-}
-
 function summaryToConversationItem(summary: ConversationSummary, existing?: ConversationItem): ConversationItem {
   return {
     id: summary.id,
@@ -152,12 +128,13 @@ function summaryToConversationItem(summary: ConversationSummary, existing?: Conv
 }
 
 function decryptedRowToMessage(row: DecryptedMessageRow, currentUserId: string, senderName: string): MessageData {
-  const { content, attachments } = row.deletedAt
-    ? { content: '', attachments: undefined }
+  const { content, attachments, kind } = row.deletedAt
+    ? { content: '', attachments: undefined, kind: 'text' as const }
     : envelopeToDisplay(row.envelope, row.decryptError);
 
   return {
     id: row.id,
+    kind,
     conversationId: row.conversationId,
     senderId: row.senderId,
     senderName,
@@ -363,10 +340,12 @@ export class ChatStore {
           const history = await fetchMessageHistory(this.supabase!, this.crypto!, s, 1);
           const last = history[history.length - 1];
           if (!last) return;
-          const { content } = envelopeToDisplay(last.envelope, last.decryptError);
+          const lastVisible = [...history].reverse().find((m) => !isHiddenEnvelope(m.envelope));
+          if (!lastVisible) return;
+          const { snippet } = envelopeToDisplay(lastVisible.envelope, lastVisible.decryptError);
           this.state.conversations = this.state.conversations.map((c) =>
             c.id === s.id
-              ? { ...c, lastMessage: { snippet: content || (last.envelope?.kind !== 'text' ? 'Attachment' : ''), timestamp: new Date(last.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } }
+              ? { ...c, lastMessage: { snippet, timestamp: new Date(lastVisible.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } }
               : c
           );
         } catch {
@@ -457,7 +436,9 @@ export class ChatStore {
       const senderName = (id: string) =>
         id === this.state.currentUser.id ? this.state.currentUser.name : this.participantNames.get(id) || this.state.allUsers.find((u) => u.id === id)?.name || 'Member';
 
-      const messages = rows.map((r) => decryptedRowToMessage(r, this.state.currentUser.id, senderName(r.senderId)));
+      const messages = rows
+        .filter((r) => r.deletedAt || !isHiddenEnvelope(r.envelope))
+        .map((r) => decryptedRowToMessage(r, this.state.currentUser.id, senderName(r.senderId)));
       this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: messages };
       this.loadedConversations.add(conversationId);
     } catch (err) {
@@ -468,31 +449,18 @@ export class ChatStore {
     }
   }
 
-  /** Called by the realtime postgres_changes subscription in app/page.tsx. */
-  public async receiveRealtimeMessageRow(row: {
-    id: string;
-    conversation_id: string;
-    sender_id: string;
-    ciphertext: string;
-    nonce: string;
-    encryption_version: number;
-    created_at: string;
-    reply_to_message_id: string | null;
-  }): Promise<void> {
-    if (!this.crypto) return;
-    const summary = this.conversationSummaries.get(row.conversation_id);
-    if (!summary) {
-      // A message arrived for a conversation we don't know about yet
-      // (e.g. we were just added to a group) - refresh the list.
-      await this.loadConversationsReal();
-      return;
-    }
-
-    const currentMsgs = this.state.messagesMap[row.conversation_id] || [];
-    if (currentMsgs.some((m) => m.id === row.id)) return; // already reconciled from our own send
-
-    let decrypted: DecryptedMessageRow;
+  private async decryptRealtimeRow(summary: ConversationSummary, row: RealtimeMessageRow): Promise<DecryptedMessageRow> {
+    const base = {
+      id: row.id,
+      conversationId: row.conversation_id,
+      senderId: row.sender_id,
+      createdAt: row.created_at,
+      editedAt: row.edited_at ?? null,
+      deletedAt: row.deleted_at ?? null,
+      replyToMessageId: row.reply_to_message_id,
+    };
     try {
+      if (!this.crypto) throw new Error('Encryption session not ready');
       let envelope: MessageEnvelope;
       if (summary.type === 'private') {
         if (!summary.otherParticipant) throw new Error('Missing participant');
@@ -510,33 +478,63 @@ export class ChatStore {
           encryptionVersion: row.encryption_version,
         });
       }
-      decrypted = {
-        id: row.id,
-        conversationId: row.conversation_id,
-        senderId: row.sender_id,
-        createdAt: row.created_at,
-        editedAt: null,
-        deletedAt: null,
-        replyToMessageId: row.reply_to_message_id,
-        envelope,
-      };
+      return { ...base, envelope };
     } catch (err) {
-      decrypted = {
-        id: row.id,
-        conversationId: row.conversation_id,
-        senderId: row.sender_id,
-        createdAt: row.created_at,
-        editedAt: null,
-        deletedAt: null,
-        replyToMessageId: row.reply_to_message_id,
-        envelope: null,
-        decryptError: err instanceof Error ? err.message : 'Decryption failed',
-      };
+      return { ...base, envelope: null, decryptError: err instanceof Error ? err.message : 'Decryption failed' };
     }
+  }
+
+  /** Called by the realtime postgres_changes UPDATE subscription: live edits and soft-deletes from other users. */
+  public async receiveRealtimeMessageUpdate(row: RealtimeMessageRow): Promise<void> {
+    if (!this.crypto) return;
+    const summary = this.conversationSummaries.get(row.conversation_id);
+    const list = this.state.messagesMap[row.conversation_id];
+    const existing = list?.find((m) => m.id === row.id);
+    if (!summary || !list || !existing) return;
+
+    if (row.deleted_at) {
+      if (existing.isDeletedLocally) return;
+      this.updateMessage(row.conversation_id, row.id, { isDeletedLocally: true, content: '', attachments: undefined });
+      return;
+    }
+
+    if (row.edited_at) {
+      const decrypted = await this.decryptRealtimeRow(summary, row);
+      if (!decrypted.envelope) return;
+      const { content, snippet } = envelopeToDisplay(decrypted.envelope);
+      if (existing.content === content && existing.isEdited) return;
+      this.updateMessage(row.conversation_id, row.id, { content, isEdited: true });
+      if ((this.state.messagesMap[row.conversation_id] || []).at(-1)?.id === row.id) {
+        this.state.conversations = this.state.conversations.map((c) =>
+          c.id === row.conversation_id ? { ...c, lastMessage: { ...c.lastMessage, snippet, timestamp: c.lastMessage?.timestamp ?? '' } } : c
+        );
+        this.notify();
+      }
+    }
+  }
+
+  /** Called by the realtime postgres_changes subscription in app/page.tsx. */
+  public async receiveRealtimeMessageRow(row: RealtimeMessageRow): Promise<void> {
+    if (!this.crypto) return;
+    const summary = this.conversationSummaries.get(row.conversation_id);
+    if (!summary) {
+      // A message arrived for a conversation we don't know about yet
+      // (e.g. we were just added to a group) - refresh the list.
+      await this.loadConversationsReal();
+      return;
+    }
+
+    const currentMsgs = this.state.messagesMap[row.conversation_id] || [];
+    if (currentMsgs.some((m) => m.id === row.id)) return; // already reconciled from our own send
+
+    const decrypted = await this.decryptRealtimeRow(summary, row);
+
+    if (isHiddenEnvelope(decrypted.envelope)) return;
 
     const senderName = decrypted.senderId === this.state.currentUser.id ? this.state.currentUser.name : this.participantNames.get(decrypted.senderId) || 'Member';
     const message = decryptedRowToMessage(decrypted, this.state.currentUser.id, senderName);
     const isSelf = decrypted.senderId === this.state.currentUser.id;
+    const { snippet } = envelopeToDisplay(decrypted.envelope, decrypted.decryptError);
 
     this.state.messagesMap = { ...this.state.messagesMap, [row.conversation_id]: [...currentMsgs, message] };
     this.state.conversations = this.state.conversations.map((c) =>
@@ -544,7 +542,7 @@ export class ChatStore {
         ? {
             ...c,
             unreadCount: !isSelf && this.state.activeConversationId !== row.conversation_id ? c.unreadCount + 1 : c.unreadCount,
-            lastMessage: { snippet: message.content || 'Attachment', timestamp: message.timestamp },
+            lastMessage: { snippet, timestamp: message.timestamp },
           }
         : c
     );
@@ -610,15 +608,15 @@ export class ChatStore {
 
       const { row } = await sendEnvelope(this.crypto, summary, envelope, replyToId);
 
-      const { content: finalContent, attachments } = envelopeToDisplay(envelope);
+      const { content: finalContent, snippet: finalSnippet, kind: finalKind, attachments } = envelopeToDisplay(envelope);
       this.state.messagesMap = {
         ...this.state.messagesMap,
         [conversationId]: (this.state.messagesMap[conversationId] || []).map((m) =>
-          m.id === localId ? { ...m, id: row.id, content: finalContent, attachments, status: 'sent' as const, timestamp: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } : m
+          m.id === localId ? { ...m, id: row.id, kind: finalKind, content: finalContent, attachments, status: 'sent' as const, timestamp: new Date(row.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } : m
         ),
       };
       this.state.conversations = this.state.conversations.map((c) =>
-        c.id === conversationId ? { ...c, lastMessage: { snippet: finalContent || 'Attachment', timestamp: nowTimestamp() } } : c
+        c.id === conversationId ? { ...c, lastMessage: { snippet: finalSnippet, timestamp: nowTimestamp() } } : c
       );
       this.notify();
     } catch (err) {

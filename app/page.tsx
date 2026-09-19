@@ -13,6 +13,7 @@ import { UserItem, MessageData } from '../types/ui';
 import { createClient } from '../lib/supabase/client';
 import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
 import { MessagingCrypto } from '../lib/messaging/messagingCrypto';
+import type { RealtimeMessageRow } from '../lib/store/chatStore';
 import { createKeyBackup, restoreKeyBackup } from '../crypto';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -23,17 +24,6 @@ interface ProfileRow {
   phone_number?: string;
   avatar_url?: string | null;
   is_admin?: boolean;
-}
-
-interface RealtimeMessageRow {
-  id: string;
-  conversation_id: string;
-  sender_id: string;
-  ciphertext: string;
-  nonce: string;
-  encryption_version: number;
-  created_at: string;
-  reply_to_message_id: string | null;
 }
 
 export default function HomePage() {
@@ -67,15 +57,21 @@ export default function HomePage() {
     // Filtered by our known conversation ids as defense-in-depth; RLS
     // (messages_select_policy) is the authoritative backstop even if this
     // filter is momentarily stale (e.g. right after being added to a group).
+    const messageFilter = conversationIds.length > 0 ? { filter: `conversation_id=in.(${conversationIds.join(',')})` } : {};
     const channel = supabase
       .channel('realtime-messages-feed')
       .on(
         'postgres_changes',
-        conversationIds.length > 0
-          ? { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=in.(${conversationIds.join(',')})` }
-          : { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'messages', ...messageFilter },
         (payload) => {
           void store.receiveRealtimeMessageRow(payload.new as RealtimeMessageRow);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', ...messageFilter },
+        (payload) => {
+          void store.receiveRealtimeMessageUpdate(payload.new as RealtimeMessageRow);
         }
       )
       .subscribe();

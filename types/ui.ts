@@ -34,8 +34,11 @@ export interface ReplyReference {
   snippet: string;
 }
 
+export type MessageKind = 'text' | 'attachment' | 'voice' | 'system' | 'poll' | 'call' | 'unsupported';
+
 export interface MessageData {
   id: string;
+  kind?: MessageKind;
   conversationId: string;
   senderId: string;
   senderName: string;
