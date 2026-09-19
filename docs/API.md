@@ -1,38 +1,102 @@
-# External API & Service Integration Guide — Private Chat
+# API reference
 
-This document lists the external services and credentials required to run **Private Chat** in production.
+Route handlers live in `app/api/**/route.ts`, plus `app/auth/confirm/route.ts`.
 
----
+**Conventions**
+- Requests are authenticated with the Supabase session cookie. Unless noted, a signed-out call returns `401 { "error": "Authentication required." }`.
+- Errors have the shape `{ "error": string }`.
+- Every route is rate limited per IP per 60 seconds; going over returns `429`. See [Security](SECURITY.md#known-gaps) for the limiter's caveats.
+- Routes use the caller's own session, so row level security applies. The service-role client is used only where marked.
+- Message bodies are opaque ciphertext. The server never receives plaintext.
 
-## Required & Recommended Services
+## Session and people
 
-| Service Name | Required | Purpose | Free Tier Available? | Client/Server |
-|---|---|---|---|---|
-| **Supabase Cloud** | **YES** | PostgreSQL 15+ DB, Auth, Storage bucket (`attachments`), Realtime WebSockets | **YES** (500MB DB, 1GB Storage, 50,000 MAU) | Both (`NEXT_PUBLIC_` for client, `SERVICE_ROLE` for server) |
-| **Upstash Redis** | **OPTIONAL** | Server-side IP rate limiting for API & auth endpoints | **YES** (10,000 free requests/day) | Server-Only |
+### `GET /api/auth` (120/min)
+Returns the current session.
+- `200 { authenticated: true, user: { id, email, profile } }`. `profile` is `id, username, display_name, avatar_url, is_admin, created_at` or `null`.
+- Signed out: `401 { authenticated: false, user: null }`.
 
----
+### `GET /api/users?q=` (60/min)
+Search people. `q` is optional; `%` and `_` are stripped. Matches `username`, `display_name`, `email` and `phone_number`.
+- `200` array of `{ id, username, display_name, avatar_url, created_at }`, at most 100, excluding the caller. **Email and phone are searchable but never returned.**
 
-## Credentials Setup Guide
+## Conversations and groups
 
-### 1. Supabase Project Setup (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`)
-- **Purpose:** Database storage, single-use invite RPC, authentication, and file attachment storage.
-- **Where to obtain:**
-  1. Go to [https://supabase.com](https://supabase.com) and create a free account.
-  2. Click **New Project**, choose a name (e.g. `private-chat-prod`), region, and secure DB password.
-  3. Navigate to **Project Settings** → **API**.
-  4. Copy:
-     - **Project URL** → set in `NEXT_PUBLIC_SUPABASE_URL`.
-     - **`anon` `public` Key** → set in `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-     - **`service_role` `secret` Key** → set in `SUPABASE_SERVICE_ROLE_KEY`.
-- **Security Notes:** `SUPABASE_SERVICE_ROLE_KEY` has full administrative database privileges. **MUST NEVER be exposed to the browser or prefixed with `NEXT_PUBLIC_`.**
+### `GET /api/conversations` (120/min)
+`200` array of `{ id, type, name, avatar_url, created_at, updated_at }` for conversations you are an active member of, newest first.
 
----
+### `POST /api/conversations` (30/min)
+Body: `{ type: "private" | "group", name?, participantIds: string[] }`. `name` is required for groups; `participantIds` must not be empty. You are added automatically.
+- `201 { id, type, name, created_at }` · `400` invalid input.
 
-### 2. Upstash Redis (Optional Rate-Limiting) (`UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`)
-- **Purpose:** Protection against brute-force registration or login attempts.
-- **Where to obtain:**
-  1. Go to [https://upstash.com](https://upstash.com) and create a free account.
-  2. Create a Redis database instance.
-  3. Copy **REST URL** and **REST Token** from the database dashboard.
-- **Security Notes:** Server-side environment variables only.
+### `GET /api/groups?groupId=` (60/min)
+Group details for an active member.
+- `200 { id, type, name, avatar_url, created_at, updated_at, members: [{ user_id, joined_at, profiles: { id, username, display_name, avatar_url } }] }`
+- `400` missing id · `403` not a member · `404` not found or not a group.
+
+### `POST /api/groups` (20/min)
+Body: `{ name, memberIds: string[] }`. You are added automatically. `201 { id, type, name, created_at }`.
+
+### `POST /api/groups/members` (30/min)
+Add a member. Body: `{ groupId, userId }`. Caller must be an active member of the group.
+`201 { success: true }` · `403` not a member · `404` group not found.
+
+### `DELETE /api/groups/members?groupId=&userId=` (30/min)
+Remove a member (a hard delete of the membership row). The route has no membership check of its own: row level security limits it to removing yourself (leaving), or anyone if you are a platform admin. The client then rotates the group key. `200 { success: true }`.
+
+## Messages
+
+### `GET /api/messages?conversationId=&limit=&before=` (120/min)
+History for an active member. `limit` defaults to 100 (1 to 200). `before` is an ISO timestamp; only older messages are returned.
+- `200` array, **oldest first**, of `{ id, conversation_id, sender_id, ciphertext, nonce, encryption_version, reply_to_message_id, created_at, edited_at, deleted_at }`.
+- Soft-deleted messages are included with `deleted_at` set. To page backwards, pass the oldest `created_at` you have as `before`.
+- Reactions are **not** included yet.
+
+### `POST /api/messages` (60/min)
+Send. Body: `{ conversationId, ciphertext, nonce, encryptionVersion?, replyToMessageId? }`. Caller must be an active member.
+`201 { id, conversation_id, sender_id, ciphertext, nonce, encryption_version, created_at }`.
+
+### `PATCH /api/messages` (60/min)
+Edit or delete your own message. Body: `{ messageId, ... }`
+- Delete: add `deleted: true` (sets `deleted_at`).
+- Edit: send `ciphertext`, `nonce`, `encryptionVersion` (sets `edited_at`); both `ciphertext` and `nonce` are required.
+- `200` updated row · `404` not found or not yours.
+
+## Files
+
+### `POST /api/uploads` (20/min)
+`multipart/form-data` with `file` (already encrypted by the browser) and `conversationId`. Active members only. Maximum 25 MB. Stored in `encrypted_attachments` at `<conversationId>/<timestamp>_<safeName>` as `application/octet-stream`.
+- `201 { path, fileName, fileSize, uploadedAt }` · `413` too large · `403` not a member.
+
+## Admin and invites (legacy)
+
+### `PATCH /api/admin/users` (20/min)
+Admin only (checked against `profiles.is_admin`). Body: `{ userId, isAdmin: boolean }`. You cannot remove your own admin access. Uses the **service-role** client. `200 { id, username, display_name, is_admin }`.
+
+### `GET /api/invites?token=` (30/min) and `POST /api/invites` (15/min)
+The legacy invitation feature. Registration no longer requires an invite. `GET` (public, uses the service role) validates a token; `POST` (admin only) creates one from `{ assignedEmail, expiresInDays? }`. They are kept for the admin dashboard and may be removed; see [Roadmap](ROADMAP.md).
+
+## Authentication redirects
+
+### `GET /auth/confirm`
+Where email confirmation, password reset and Google sign-in links return to. No rate limit.
+
+| Query | Meaning |
+|---|---|
+| `code` | PKCE code, exchanged for a session |
+| `token_hash` and `type` | Alternative email-template style, verified as a one-time code |
+| `next` | Where to go afterwards. Must start with `/` and not `//`, otherwise `/` |
+| `provider` | Present for Google sign-in; failures are reported as sign-in problems |
+| `error`, `error_code`, `error_description` | Passed by Supabase when the link failed |
+
+On success it redirects to `next`. On failure it redirects to `/login?error=<reason>` with an optional `&detail=<text, max 160 chars>`. Reasons: `confirmation_failed`, `oauth_failed`, `oauth_cancelled`, `link_expired`.
+
+## Middleware behaviour
+
+`middleware.ts` runs on every path except static assets. It refreshes the session and:
+- redirects signed-out users from `/chat`, `/people`, `/groups` and `/settings` to `/login`;
+- for `/admin`, redirects signed-out users to `/login` and non-admins to `/chat` (admin status comes from `profiles.is_admin`);
+- redirects signed-in users away from `/login`, `/register`, `/forgot-password` and `/reset-password`;
+- returns `500 Server misconfiguration` in production if the Supabase variables are missing (in development it lets the demo mode through).
+
+It does not gate `/api/*`; each route does its own authentication.

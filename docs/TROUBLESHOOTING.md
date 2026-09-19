@@ -1,0 +1,101 @@
+# Troubleshooting
+
+Problems that have actually come up, with the cause and the fix.
+
+## "Server misconfiguration: Supabase environment variables are not set."
+
+A production build (or `npm run start`, or a deployed site) has no usable `NEXT_PUBLIC_SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_ANON_KEY`. This is deliberate: the app refuses to run without authentication.
+
+Set the variables (`.env.local` locally; the host's settings when deployed) and restart or redeploy. Values containing the word `placeholder` count as not set. In development (`npm run dev`) the same situation shows the demo mode instead.
+
+## "This site can't be reached" / `DNS_PROBE_POSSIBLE`
+
+The browser tried to open a `*.supabase.co` address that does not exist, almost always because the project ref in `NEXT_PUBLIC_SUPABASE_URL` has a typo (for example two letters swapped).
+
+1. Copy the **Project URL** from Supabase → Project Settings → API into `.env` and `.env.local`.
+2. Restart `npm run dev`. On Vercel, fix the variable and **redeploy**.
+
+To check that a URL exists: `curl -I https://<ref>.supabase.co/auth/v1/health` should answer (`401` is fine); a DNS failure means the ref is wrong. Your anon key contains the project ref too; decode its middle section with `node -e "console.log(JSON.parse(Buffer.from(process.argv[1].split('.')[1],'base64url')).ref)" <anon key>` to see which project it belongs to.
+
+## SQL error: `column "role" does not exist`
+
+You ran `002_rls_policies.sql` on a database that already has `003` applied. `003` removes that column. Do not re-run old migrations; see [Setup](SETUP.md#3-run-the-database-migrations) for the status check that tells you what is missing.
+
+## SQL error: `column "email" of relation "profiles" does not exist`
+
+Migration `005_profiles_phone_email.sql` was never applied. Run `005`, then run `009` again, because `005` installs an older version of the signup function.
+
+## "Database error saving new user"
+
+Supabase hides the real error when the signup trigger `handle_new_user()` fails. Common causes:
+- `005` was not applied (the `email` column is missing).
+- An older signup rule is installed (`006` requires an invite token). Run `009`.
+- Another account already uses the same email or username.
+
+To see the real error, run this in the SQL Editor. It creates a fake user inside a transaction and rolls it back, so nothing is saved:
+
+```sql
+begin;
+insert into auth.users (id, instance_id, aud, role, email, raw_user_meta_data, created_at, updated_at)
+values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+        'trigger-test@example.com', '{"full_name":"Trigger Test"}'::jsonb, now(), now());
+rollback;
+```
+
+A red error message names the failing statement. No error means the trigger is healthy.
+
+## Google sign-in problems
+
+The login page shows a reason after "We couldn't complete Google sign-in", for example `(Reason: Database error saving new user)`. Use it with this table:
+
+| Symptom | Cause and fix |
+|---|---|
+| Google page shows `redirect_uri_mismatch` | The redirect URI in Google Cloud is not exactly the callback URL shown in Supabase → Providers → Google. Copy it with the copy button |
+| "Access blocked" or "app not verified" | The consent screen is in Testing. Publish it or add your account as a test user |
+| `Database error saving new user` | See the section above |
+| `Unable to exchange external code` | The Client Secret in Supabase is wrong or truncated. Paste it again |
+| `PKCE code verifier not found` | Sign-in was started in a different browser or address (`127.0.0.1` vs `localhost`) than it returned to. Start again from one address |
+| Sent back to the site without signing in | The address is missing from Supabase → Authentication → URL Configuration → Redirect URLs |
+| "Google sign-in was cancelled" | You closed or denied the Google prompt |
+
+Changes in Google Cloud can take a few minutes to apply.
+
+## Confirmation email does not arrive, or the link fails
+
+- Supabase's built-in mailer allows only a few emails per hour. Wait, check spam, or configure your own SMTP.
+- The **Resend** button has a 60 second cooldown and shows Supabase's error if it is rate limited.
+- "Confirmation link expired": sign in with your email and password; you will be offered a new link.
+- The link only signs you in when opened in the **same browser** that signed up. Elsewhere your email is still confirmed; just sign in normally.
+- "Email not confirmed" on sign-in shows the same "Check your email" screen with a resend button.
+
+## New messages only appear after a refresh
+
+Realtime is not delivering. Run migration `008_realtime_publication.sql`, then check Supabase → Database → Replication that `messages` is in the `supabase_realtime` publication. Also confirm you are on a build that includes live updates, and open the browser console for websocket errors.
+
+## "[Unable to decrypt: …]" in a chat
+
+The message was encrypted for a different key than the one this browser holds. Typical cause: you signed in on a new browser or cleared site data, which created a new key. Restore your key backup (Settings → Privacy & Security) with its passphrase. If you have no backup, earlier messages cannot be recovered.
+
+## A group member cannot read messages
+
+They probably have not signed in since joining, so no key has been published for them, and the group key could not be sealed to them. Ask them to sign in, then add them again or send a message after they have joined so the key is re-shared.
+
+## `npm` warns about `allow-scripts` (esbuild, unrs-resolver)
+
+Newer npm versions warn about install scripts they have not been told to trust. The two packages are build tooling (`esbuild` via Vitest, `unrs-resolver` via the Next.js ESLint setup). It is a warning, not an error. To silence it, approve them with `npm approve-scripts esbuild unrs-resolver` and commit the resulting change.
+
+## `npm run build` fails on Windows with `spawn UNKNOWN` or out of memory
+
+Stop the dev server first, then build.
+
+## Vercel shows "Needs Attention" on `SUPABASE_SERVICE_ROLE_KEY`
+
+Vercel wants secret-looking variables marked **Sensitive**. Edit the variable, turn on Sensitive, save, and redeploy. The name must not start with `NEXT_PUBLIC_`.
+
+## A page does not scroll
+
+The chat shell is a fixed full-height layout; every other page scrolls normally. If a public page does not scroll, check for a stray `overflow: hidden` on `html` or `body` in `app/globals.css`.
+
+## Demo data appears in development
+
+`npm run dev` with no Supabase variables runs the demo mode. Set the three variables and restart to use the real backend.

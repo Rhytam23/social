@@ -18,7 +18,7 @@ export const MESSAGE_ENCRYPTION_VERSION = 2;
  * Encrypts `plaintext` for a specific recipient device using their long-term
  * X25519 public key. Authenticated: the recipient can verify it was sent by
  * the holder of `myPrivateKeyB64`, and nobody without `theirPrivateKey` can
- * read it - real E2EE. (See docs/20_E2EE_SPEC.md for why this replaces the
+ * read it - real E2EE. (See docs/E2EE.md for why this replaces the
  * originally-specified Signal Double Ratchet: libsignal-client cannot run in
  * a browser.)
  */

@@ -27,7 +27,7 @@ export type MessageEnvelope =
  * Everything about a message - including that it has an attachment at all,
  * its file name, and its type - lives inside the encrypted envelope. Only
  * `ciphertext`/`nonce`/`encryption_version` are ever written to `messages`
- * (see docs/00_MASTER_RULES.md #5): no attachment metadata table exists or
+ * (see docs/SECURITY.md, "Rules for contributors"): no attachment metadata table exists or
  * is needed.
  */
 export function serializeEnvelope(envelope: MessageEnvelope): string {

@@ -1,5 +1,14 @@
 # PRIVATE-CHAT V1 STATUS
 
+> **This is a snapshot of the V1 audit and rebuild, written at the end of that work.** It is kept as the historical record of what was found and fixed. It is not the current status. For what exists now see the [README](../README.md), [Roadmap](ROADMAP.md) and [Changelog](CHANGELOG.md).
+>
+> **Changed since this report:**
+> - Registration is **no longer invite-only** (migration `007`, replaced by `009`). Everything below about invite-gated signup describes the state at the time.
+> - Sign-in now also offers **Google**, and email signup requires confirmation.
+> - Migrations `007`, `008` and `009` exist, and there are now 76 automated tests (this report says 68).
+> - Google sign-in was confirmed working against a real Supabase project by the project owner. **Everything else listed as unverified in section 4 is still unverified** by automated means; use the [manual checklist](TESTING.md#manual-checklist).
+> - The old numbered documentation files this report mentions were replaced; see [docs/README](README.md).
+
 This replaces the previous version of this file, which claimed every area was
 "WORKING" across the board. That was false. This document is the result of a
 from-scratch audit (7 parallel independent reviews covering auth, messaging,
@@ -45,7 +54,7 @@ Full findings (with file:line citations) are in the audit transcripts from this 
 ## 2. What was fixed
 
 ### Security / correctness (must-fix, done)
-- **Invite-only registration now enforced in Postgres itself** (`database/migrations/006_production_hardening.sql`): the `on_auth_user_created` trigger requires a valid, unused, non-expired invite token matching the registering email, hashed and looked up with `FOR UPDATE` locking, and raises an exception (rolling back the entire `auth.users` insert) if it doesn't match. This holds regardless of what any client does - a request that bypasses the UI entirely and calls the anon-key API directly still can't create an unauthorized account. The very first account on a fresh database is bootstrapped as admin without needing an invite (nothing exists yet to issue one).
+- **Invite-only registration now enforced in Postgres itself** (`database/migrations/006_production_hardening.sql`; *later replaced by open registration, migrations `007` and `009`*): the `on_auth_user_created` trigger requires a valid, unused, non-expired invite token matching the registering email, hashed and looked up with `FOR UPDATE` locking, and raises an exception (rolling back the entire `auth.users` insert) if it doesn't match. This holds regardless of what any client does - a request that bypasses the UI entirely and calls the anon-key API directly still can't create an unauthorized account. The very first account on a fresh database is bootstrapped as admin without needing an invite (nothing exists yet to issue one).
 - **Fail-closed middleware**: local demo mode is now only reachable when `NODE_ENV !== 'production'`. A production deployment with missing/placeholder Supabase env vars now returns HTTP 500 instead of silently granting access (`middleware.ts`, `lib/supabase/env.ts`).
 - **PII leak closed**: `/api/users` no longer selects `email`/`phone_number` into its response (still searchable, never returned).
 - **Real `/auth/confirm` route** added implementing the standard Supabase+Next.js SSR `verifyOtp` pattern for both email confirmation and password recovery; `signUp`/`resetPasswordForEmail` now point at it.
@@ -60,7 +69,7 @@ Since libsignal-client cannot run in a browser, the crypto layer (`crypto/`) was
 - **Attachments**: existing WebCrypto AES-256-GCM encryptor kept (it was already browser-safe), rewired into the real upload/download path.
 - **Key backup**: existing Argon2id (hash-wasm) + AES-GCM export/import kept, rewired to the new key store shape and to a real "Export Backup" button that triggers an actual file download.
 - **`@signalapp/libsignal-client` removed from `package.json`** - it was never functional and is actively misleading to keep as a listed dependency.
-- Message/attachment encryption content model: everything about a message (text, or an attachment's filename/mimeType/storage path/decryption key) lives **inside** the encrypted envelope. No new plaintext columns were added to `messages` - this was a hard constraint from the project's own `docs/00_MASTER_RULES.md` and it's respected.
+- Message/attachment encryption content model: everything about a message (text, or an attachment's filename/mimeType/storage path/decryption key) lives **inside** the encrypted envelope. No new plaintext columns were added to `messages` - this was a hard constraint from the project's own rules (now in [Security](SECURITY.md#rules-for-contributors)) and it's respected.
 
 ### Real messaging data layer (`lib/store/chatStore.ts`, `lib/messaging/*`)
 - Conversation list and message history are now fetched from Supabase on load and on conversation switch (`GET /api/messages`, real conversation/member joins), not just realtime pushes.
