@@ -74,6 +74,18 @@ Restoring on another browser with the file and passphrase gives that browser the
 
 Each device has a fingerprint (BLAKE2b of its public key) and each conversation a safety number built from both parties' keys. Comparing them out of band is how you would detect a swapped key. The settings and conversation panels display real values. The "mark verified" button in the conversation inspector is not wired to anything yet.
 
+## What the server can see
+
+Message text, attachment names and types, reactions text, poll content and call contents are never visible. The server does see:
+
+- who is in which conversation, community or channel, and when messages were sent
+- **which message a thread reply belongs to** (`thread_root_id`) and **which message you saved** (`saved_messages`)
+- **read receipts and unread positions**, unless you turn read receipts off (you then also stop seeing others')
+- **the disappearing-message timer** of a conversation and each message's expiry time
+- **who blocked whom**, and any report you file (its text only if you tick "include the text")
+- who is online, and typing, on public Realtime channels while you have those features on (user ids and a status only)
+- for calls: that a call signal was sent between two users. The offer, answer and network candidates are encrypted with the same keys as messages; the media itself is encrypted by WebRTC and goes browser to browser, or through your TURN relay, which sees only encrypted packets.
+
 ## Limitations
 
 - **No forward secrecy.** Each pair of users shares a long-lived secret derived from their long-lived keys. If a private key is ever stolen, every message that was ever exchanged with that person and captured as ciphertext can be decrypted. Groups have limited protection through key rotation, but earlier key versions are still held.

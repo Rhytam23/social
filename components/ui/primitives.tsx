@@ -74,7 +74,7 @@ export const SettingRow: React.FC<{ title: string; description?: string; childre
 );
 
 /* ---------- Skeleton / states ---------- */
-export const Skeleton: React.FC<{ className?: string }> = ({ className = 'h-4 w-full' }) => (
+const Skeleton: React.FC<{ className?: string }> = ({ className = 'h-4 w-full' }) => (
   <div className={`skeleton ${className}`} aria-hidden="true" />
 );
 

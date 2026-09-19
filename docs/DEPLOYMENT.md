@@ -41,6 +41,10 @@ To let your users in:
 2. Share the **production domain** (Project → Settings → Domains). Per-deployment and branch URLs such as `<project>-<hash>-<team>.vercel.app` stay protected.
 3. Set Supabase's **Site URL** and **Redirect URLs** to that same public domain. After Google or email sign-in, Supabase sends people to the Site URL whenever the address they started from is not in the Redirect URLs list, so a protected address there sends every user to Vercel's wall.
 
+### Calls need a relay on some networks
+
+Calls use WebRTC. Between two ordinary home networks they connect with the built-in public STUN server. For strict corporate or mobile networks, run a TURN server (for example coturn, or a hosted provider) and set `TURN_URLS` plus `TURN_SHARED_SECRET` (or `TURN_USERNAME` and `TURN_CREDENTIAL`) in the server environment. The relay only sees encrypted media.
+
 ## 3. Preview deployments
 
 Preview deployments use whatever variables are set for the Preview environment. If they point at your production Supabase project, every pull request preview reads and writes production data. Use a separate Supabase project for Preview if that matters.

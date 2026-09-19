@@ -14,36 +14,19 @@ What is done, what is planned, and what is known to be missing. Each phase ships
 | Documentation rewrite | PR #7 |
 | Dead-code cleanup: removed the obsolete invite feature (API, admin panel, store, tests), unused components and helpers | this cleanup |
 
-## Planned features
+## What is verified
 
-**Phase 1a: live state**
-- Server-backed unread counts (a `last_read_at` per member) and @mention badges
-- Read receipts (sent, delivered, read), using the existing `message_receipts` table, with a setting to turn them off
-- Online status and a manual status: Active, Do Not Disturb, Away (automatic after 5 minutes idle), In a meeting, using `presence`
-- Typing indicators (ephemeral, nothing stored)
-- Reactions that survive a refresh and update live
+Everything in the **platform release** (see [Changelog](CHANGELOG.md)) passes type checking, lint, the production build and 111 unit tests, and the interface was exercised in local demo mode (themes, quick switcher, rich text, threads, notification menus, privacy settings). It has **not** been run against a live Supabase project: migrations `011` to `015`, real-time delivery, receipts, presence, communities, role enforcement, key rotation on departure, blocking, disappearing messages and calls are all written but untested end to end. Treat the first deployment as a test: apply the migrations in a staging project and walk through the checklist in [Testing](TESTING.md).
 
-**Phase 1b: composer and everyday use**
-- Text formatting (bold, italic, code, links), drag and drop and paste for images, voice note speed and waveform
-- Browser notifications that respect Do Not Disturb
-- Search that loads older history and matches decrypted messages in memory
+## Planned next
 
-**Phase 2: groups**
-- Group admin role, rename, description and photo, leave with key rotation, system messages ([ADR 006](DECISIONS.md#adr-006-groups-had-no-roles-admin-roles-are-planned))
-- Threads and polls
-- Block and report user
-
-**Phase 3: privacy**
-- Disappearing messages
-- Active sessions list and "log out other devices"
-- App lock with a PIN
-- Stretch: link a second device by QR (see the constraints in [E2EE](E2EE.md#limitations))
-
-**Phase 4: calls**
-- One-to-one voice and video over WebRTC with encrypted signalling and a hosted TURN relay
-
-**Later**
-- Web Push notifications, scheduled messages, channels and communities, stickers and GIFs
+- Web Push notifications while the app is closed (needs a design that keeps message text off the push service)
+- Group calls and screen sharing
+- Second-device linking by QR code
+- Stickers and GIFs, scheduled messages, custom community roles, channel categories, public community discovery
+- Server-enforced authorization for presence, typing and call channels (Realtime Authorization)
+- Account deletion and a full data export that includes decrypted history
+- Move Argon2id and key generation to a Web Worker; Content Security Policy; CI workflow
 
 ## Security and hardening backlog
 

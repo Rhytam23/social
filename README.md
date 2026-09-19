@@ -35,6 +35,14 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 - Profile photo upload, notification permission, key backup and device list
 - Admin dashboard for roles
 
+**Platform features** (need migrations 011 to 015; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
+- Themes (dark, light, system), quick switcher (Ctrl+K), keyboard shortcuts, accessible dialogs
+- Profiles with bio, pronouns and time zone; presence statuses; typing indicators; read receipts
+- Group roles, admin-only posting, threads, saved messages, @mentions, message formatting
+- Communities with public and private channels and invite links
+- Notification controls (mute, mentions-only, quiet hours, keywords), disappearing messages, blocking, reporting, app lock
+- One-to-one voice and video calls (WebRTC, encrypted signalling, optional TURN)
+
 **Local demo mode**: run the UI with no backend for development (see [Demo mode](#demo-mode)). It can never run in a production build.
 
 ---
@@ -147,9 +155,12 @@ Deploy to Vercel (or any Node host): set the three Supabase variables (mark the 
 - **One device per account for encryption.** Signing in on a new browser creates a new device key unless you restore your key backup.
 - **The server sees metadata**: who is in which conversation, timestamps, message and attachment sizes.
 - **Public keys are served by the database.** A malicious server could swap a key; compare safety numbers to detect it. The "mark verified" button is not wired up yet.
-- Reactions are saved but are not reloaded from the database after a refresh; pins and stars are stored only in your browser.
+- Pins are stored only in your browser; saved messages, reactions and read state are stored on the server (ids only).
 - A group member who has never signed in cannot get the group key until it is re-shared.
-- Profile email and phone number columns are readable by other signed-in users through the Supabase API, even though the app's search route hides them. See [`docs/SECURITY.md`](docs/SECURITY.md).
+- Migrations 011 to 015 and the new features have not been verified against a live Supabase project (see the [roadmap](docs/ROADMAP.md#what-is-verified)).
+- Search covers messages loaded on this device only; notifications only work while the app is open in a browser tab.
+- New community members can read a channel only after an admin's device shares its key, so an admin must have the app open.
+- Calls may not connect on strict networks unless you configure a TURN relay.
 
 The complete list, and what is planned, is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 

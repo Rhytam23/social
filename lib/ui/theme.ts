@@ -16,7 +16,7 @@ export function readTheme(): ThemePreference {
   return 'dark';
 }
 
-export function applyTheme(pref: ThemePreference) {
+function applyTheme(pref: ThemePreference) {
   if (typeof document !== 'undefined') document.documentElement.setAttribute('data-theme', pref);
 }
 

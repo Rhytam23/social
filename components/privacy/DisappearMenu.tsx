@@ -10,7 +10,7 @@ const OPTIONS: { label: string; seconds: number | null }[] = [
   { label: '90 days', seconds: 90 * DAY },
 ];
 
-export function disappearLabel(seconds?: number): string {
+function disappearLabel(seconds?: number): string {
   if (!seconds) return 'Off';
   const match = OPTIONS.find((o) => o.seconds === seconds);
   if (match) return match.label;

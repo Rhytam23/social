@@ -8,7 +8,7 @@ const TYPING_TTL_MS = 4000;
 const TYPING_THROTTLE_MS = 2500;
 
 /** Maps what someone chose (or the idle timer decided) to what other people see. */
-export function presenceFor(choice: StatusChoice, idle: boolean): UserPresence | 'invisible' {
+function presenceFor(choice: StatusChoice, idle: boolean): UserPresence | 'invisible' {
   if (choice === 'invisible') return 'invisible';
   if (choice === 'dnd') return 'dnd';
   if (choice === 'meeting') return 'meeting';

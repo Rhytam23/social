@@ -135,6 +135,12 @@ CREATE POLICY community_members_select_policy ON public.community_members
 
 -- community_invites has no client policies at all: only the functions touch it.
 
+-- Channels are managed like groups: their admins may change name, topic-like settings and admin-only posting.
+DROP POLICY IF EXISTS conversations_update_policy ON public.conversations;
+CREATE POLICY conversations_update_policy ON public.conversations
+  FOR UPDATE TO authenticated
+  USING ((type IN ('group', 'channel') AND public.is_group_admin(id)) OR public.is_admin());
+
 -- ---- functions ----
 CREATE OR REPLACE FUNCTION public.create_community(p_name TEXT, p_description TEXT DEFAULT NULL)
 RETURNS TABLE (out_community_id UUID, out_channel_id UUID)
@@ -222,7 +228,8 @@ DECLARE
   v_code TEXT;
 BEGIN
   IF NOT public.is_community_admin(p_community) THEN RAISE EXCEPTION 'Only community admins can create invites'; END IF;
-  v_code := upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 12));
+  -- 20 hex characters (80 bits): long enough that guessing an invite is not practical.
+  v_code := upper(substr(replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''), 1, 20));
   INSERT INTO public.community_invites (community_id, code_hash, created_by, expires_at, max_uses)
   VALUES (
     p_community,

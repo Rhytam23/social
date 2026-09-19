@@ -1,9 +1,9 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
 
 /** Columns that exist since the first schema. */
-export const BASE_PROFILE_COLUMNS = 'id, username, display_name, avatar_url, is_admin';
+const BASE_PROFILE_COLUMNS = 'id, username, display_name, avatar_url, is_admin';
 /** Columns added by migration 011. Read separately so the app still works before it is applied. */
-export const EXTRA_PROFILE_COLUMNS = 'bio, pronouns, timezone, preferences, onboarding_completed';
+const EXTRA_PROFILE_COLUMNS = 'bio, pronouns, timezone, preferences, onboarding_completed';
 
 export interface OwnProfile {
   id: string;

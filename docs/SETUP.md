@@ -46,6 +46,13 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 008 | `008_realtime_publication.sql` | Turns on live delivery for messages, reactions, receipts, members, presence |
 | 009 | `009_oauth_profile_metadata.sql` | Final signup trigger: names and avatars from Google, valid unique usernames |
 | 010 | `010_conversation_creator_can_read.sql` | Fixes "new row violates row-level security policy for table conversations" when starting a chat or group |
+| 011 | `011_profile_fields_and_privacy.sql` | Bio, pronouns, time zone, preferences; **hides every member's email and phone from other users** |
+| 012 | `012_messaging_state.sql` | Server-side unread counts, saved messages |
+| 013 | `013_group_roles_threads.sql` | Group owner/admin/member roles, group description, admin-only posting, threads |
+| 014 | `014_communities.sql` | Communities, channels, invite links |
+| 015 | `015_privacy_controls.sql` | Disappearing messages, blocking, reports |
+
+Migrations 011 to 015 are safe to re-run. The app keeps working if some of them are missing: each feature that needs one says so instead of failing. Run them in order, once each.
 
 `database/functions/atomic_invite_consumption.sql` belongs to the removed invite feature. New installs do not need it.
 

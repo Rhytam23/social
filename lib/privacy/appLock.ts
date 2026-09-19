@@ -91,10 +91,6 @@ function emit() {
   listeners.forEach((l) => l());
 }
 
-export function isLocked(): boolean {
-  return locked;
-}
-
 export function lockNow() {
   if (!locked) {
     locked = true;

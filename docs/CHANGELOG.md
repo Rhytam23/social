@@ -4,6 +4,17 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Platform release: design system, profiles, chat polish, groups, threads, notifications, communities, privacy and calls.** Needs migrations `011` to `015` and has **not been run against a live Supabase project**; see [Roadmap](ROADMAP.md#what-is-verified).
+
+- **Design system.** Theme tokens with dark, light and system themes; accessible dialog, toast, avatar, badge, switch, skeleton, empty and error states; Ctrl+K quick switcher and shortcuts list; skip link, landmarks, offline banner; the animation classes the app already used now actually animate.
+- **Profiles and settings.** Bio, pronouns, time zone, username validation, appearance settings, four-step onboarding with a key-backup step, per-user preferences saved to the profile. **Email and phone are hidden from other users** (`011`). The Settings screen no longer shows a hard-coded identity fingerprint.
+- **Chat.** Reactions load and update live, read receipts, server-side unread counts, presence with manual statuses (Active, Do Not Disturb, Away, In a meeting, Appear offline) and idle-to-away after 5 minutes, typing indicators, load-earlier-messages, saved messages, formatting (bold, italic, code, quotes, links), @mentions, media, files and links tabs, touch-friendly message actions.
+- **Groups.** Owner, admin and member roles, admin-only posting, description, leave with ownership transfer, system messages, key rotation when someone leaves, threads.
+- **Notifications.** Per-chat all, mentions-only and timed mute; quiet hours; keywords; desktop notifications and a sound; a notification centre for mentions; unread count in the tab title.
+- **Communities.** Community rail, public and private channels, invite links, roles, member management.
+- **Privacy.** Disappearing messages, blocking, reporting, app lock, key-change warnings and a working "mark verified", sign out other devices, data export.
+- **Calls.** One-to-one voice and video over WebRTC with end-to-end encrypted signalling and optional TURN (`TURN_URLS` and friends).
+
 - **Dead code removed.** Deleted the obsolete invitation feature (the `/api/invites` routes, `lib/invites`, the admin "Invitation Tokens" panel, the sidebar "Invite" button and the invite dialog, invite state in the store, and their tests). Signup has not needed invites since `007`, so the panel created tokens that nothing accepted. `/invite` now redirects to `/signup` and `/admin/invites` no longer exists. Also removed unused components (`Header`, `Badge`, `Textarea`), the unused `types/index.ts` barrel, unused crypto and store helpers, a duplicate `createClient` export and the unused `tsx` dev dependency. The database still has the unused `invites` table and `consume_invite()` function.
 - **Vercel Deployment Protection** documented ([Deployment](DEPLOYMENT.md#vercel-deployment-protection), issue #6).
 - **Documentation rewritten.** Replaced the 37 mostly out-of-date documents with a smaller set written from the code. Removed two documents for features the project never had (scraping, advertising).
