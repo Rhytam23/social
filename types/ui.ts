@@ -112,11 +112,3 @@ export interface UserItem {
   presence?: UserPresence;
 }
 
-export interface InviteItem {
-  id: string;
-  token: string;
-  createdByName: string;
-  createdAt: string;
-  status: 'pending' | 'consumed' | 'revoked';
-  consumedByName?: string;
-}

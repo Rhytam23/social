@@ -7,8 +7,6 @@ import { NewConversationModal } from '../components/chat/NewConversationModal';
 import { LoginForm } from '../components/auth/LoginForm';
 import { LandingPage } from '../components/landing/LandingPage';
 import { OnboardingModal } from '../components/onboarding/OnboardingModal';
-import { Dialog } from '../components/ui/dialog';
-import { Button } from '../components/ui/button';
 import { UserItem, MessageData } from '../types/ui';
 import { createClient } from '../lib/supabase/client';
 import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
@@ -29,9 +27,6 @@ interface ProfileRow {
 export default function HomePage() {
   const [state, store] = useChatStore();
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
-  const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [generatedToken, setGeneratedToken] = useState<string | null>(null);
 
   const [authModalTab, setAuthModalTab] = useState<'signin' | 'signup' | null>(null);
   const [onboardingOpen, setOnboardingOpen] = useState(false);
@@ -221,16 +216,6 @@ export default function HomePage() {
     store.starMessage(msgId);
   };
 
-  const handleGenerateInvite = async (assignedEmail: string): Promise<string | null> => {
-    const token = await store.generateInvite(assignedEmail);
-    setGeneratedToken(token);
-    return token;
-  };
-
-  const handleRevokeInvite = (inviteId: string) => {
-    void store.revokeInvite(inviteId);
-  };
-
   const handleToggleUserRole = (userId: string, currentRole: 'admin' | 'member') => {
     void store.toggleUserRole(userId, currentRole);
   };
@@ -398,19 +383,11 @@ export default function HomePage() {
         onRemoveGroupMember={handleRemoveGroupMember}
         devices={state.devices}
         users={state.allUsers}
-        invites={state.invites}
-        onGenerateInvite={handleGenerateInvite}
-        onRevokeInvite={handleRevokeInvite}
         onToggleUserRole={handleToggleUserRole}
         onExportKeyBackup={handleExportKeyBackup}
         onRestoreKeyBackup={handleRestoreKeyBackup}
         onRevokeDevice={handleRevokeDevice}
         onNewMessage={() => setNewChatModalOpen(true)}
-        onInviteMember={() => {
-          setGeneratedToken(null);
-          setInviteEmail('');
-          setInviteModalOpen(true);
-        }}
         onPinConversation={(id) => store.pinConversation(id)}
         onMuteConversation={(id) => store.muteConversation(id)}
         onArchiveConversation={(id) => store.archiveConversation(id)}
@@ -437,57 +414,6 @@ export default function HomePage() {
         onStartDirectChat={handleStartDirectChat}
         onCreateGroupChat={handleCreateGroupChat}
       />
-
-      <Dialog
-        isOpen={inviteModalOpen}
-        onClose={() => setInviteModalOpen(false)}
-        title="Generate Platform Invite"
-        footerAction={
-          !generatedToken ? (
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={!inviteEmail.trim()}
-              onClick={async () => {
-                await handleGenerateInvite(inviteEmail.trim());
-              }}
-            >
-              Generate Invite
-            </Button>
-          ) : (
-            <Button variant="secondary" size="sm" onClick={() => setInviteModalOpen(false)}>
-              Done
-            </Button>
-          )
-        }
-      >
-        <div className="flex flex-col gap-3 font-sans text-xs">
-          {generatedToken ? (
-            <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl flex flex-col gap-1.5">
-              <span className="text-emerald-400 font-semibold">Invite Token Generated:</span>
-              <span className="font-mono text-xs bg-slate-900 p-2 rounded border border-slate-800 text-slate-100 select-all">
-                {generatedToken}
-              </span>
-              <span className="text-[11px] text-slate-400">
-                Share this token with {inviteEmail} - they will need it to register. It is shown only once and is never stored in plaintext.
-              </span>
-            </div>
-          ) : (
-            <>
-              <p className="text-slate-400">
-                This issues a single-use invite token tied to a specific email address. Registration will fail unless the recipient signs up with this exact email and token.
-              </p>
-              <input
-                type="email"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                placeholder="newmember@example.com"
-                className="w-full bg-slate-950/70 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-slate-700"
-              />
-            </>
-          )}
-        </div>
-      </Dialog>
     </div>
   );
 }

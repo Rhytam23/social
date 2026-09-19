@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ConversationItem, MessageData, UserItem, DeviceItem, InviteItem } from '../../types/ui';
+import { ConversationItem, MessageData, UserItem, DeviceItem } from '../../types/ui';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
 import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
@@ -34,7 +34,6 @@ export interface ChatStoreState {
   messagesMap: Record<string, MessageData[]>;
   messagesLoading: Record<string, boolean>;
   devices: DeviceItem[];
-  invites: InviteItem[];
   error: string | null;
 }
 
@@ -85,10 +84,6 @@ const DEMO_MESSAGES: Record<string, MessageData[]> = {
 
 const DEMO_DEVICES: DeviceItem[] = [
   { id: 'dev-primary', deviceName: 'Primary Workstation (Web)', registrationId: 84920, lastActive: 'Active now', isCurrentDevice: true },
-];
-
-const DEMO_INVITES: InviteItem[] = [
-  { id: 'inv-1', token: 'newhire@example.com', createdByName: 'Alice Vance', createdAt: 'Sep 3, 2026', status: 'pending' },
 ];
 
 // ============================================================
@@ -173,7 +168,6 @@ export class ChatStore {
       messagesMap: {},
       messagesLoading: {},
       devices: [],
-      invites: [],
       error: null,
     };
   }
@@ -286,7 +280,7 @@ export class ChatStore {
     });
 
     try {
-      await Promise.all([this.loadConversationsReal(), this.loadAllUsersReal(), this.loadDevicesReal(), this.loadInvitesReal()]);
+      await Promise.all([this.loadConversationsReal(), this.loadAllUsersReal(), this.loadDevicesReal()]);
     } catch (err) {
       this.setState({ error: err instanceof Error ? err.message : 'Failed to load your data' });
     } finally {
@@ -393,24 +387,6 @@ export class ChatStore {
       }))
     );
     this.setState({ devices });
-  }
-
-  private async loadInvitesReal(): Promise<void> {
-    if (!this.supabase) return;
-    const { data } = await this.supabase
-      .from('invites')
-      .select('id, token_hash, assigned_email, status, created_at, used_by')
-      .order('created_at', { ascending: false })
-      .limit(50);
-    // RLS restricts this to admins; a non-admin caller gets an empty/denied result.
-    const invites: InviteItem[] = (data || []).map((i) => ({
-      id: i.id,
-      token: i.assigned_email, // the raw token is never stored/returned - the recipient's email is shown instead
-      createdByName: '',
-      createdAt: new Date(i.created_at).toLocaleDateString(),
-      status: i.status === 'used' ? 'consumed' : i.status === 'revoked' ? 'revoked' : 'pending',
-    }));
-    this.setState({ invites });
   }
 
   public selectConversation(conversationId: string) {
@@ -864,30 +840,6 @@ export class ChatStore {
     await this.loadConversationsReal();
   }
 
-  public async generateInvite(assignedEmail: string): Promise<string | null> {
-    if (this.state.mode === 'demo') return this.generateInviteDemo();
-    const res = await fetch('/api/invites', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ assignedEmail }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      this.setState({ error: body.error || 'Failed to generate invite' });
-      return null;
-    }
-    await this.loadInvitesReal();
-    const body = await res.json();
-    return body.rawToken as string;
-  }
-
-  public async revokeInvite(inviteId: string): Promise<void> {
-    if (this.state.mode === 'demo') return this.revokeInviteDemo(inviteId);
-    if (!this.supabase) return;
-    await this.supabase.from('invites').update({ status: 'revoked', revoked_at: new Date().toISOString() } as never).eq('id', inviteId);
-    await this.loadInvitesReal();
-  }
-
   public async toggleUserRole(userId: string, currentRole: 'admin' | 'member'): Promise<void> {
     if (this.state.mode === 'demo') return this.toggleUserRoleDemo(userId, currentRole);
     const res = await fetch('/api/admin/users', {
@@ -1002,7 +954,6 @@ export class ChatStore {
       messagesLoading: {},
       activeConversationId: '',
       devices: [],
-      invites: [],
       error: null,
     });
   }
@@ -1016,7 +967,6 @@ export class ChatStore {
     let conversations = DEMO_CONVERSATIONS;
     let messagesMap = DEMO_MESSAGES;
     let devices = DEMO_DEVICES;
-    let invites = DEMO_INVITES;
     let savedUserId: string | null = null;
 
     // Browser-only: layer any previously-saved local demo data on top of the
@@ -1040,7 +990,6 @@ export class ChatStore {
             conversations = parsed.conversations;
             messagesMap = parsed.messagesMap;
             devices = parsed.devices || DEMO_DEVICES;
-            invites = parsed.invites || DEMO_INVITES;
           }
         }
       } catch {
@@ -1060,7 +1009,6 @@ export class ChatStore {
       messagesMap,
       messagesLoading: {},
       devices,
-      invites,
       error: null,
     };
     this.notify();
@@ -1071,7 +1019,7 @@ export class ChatStore {
     try {
       localStorage.setItem(
         STORAGE_KEY,
-        JSON.stringify({ allUsers: this.state.allUsers, conversations: this.state.conversations, messagesMap: this.state.messagesMap, devices: this.state.devices, invites: this.state.invites })
+        JSON.stringify({ allUsers: this.state.allUsers, conversations: this.state.conversations, messagesMap: this.state.messagesMap, devices: this.state.devices })
       );
       localStorage.setItem(CURRENT_USER_KEY, this.state.currentUser.id);
     } catch {
@@ -1205,20 +1153,6 @@ export class ChatStore {
     this.persistDemo();
     this.notify();
     return newId;
-  }
-
-  private generateInviteDemo(): string {
-    const token = `INV-${Math.random().toString(36).slice(2, 6).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-    this.state.invites = [{ id: `inv-${Date.now()}`, token, createdByName: this.state.currentUser.name, createdAt: 'Just now', status: 'pending' }, ...this.state.invites];
-    this.persistDemo();
-    this.notify();
-    return token;
-  }
-
-  private revokeInviteDemo(inviteId: string) {
-    this.state.invites = this.state.invites.map((i) => (i.id === inviteId ? { ...i, status: 'revoked' } : i));
-    this.persistDemo();
-    this.notify();
   }
 
   private toggleUserRoleDemo(userId: string, currentRole: 'admin' | 'member') {

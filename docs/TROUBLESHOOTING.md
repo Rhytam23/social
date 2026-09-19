@@ -60,6 +60,10 @@ The login page shows a reason after "We couldn't complete Google sign-in", for e
 
 Changes in Google Cloud can take a few minutes to apply.
 
+## After signing in I see Vercel's "You Need Access" page
+
+The deployment has Vercel **Deployment Protection** turned on, so only members of your Vercel team can open it. This is a hosting setting, not an app bug. Turn protection off for Production, share the production domain, and make sure Supabase's Site URL and Redirect URLs use that domain. Full steps in [Deployment](DEPLOYMENT.md#vercel-deployment-protection).
+
 ## Confirmation email does not arrive, or the link fails
 
 - Supabase's built-in mailer allows only a few emails per hour. Wait, check spam, or configure your own SMTP.

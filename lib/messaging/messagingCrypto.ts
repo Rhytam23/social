@@ -5,7 +5,6 @@ import {
   generateDeviceKeys,
   registerPeerKey,
   computeDeviceFingerprint,
-  computeSafetyNumber,
   encrypt1to1Message,
   decrypt1to1Message,
   generateGroupKey,
@@ -94,10 +93,6 @@ export class MessagingCrypto {
     return computeDeviceFingerprint(this.myPublicKeyB64());
   }
 
-  async safetyNumberWith(theirPublicKeyB64: string): Promise<string> {
-    return computeSafetyNumber(this.myPublicKeyB64(), theirPublicKeyB64);
-  }
-
   /** Fetches (and caches) the most recently active device for a user. */
   async getPeerDevice(userId: string): Promise<PeerDevice | null> {
     const cached = this.peerDeviceCache.get(userId);
@@ -117,10 +112,6 @@ export class MessagingCrypto {
     this.peerDeviceCache.set(userId, device);
     registerPeerKey(this.keyStore, userId, device.deviceId, device.publicKeyB64);
     return device;
-  }
-
-  invalidatePeerCache(userId: string): void {
-    this.peerDeviceCache.delete(userId);
   }
 
   // --- 1:1 messages ---

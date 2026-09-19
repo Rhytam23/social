@@ -17,7 +17,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `007_open_registration.sql` | `handle_new_user` without the invite requirement | Yes |
 | `008_realtime_publication.sql` | Adds tables to the Realtime publication; `REPLICA IDENTITY FULL` on two tables | Yes |
 | `009_oauth_profile_metadata.sql` | Final `handle_new_user` | Yes. Run it last after re-running `005`-`007` |
-| `functions/atomic_invite_consumption.sql` | `consume_invite` (legacy invite feature) | Yes. Not numbered; optional |
+| `functions/atomic_invite_consumption.sql` | `consume_invite` (unused; the invite feature was removed from the app) | Yes. Not numbered; skip on new installs |
 
 ## Tables
 
@@ -26,7 +26,7 @@ All tables have row level security enabled.
 | Table | Purpose and notable constraints |
 |---|---|
 | `profiles` | One per user; `id` references `auth.users` (cascade). `username` unique, at least 3 characters. `display_name`, `avatar_url`, `is_admin` (default false), `email` unique, `phone_number` unique |
-| `invites` | Legacy admin invitations. Token stored only as a hash; status `pending`, `used`, `revoked` or `expired` |
+| `invites` | **Unused.** Left over from the removed invitation feature (token hash, status). The app no longer reads or writes it; it can be dropped in a future migration |
 | `conversations` | `type` is `private` or `group`; a group must have a name |
 | `conversation_members` | Primary key (`conversation_id`, `user_id`); `joined_at`, `left_at`. No role column |
 | `messages` | `ciphertext` and `nonce` required, **no plaintext column**; `encryption_version`; `reply_to_message_id`; `edited_at`, `deleted_at` (soft delete) |
@@ -55,7 +55,7 @@ All are `SECURITY DEFINER` with a fixed `search_path`; helpers are executable by
 - **`prevent_profile_admin_escalation()`**: on `profiles`, a signed-in caller cannot set or change `is_admin`. Direct database and service-role changes (including the first-user bootstrap) are allowed.
 - **`enforce_private_conversation_cap()`**: rejects a third active member in a private conversation.
 - **`set_updated_at()`**: keeps `updated_at` current on several tables.
-- **`consume_invite(...)`**: atomic single-use invite redemption, `service_role` only. Part of the legacy invite feature.
+- **`consume_invite(...)`**: atomic single-use invite redemption, `service_role` only. **Unused** since the invite feature was removed; can be dropped together with the `invites` table.
 
 ## Row level security summary
 

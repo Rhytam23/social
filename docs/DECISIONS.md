@@ -21,7 +21,7 @@ The main architectural choices, why they were made, and where they stand. New de
 - **Status:** Accepted. **Supersedes** the original invite-only registration.
 - **Context:** Invite-only signup was first enforced only in the UI, then in a database trigger (`006`). The project owner wanted normal sign-up.
 - **Decision:** Anyone can register with email and password (email must be confirmed) or Google. The signup trigger (`009`) only creates the profile. The first account becomes admin.
-- **Consequences:** No invitation friction, but spam protection now rests on email confirmation and rate limits. The invite code, table and admin panel remain as legacy and can be removed.
+- **Consequences:** No invitation friction, but spam protection now rests on email confirmation and rate limits. The invite code, API and admin panel have since been removed; the `invites` table and `consume_invite()` function remain in the database, unused, and can be dropped in a later migration.
 
 ## ADR 004: Everything about a message lives inside the ciphertext
 

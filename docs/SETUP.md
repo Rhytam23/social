@@ -46,7 +46,7 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 008 | `008_realtime_publication.sql` | Turns on live delivery for messages, reactions, receipts, members, presence |
 | 009 | `009_oauth_profile_metadata.sql` | Final signup trigger: names and avatars from Google, valid unique usernames |
 
-Optional: `database/functions/atomic_invite_consumption.sql` is only used by the legacy admin invite feature. New installs do not need it.
+`database/functions/atomic_invite_consumption.sql` belongs to the removed invite feature. New installs do not need it.
 
 **Do not re-run old migrations on an existing project.** `002` and `003` are not re-runnable: `002` refers to a column that `003` removes, so running it again fails with `column "role" does not exist`. If you are unsure what has been applied, run this read-only check and only run what is missing:
 

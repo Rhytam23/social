@@ -11,7 +11,8 @@ What is done, what is planned, and what is known to be missing. Each phase ships
 | **Phase 0 foundations**: Realtime publication, live edits and deletes, new message kinds, camera and microphone permission headers | PR #3 |
 | Continue with Google, profile names and photos from Google, unique usernames | PR #4 |
 | Real failure reasons on the sign-in error screen | PR #5 |
-| Documentation rewrite | this set of documents |
+| Documentation rewrite | PR #7 |
+| Dead-code cleanup: removed the obsolete invite feature (API, admin panel, store, tests), unused components and helpers | this cleanup |
 
 ## Planned features
 
@@ -54,7 +55,7 @@ From [Security](SECURITY.md#known-gaps), in priority order:
 4. Add a Content Security Policy
 5. Move Argon2id and key generation to a Web Worker
 6. Put security headers on redirects and error responses
-7. Remove the legacy invite code, table and admin panel
+7. Drop the unused `invites` table and `consume_invite()` function in a migration
 8. Add a CI workflow that runs type check, lint, tests and build on every pull request
 9. Add an admin audit log
 

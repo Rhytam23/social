@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ViewCategory, ConversationItem, MessageData, DeviceItem, UserItem, InviteItem } from '../../types/ui';
+import { ViewCategory, ConversationItem, MessageData, DeviceItem, UserItem } from '../../types/ui';
 import { NavDeck } from './NavDeck';
 import { MobileNav } from './MobileNav';
 import { ChatCanvas } from '../chat/ChatCanvas';
@@ -40,10 +40,6 @@ export interface AppShellProps {
 
   devices: DeviceItem[];
   users: UserItem[];
-  invites: InviteItem[];
-
-  onGenerateInvite: (assignedEmail: string) => Promise<string | null>;
-  onRevokeInvite: (inviteId: string) => void;
   onToggleUserRole: (userId: string, currentRole: 'admin' | 'member') => void;
 
   onExportKeyBackup: (passphrase: string) => Promise<void>;
@@ -51,7 +47,6 @@ export interface AppShellProps {
   onRevokeDevice: (deviceId: string) => void;
 
   onNewMessage: () => void;
-  onInviteMember: () => void;
 
   // Conversation Management Handlers
   onPinConversation?: (convId: string) => void;
@@ -86,15 +81,11 @@ export const AppShell: React.FC<AppShellProps> = ({
   onRemoveGroupMember,
   devices,
   users,
-  invites,
-  onGenerateInvite,
-  onRevokeInvite,
   onToggleUserRole,
   onExportKeyBackup,
   onRestoreKeyBackup,
   onRevokeDevice,
   onNewMessage,
-  onInviteMember,
   onPinConversation,
   onMuteConversation,
   onArchiveConversation,
@@ -162,7 +153,6 @@ export const AppShell: React.FC<AppShellProps> = ({
               }
             }}
             onNewMessage={onNewMessage}
-            onInviteMember={onInviteMember}
             unreadTotal={unreadTotal}
             onGlobalSearchTrigger={() => setSearchModalOpen(true)}
             onPinConversation={onPinConversation}
@@ -321,10 +311,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           {activeCategory === 'admin' && currentUserRole === 'admin' && (
             <AdminDashboard
-              invites={invites}
               users={users}
-              onGenerateInvite={onGenerateInvite}
-              onRevokeInvite={onRevokeInvite}
               onToggleUserRole={onToggleUserRole}
             />
           )}
