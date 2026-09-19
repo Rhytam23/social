@@ -72,6 +72,12 @@ export default function HomePage() {
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'message_reactions' }, (payload) => {
         store.applyReactionEvent('DELETE', payload.old as { message_id?: string; user_id?: string; reaction?: string });
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_members' }, () => {
+        store.refreshConversations();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
+        store.refreshConversations();
+      })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'message_receipts' }, (payload) => {
         store.applyReceiptRow(payload.new as { message_id?: string; user_id?: string; delivered_at?: string | null; read_at?: string | null });
       })
@@ -210,8 +216,8 @@ export default function HomePage() {
     ? state.messagesMap[activeConversation.id] || []
     : [];
 
-  const handleSendMessage = (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number) => {
-    void store.sendMessage(content, replyToId, attachmentFile, voiceDurationMs);
+  const handleSendMessage = (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number, threadRootId?: string) => {
+    void store.sendMessage(content, replyToId, attachmentFile, voiceDurationMs, threadRootId);
   };
 
   const handleDownloadAttachment = (msgId: string, attachmentId: string) => {
@@ -465,6 +471,9 @@ export default function HomePage() {
           .map((s) => state.messagesMap[s.conversationId]?.find((m) => m.id === s.messageId))
           .filter((m): m is MessageData => !!m)}
         onToggleSaved={handleStarMessageToggle}
+        onSetMemberRole={(groupId, userId, role) => store.setMemberRole(groupId, userId, role)}
+        onUpdateGroupSettings={(groupId, patch) => store.updateGroupSettings(groupId, patch)}
+        onLeaveGroup={(groupId) => store.leaveGroup(groupId)}
       />
 
       <OnboardingModal

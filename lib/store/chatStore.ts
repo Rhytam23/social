@@ -21,6 +21,7 @@ export interface RealtimeMessageRow {
   encryption_version: number;
   created_at: string;
   reply_to_message_id: string | null;
+  thread_root_id?: string | null;
   edited_at?: string | null;
   deleted_at?: string | null;
 }
@@ -122,7 +123,15 @@ function summaryToConversationItem(summary: ConversationSummary, existing?: Conv
         : undefined,
     groupMeta:
       summary.type === 'group'
-        ? { groupId: summary.id, memberCount: summary.memberCount, senderKeyVersion: 1, memberIds: summary.memberIds }
+        ? {
+            groupId: summary.id,
+            memberCount: summary.memberCount,
+            senderKeyVersion: 1,
+            memberIds: summary.memberIds,
+            roles: summary.roles,
+            description: summary.description ?? undefined,
+            onlyAdminsPost: summary.onlyAdminsPost,
+          }
         : undefined,
   };
 }
@@ -148,6 +157,7 @@ function decryptedRowToMessage(row: DecryptedMessageRow, currentUserId: string, 
   return {
     id: row.id,
     kind,
+    threadRootId: row.threadRootId ?? undefined,
     conversationId: row.conversationId,
     senderId: row.senderId,
     senderName,
@@ -319,6 +329,9 @@ export class ChatStore {
       if (s.otherParticipant) this.participantNames.set(s.otherParticipant.id, s.otherParticipant.displayName);
     }
 
+    for (const s of summaries) {
+      if (s.type === 'group' && !this.lastMemberIds.has(s.id)) this.lastMemberIds.set(s.id, s.memberIds);
+    }
     const existingById = new Map(this.state.conversations.map((c) => [c.id, c]));
     const items = this.applyViewPrefs(summaries.map((s) => summaryToConversationItem(s, existingById.get(s.id))));
 
@@ -472,6 +485,7 @@ export class ChatStore {
       editedAt: row.edited_at ?? null,
       deletedAt: row.deleted_at ?? null,
       replyToMessageId: row.reply_to_message_id,
+      threadRootId: row.thread_root_id ?? null,
     };
     try {
       if (!this.crypto) throw new Error('Encryption session not ready');
@@ -570,8 +584,8 @@ export class ChatStore {
     }
   }
 
-  public async sendMessage(content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number): Promise<void> {
-    if (this.state.mode === 'demo') return this.sendMessageDemo(content, replyToId, attachmentFile);
+  public async sendMessage(content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number, threadRootId?: string): Promise<void> {
+    if (this.state.mode === 'demo') return this.sendMessageDemo(content, replyToId, attachmentFile, threadRootId);
 
     const conversationId = this.state.activeConversationId;
     const summary = this.conversationSummaries.get(conversationId);
@@ -586,6 +600,7 @@ export class ChatStore {
       senderId: this.state.currentUser.id,
       senderName: this.state.currentUser.name,
       isSelf: true,
+      threadRootId,
       content: isVoice ? '' : content,
       timestamp: nowTimestamp(),
       status: 'sending',
@@ -626,7 +641,7 @@ export class ChatStore {
         envelope = { v: 1, kind: 'text', text: content };
       }
 
-      const { row } = await sendEnvelope(this.crypto, summary, envelope, replyToId);
+      const { row } = await sendEnvelope(this.crypto, summary, envelope, replyToId, threadRootId);
 
       const { content: finalContent, snippet: finalSnippet, kind: finalKind, attachments } = envelopeToDisplay(envelope);
       this.state.messagesMap = {
@@ -864,6 +879,7 @@ export class ChatStore {
     const nextVersion = ((await this.crypto?.ensureGroupKey(groupId))?.version || 0) + 1;
     await this.distributeNewGroupKey(groupId, (members || []).map((m) => m.user_id), nextVersion);
     await this.loadConversationsReal();
+    void this.sendSystemNote(groupId, `${this.state.currentUser.name} added ${this.nameOf(userId)}`);
   }
 
   public async removeGroupMember(groupId: string, userId: string): Promise<void> {
@@ -882,6 +898,7 @@ export class ChatStore {
     // receives this envelope and can't decrypt anything sent after this point.
     await this.distributeNewGroupKey(groupId, (members || []).map((m) => m.user_id), nextVersion);
     await this.loadConversationsReal();
+    void this.sendSystemNote(groupId, `${this.state.currentUser.name} removed ${this.nameOf(userId)}`);
   }
 
   public async toggleUserRole(userId: string, currentRole: 'admin' | 'member'): Promise<void> {
@@ -1241,6 +1258,110 @@ export class ChatStore {
     }
   }
 
+
+  // --- Group management: roles, settings, leaving, system notes ---
+
+  private lastMemberIds: Map<string, string[]> = new Map();
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Posts a small system line ("Ana added Sam") into a conversation. Best effort. */
+  private async sendSystemNote(conversationId: string, text: string): Promise<void> {
+    const summary = this.conversationSummaries.get(conversationId);
+    if (!summary || !this.crypto) return;
+    try {
+      await sendEnvelope(this.crypto, summary, { v: 1, kind: 'system', text });
+    } catch {
+      // The change itself succeeded; the note is cosmetic.
+    }
+  }
+
+  /**
+   * Called (debounced) when Realtime reports a membership or group-settings change.
+   * If someone left or was removed and we are the lowest-id manager still in the group,
+   * we rotate the group key so the departed member cannot read anything new.
+   */
+  public refreshConversations(): void {
+    if (this.state.mode !== 'connected') return;
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => void this.doRefreshConversations(), 600);
+  }
+
+  private async doRefreshConversations(): Promise<void> {
+    const before = new Map(this.lastMemberIds);
+    await this.loadConversationsReal();
+    const me = this.state.currentUser.id;
+    for (const summary of this.conversationSummaries.values()) {
+      if (summary.type !== 'group') continue;
+      const prev = before.get(summary.id);
+      this.lastMemberIds.set(summary.id, summary.memberIds);
+      if (!prev || !summary.roles) continue;
+      const someoneLeft = prev.some((id) => !summary.memberIds.includes(id));
+      if (!someoneLeft) continue;
+      const managers = summary.memberIds.filter((id) => summary.roles![id] === 'owner' || summary.roles![id] === 'admin').sort();
+      if (managers[0] !== me) continue; // exactly one manager rotates, to avoid racing key versions
+      try {
+        const nextVersion = ((await this.crypto?.ensureGroupKey(summary.id))?.version || 0) + 1;
+        await this.distributeNewGroupKey(summary.id, summary.memberIds, nextVersion);
+      } catch (err) {
+        this.setState({ error: err instanceof Error ? err.message : 'Could not rotate the group key after a member left' });
+      }
+    }
+  }
+
+  public async setMemberRole(groupId: string, userId: string, role: 'owner' | 'admin' | 'member'): Promise<void> {
+    if (this.state.mode !== 'connected') return;
+    const res = await fetch('/api/groups/members', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, userId, role }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to change role' });
+      return;
+    }
+    await this.loadConversationsReal();
+    const name = this.nameOf(userId);
+    const verb = role === 'owner' ? 'is now the owner' : role === 'admin' ? 'is now an admin' : 'is no longer an admin';
+    void this.sendSystemNote(groupId, `${name} ${verb}`);
+  }
+
+  public async updateGroupSettings(groupId: string, patch: { name?: string; description?: string; onlyAdminsPost?: boolean }): Promise<boolean> {
+    if (this.state.mode !== 'connected') return false;
+    const res = await fetch('/api/groups', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, ...patch }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to update the group' });
+      return false;
+    }
+    await this.loadConversationsReal();
+    if (patch.name) void this.sendSystemNote(groupId, `${this.state.currentUser.name} renamed the group to "${patch.name}"`);
+    if (patch.onlyAdminsPost !== undefined) {
+      void this.sendSystemNote(groupId, patch.onlyAdminsPost ? 'Only admins can send messages now' : 'Everyone can send messages now');
+    }
+    return true;
+  }
+
+  public async leaveGroup(groupId: string): Promise<void> {
+    if (this.state.mode !== 'connected') return;
+    // Say goodbye first: after leaving we can no longer post here.
+    await this.sendSystemNote(groupId, `${this.state.currentUser.name} left`);
+    const params = new URLSearchParams({ groupId, userId: this.state.currentUser.id });
+    const res = await fetch(`/api/groups/members?${params.toString()}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to leave the group' });
+      return;
+    }
+    this.state.conversations = this.state.conversations.filter((c) => c.id !== groupId);
+    if (this.state.activeConversationId === groupId) this.state.activeConversationId = this.state.conversations[0]?.id || '';
+    this.notify();
+  }
+
   public clearError() {
     this.setState({ error: null });
   }
@@ -1356,7 +1477,7 @@ export class ChatStore {
     }
   }
 
-  private sendMessageDemo(content: string, replyToId?: string, attachmentFile?: File) {
+  private sendMessageDemo(content: string, replyToId?: string, attachmentFile?: File, threadRootId?: string) {
     const activeConvId = this.state.activeConversationId;
     if (!activeConvId) return;
     const currentMsgs = this.state.messagesMap[activeConvId] || [];
@@ -1368,6 +1489,7 @@ export class ChatStore {
       senderId: this.state.currentUser.id,
       senderName: this.state.currentUser.name,
       isSelf: true,
+      threadRootId,
       content,
       timestamp: nowTimestamp(),
       status: 'delivered',

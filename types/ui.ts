@@ -1,3 +1,5 @@
+import type { GroupRole } from '../lib/groups/roles';
+
 export type ViewCategory = 'chats' | 'groups' | 'people' | 'saved' | 'settings' | 'admin';
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
@@ -39,6 +41,8 @@ export type MessageKind = 'text' | 'attachment' | 'voice' | 'system' | 'poll' | 
 export interface MessageData {
   id: string;
   kind?: MessageKind;
+  /** Set on replies that live in a thread under another message. */
+  threadRootId?: string;
   conversationId: string;
   senderId: string;
   senderName: string;
@@ -94,6 +98,10 @@ export interface ConversationItem {
     memberCount: number;
     senderKeyVersion: number;
     memberIds?: string[];
+    /** Needs migration 013. Undefined means roles are not available yet. */
+    roles?: Record<string, GroupRole>;
+    description?: string;
+    onlyAdminsPost?: boolean;
   };
 }
 

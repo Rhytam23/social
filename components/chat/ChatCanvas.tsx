@@ -32,6 +32,9 @@ export interface ChatCanvasProps {
   isLoadingMessages?: boolean;
   canLoadOlder?: boolean;
   onLoadOlder?: () => void;
+  onOpenThread?: (msg: MessageData) => void;
+  /** When set, the composer is replaced by this notice (for example admin-only groups). */
+  readOnlyReason?: string;
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -59,6 +62,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   isLoadingMessages,
   canLoadOlder,
   onLoadOlder,
+  onOpenThread,
+  readOnlyReason,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
@@ -104,9 +109,15 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
     }
   };
 
+  // Thread replies live in the thread panel, not the main stream.
+  const threadCounts = new Map<string, number>();
+  for (const m of messages) {
+    if (m.threadRootId && !m.isDeletedLocally) threadCounts.set(m.threadRootId, (threadCounts.get(m.threadRootId) ?? 0) + 1);
+  }
+  const mainMessages = messages.filter((m) => !m.threadRootId);
   const displayedMessages = inChatSearchQuery.trim()
-    ? messages.filter((m) => m.content.toLowerCase().includes(inChatSearchQuery.toLowerCase()))
-    : messages;
+    ? mainMessages.filter((m) => m.content.toLowerCase().includes(inChatSearchQuery.toLowerCase()))
+    : mainMessages;
 
   return (
     <section
@@ -291,6 +302,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                     onForwardMessage={onForwardMessage}
                     onPinMessage={onPinMessage}
                     onStarMessage={onStarMessage}
+                    onOpenThread={onOpenThread}
+                    threadReplyCount={threadCounts.get(msg.id) ?? 0}
                   />
                 </React.Fragment>
               );
@@ -328,6 +341,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
 
       {/* Composer Row */}
       <div className="w-full max-w-4xl mx-auto">
+        {readOnlyReason ? (
+          <p className="m-4 p-3 text-xs text-center rounded-xl bg-[var(--surface-2)] text-[var(--text-secondary)]">{readOnlyReason}</p>
+        ) : (
         <MessageComposer
           onSendMessage={onSendMessage}
           replyTarget={replyTarget}
@@ -337,6 +353,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           onCancelEdit={onCancelEdit}
           onTyping={onTyping}
         />
+        )}
       </div>
     </section>
   );

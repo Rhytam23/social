@@ -43,18 +43,22 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  let query = supabase
-    .from('messages')
-    .select('id, conversation_id, sender_id, ciphertext, nonce, encryption_version, reply_to_message_id, created_at, edited_at, deleted_at')
-    .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
-  if (before) {
-    query = query.lt('created_at', before);
+  // thread_root_id exists after migration 013; fall back to the older column list if it does not.
+  const buildQuery = (columns: string) => {
+    let q = supabase
+      .from('messages')
+      .select(columns)
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (before) q = q.lt('created_at', before);
+    return q;
+  };
+  const baseColumns = 'id, conversation_id, sender_id, ciphertext, nonce, encryption_version, reply_to_message_id, created_at, edited_at, deleted_at';
+  let { data: messages, error: msgError } = await buildQuery(baseColumns + ', thread_root_id');
+  if (msgError) {
+    ({ data: messages, error: msgError } = await buildQuery(baseColumns));
   }
-
-  const { data: messages, error: msgError } = await query;
 
   if (msgError) {
     return NextResponse.json({ error: msgError.message }, { status: 500 });
@@ -135,7 +139,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { conversationId, ciphertext, nonce, encryptionVersion = 1, replyToMessageId } = body;
+    const { conversationId, ciphertext, nonce, encryptionVersion = 1, replyToMessageId, threadRootId } = body;
 
     if (!conversationId || !ciphertext || !nonce) {
       return NextResponse.json(
@@ -168,6 +172,20 @@ export async function POST(request: NextRequest) {
       encryption_version: encryptionVersion,
       reply_to_message_id: replyToMessageId || null,
     };
+
+    if (threadRootId) {
+      // A thread reply must attach to a message in the same conversation.
+      const { data: root } = await supabase
+        .from('messages')
+        .select('id')
+        .eq('id', threadRootId)
+        .eq('conversation_id', conversationId)
+        .maybeSingle();
+      if (!root) {
+        return NextResponse.json({ error: 'The thread you are replying to was not found.' }, { status: 404 });
+      }
+      (insertData as Record<string, unknown>).thread_root_id = threadRootId;
+    }
 
     const { data: newMsg, error: insertError } = await supabase
       .from('messages')

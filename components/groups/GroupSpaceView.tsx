@@ -1,104 +1,125 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ConversationItem, MessageData, UserItem } from '../../types/ui';
 import { IconFile, IconShield } from '../ui/icons';
+import { Avatar } from '../ui/avatar';
+import { Badge, SettingRow, Switch } from '../ui/primitives';
+import { Button } from '../ui/button';
+import { Dialog } from '../ui/dialog';
+import { ROLE_LABEL, canAddMembers, canChangeRole, canEditGroup, canRemoveMember, type GroupRole } from '../../lib/groups/roles';
 
 export interface GroupSpaceViewProps {
   group: ConversationItem;
   members: UserItem[];
+  currentUserId: string;
   availableUsersToAdd?: UserItem[];
   messages: MessageData[];
-  onRotateKey?: () => void;
-  onLeaveGroup?: (groupId: string) => void;
+  onLeaveGroup?: (groupId: string) => void | Promise<void>;
   onOpenChat: (convId: string) => void;
   onAddMember?: (userId: string) => void | Promise<void>;
   onRemoveMember?: (userId: string) => void | Promise<void>;
+  onSetRole?: (userId: string, role: GroupRole) => void | Promise<void>;
+  onUpdateSettings?: (patch: { name?: string; description?: string; onlyAdminsPost?: boolean }) => Promise<boolean>;
 }
+
+type GroupTab = 'overview' | 'members' | 'files' | 'settings' | 'security';
+const inputClass =
+  'w-full bg-[var(--surface-2)] border border-[var(--border-subtle)] p-2.5 rounded-xl text-xs text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/60';
 
 export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
   group,
   members,
+  currentUserId,
   availableUsersToAdd = [],
   messages,
-  onRotateKey,
   onLeaveGroup,
   onOpenChat,
   onAddMember,
   onRemoveMember,
+  onSetRole,
+  onUpdateSettings,
 }) => {
-  type GroupTab = 'overview' | 'members' | 'files' | 'security';
   const [activeTab, setActiveTab] = useState<GroupTab>('overview');
   const [showAddMember, setShowAddMember] = useState(false);
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [name, setName] = useState(group.title);
+  const [description, setDescription] = useState(group.groupMeta?.description ?? '');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    setName(group.title);
+    setDescription(group.groupMeta?.description ?? '');
+  }, [group.id, group.title, group.groupMeta?.description]);
+
+  const roles = group.groupMeta?.roles;
+  const rolesAvailable = !!roles;
+  const roleOf = (id: string): GroupRole | undefined => (roles ? roles[id] ?? 'member' : undefined);
+  const myRole = roleOf(currentUserId);
   const attachments = messages.flatMap((m) => m.attachments || []);
 
-  const getInitials = (title: string) => {
-    return title
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  };
+  // Before migration 013 there are no roles: keep the old behaviour of "everyone can manage".
+  const mayAdd = rolesAvailable ? canAddMembers(myRole) : true;
+  const mayEdit = rolesAvailable && canEditGroup(myRole);
 
   const tabs: { key: GroupTab; label: string }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'members', label: `Members (${members.length})` },
     { key: 'files', label: `Files (${attachments.length})` },
-    { key: 'security', label: 'Group Security' },
+    ...(mayEdit ? [{ key: 'settings' as const, label: 'Settings' }] : []),
+    { key: 'security', label: 'Encryption' },
   ];
 
-  return (
-    <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col h-full overflow-hidden p-6 sm:p-8 gap-6 font-sans max-w-5xl mx-auto w-full">
-      {/* Group Header Card */}
-      <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-amber-950/40 border border-amber-500/30 text-amber-300 flex items-center justify-center text-xl font-bold shadow-md shrink-0">
-            {getInitials(group.title)}
-          </div>
+  const saveSettings = async () => {
+    if (!onUpdateSettings) return;
+    setSaving(true);
+    setSaved(false);
+    const patch: { name?: string; description?: string } = {};
+    if (name.trim() && name.trim() !== group.title) patch.name = name.trim();
+    if (description.trim() !== (group.groupMeta?.description ?? '')) patch.description = description;
+    const ok = Object.keys(patch).length === 0 ? true : await onUpdateSettings(patch);
+    setSaving(false);
+    setSaved(ok);
+  };
 
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-xl font-bold text-slate-100">{group.title}</h2>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-semibold">
-                Group Space
-              </span>
+  return (
+    <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col h-full overflow-hidden p-4 sm:p-8 gap-6 font-sans max-w-5xl mx-auto w-full">
+      <div className="p-5 sm:p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <Avatar name={group.title} size="lg" />
+          <div className="flex flex-col gap-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-xl font-bold text-[var(--text-primary)] truncate">{group.title}</h2>
+              {myRole && <Badge tone={myRole === 'member' ? 'neutral' : 'accent'}>{ROLE_LABEL[myRole]}</Badge>}
+              {group.groupMeta?.onlyAdminsPost && <Badge tone="warning">Admins post only</Badge>}
             </div>
-            <span className="text-xs text-slate-400">
-              {group.groupMeta?.memberCount || members.length} members • Group key v{group.groupMeta?.senderKeyVersion || 1}
+            <span className="text-xs text-[var(--text-muted)]">
+              {group.groupMeta?.memberCount || members.length} members
             </span>
           </div>
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => onOpenChat(group.id)}
-            className="py-2.5 px-4 bg-slate-100 hover:bg-white text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-all"
-          >
-            Open Chat Workspace
-          </button>
-
+          <Button variant="primary" size="sm" onClick={() => onOpenChat(group.id)}>
+            Open chat
+          </Button>
           {onLeaveGroup && (
-            <button
-              onClick={() => onLeaveGroup(group.id)}
-              className="py-2.5 px-3.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-semibold rounded-xl transition-colors"
-            >
-              Leave Group
-            </button>
+            <Button variant="danger" size="sm" onClick={() => setConfirmLeave(true)}>
+              Leave group
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Tabs Row */}
-      <div className="flex items-center gap-2 border-b border-slate-800/80 pb-3">
+      <div role="tablist" aria-label="Group sections" className="flex items-center gap-2 border-b border-[var(--border-subtle)] pb-3 overflow-x-auto">
         {tabs.map((t) => (
           <button
             key={t.key}
+            role="tab"
+            aria-selected={activeTab === t.key}
             onClick={() => setActiveTab(t.key)}
-            className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl transition-all ${
-              activeTab === t.key
-                ? 'bg-slate-800 text-slate-100 border border-slate-700/80'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+            className={`px-3.5 py-1.5 text-xs font-semibold rounded-xl shrink-0 transition-colors ${
+              activeTab === t.key ? 'bg-[var(--surface-2)] text-[var(--text-primary)]' : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)]'
             }`}
           >
             {t.label}
@@ -106,58 +127,46 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
         ))}
       </div>
 
-      {/* Tab Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" role="tabpanel">
         {activeTab === 'overview' && (
           <div className="flex flex-col gap-4 text-xs">
-            <div className="p-5 bg-[var(--surface-1)] border border-slate-800 rounded-2xl flex flex-col gap-3">
-              <h3 className="text-sm font-bold text-slate-100">About Group Space</h3>
-              <p className="text-slate-300 leading-relaxed">
-                Encrypted team space protected by a per-device group key. All group members have equal standing with local end-to-end encryption.
+            <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-2">
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">About</h3>
+              <p className="text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
+                {group.groupMeta?.description || 'No description yet.'}
               </p>
             </div>
-
-            <div className="p-5 bg-[var(--surface-1)] border border-slate-800 rounded-2xl flex flex-col gap-3">
-              <h3 className="text-sm font-bold text-slate-100">Recent Group Activity</h3>
+            <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
+              <h3 className="text-sm font-bold text-[var(--text-primary)]">Recent activity</h3>
               {messages.length === 0 ? (
-                <span className="text-slate-500">No activity yet in this space.</span>
+                <span className="text-[var(--text-muted)]">No activity yet.</span>
               ) : (
-                <div className="flex flex-col gap-2">
-                  {messages.slice(-3).map((m) => (
-                    <div
-                      key={m.id}
-                      className="p-3 bg-slate-950/40 border border-slate-800 rounded-xl flex items-center justify-between"
-                    >
-                      <div className="flex flex-col gap-0.5">
-                        <span className="font-semibold text-slate-200">{m.senderName}</span>
-                        <span className="text-slate-400 truncate max-w-md">{m.content}</span>
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-mono">{m.timestamp}</span>
+                messages.filter((m) => !m.threadRootId).slice(-3).map((m) => (
+                  <div key={m.id} className="p-3 bg-[var(--surface-2)] rounded-xl flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <span className="font-semibold text-[var(--text-primary)]">{m.senderName}</span>
+                      <span className="block text-[var(--text-secondary)] truncate">{m.content}</span>
                     </div>
-                  ))}
-                </div>
+                    <span className="text-[10px] text-[var(--text-muted)] font-mono shrink-0">{m.timestamp}</span>
+                  </div>
+                ))
               )}
             </div>
           </div>
         )}
 
-        {/* Equal Standing Group Members */}
         {activeTab === 'members' && (
           <div className="flex flex-col gap-4 text-xs">
-            {onAddMember && (
+            {onAddMember && mayAdd && (
               <div className="flex flex-col gap-2">
                 {!showAddMember ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddMember(true)}
-                    className="self-start py-2 px-3.5 bg-slate-100 hover:bg-white text-slate-950 font-semibold text-xs rounded-xl transition-all"
-                  >
+                  <Button size="sm" variant="secondary" className="self-start" onClick={() => setShowAddMember(true)}>
                     + Add member
-                  </button>
+                  </Button>
                 ) : (
-                  <div className="p-3 bg-[var(--surface-1)] border border-slate-800 rounded-xl flex flex-col gap-2">
+                  <div className="p-3 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-xl flex flex-col gap-1">
                     {availableUsersToAdd.length === 0 ? (
-                      <span className="text-slate-500 py-2">Everyone discoverable is already in this group.</span>
+                      <span className="text-[var(--text-muted)] py-2">Everyone discoverable is already in this group.</span>
                     ) : (
                       availableUsersToAdd.map((u) => (
                         <button
@@ -169,18 +178,17 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
                             await onAddMember(u.id);
                             setPendingMemberId(null);
                           }}
-                          className="flex items-center justify-between p-2 hover:bg-slate-800/60 rounded-lg text-left transition-colors disabled:opacity-50"
+                          className="flex items-center justify-between p-2 hover:bg-[var(--surface-2)] rounded-lg text-left disabled:opacity-50"
                         >
-                          <span className="text-slate-200 font-medium">{u.name}</span>
-                          <span className="text-emerald-400 text-[10px] font-semibold">{pendingMemberId === u.id ? 'Adding...' : 'Add'}</span>
+                          <span className="flex items-center gap-2 text-[var(--text-primary)] font-medium">
+                            <Avatar name={u.name} src={u.avatarUrl} size="xs" />
+                            {u.name}
+                          </span>
+                          <span className="text-[var(--accent-text)] text-[10px] font-semibold">{pendingMemberId === u.id ? 'Adding…' : 'Add'}</span>
                         </button>
                       ))
                     )}
-                    <button
-                      type="button"
-                      onClick={() => setShowAddMember(false)}
-                      className="self-end text-[11px] text-slate-400 hover:text-slate-200 pt-1"
-                    >
+                    <button type="button" onClick={() => setShowAddMember(false)} className="self-end text-[11px] text-[var(--text-muted)] hover:text-[var(--text-primary)] pt-1">
                       Close
                     </button>
                   </div>
@@ -188,64 +196,78 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {members.map((m) => (
-                <div
-                  key={m.id}
-                  className="p-4 bg-[var(--surface-1)] border border-slate-800 rounded-xl flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-200 font-bold">
-                      {m.name[0]}
+            <ul className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {members.map((m) => {
+                const role = roleOf(m.id);
+                const isSelf = m.id === currentUserId;
+                const removable = rolesAvailable ? canRemoveMember(myRole, role, isSelf) && !isSelf : !!onRemoveMember && !isSelf;
+                const canPromote = rolesAvailable && !!onSetRole && canChangeRole(myRole, role, 'admin', isSelf);
+                return (
+                  <li key={m.id} className="p-4 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-xl flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar name={m.name} src={m.avatarUrl} size="sm" presence={m.presence ?? 'offline'} />
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-semibold text-[var(--text-primary)] truncate">
+                          {m.name}
+                          {isSelf ? ' (you)' : ''}
+                        </span>
+                        {role && <span className="text-[10px] text-[var(--text-muted)]">{ROLE_LABEL[role]}</span>}
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-slate-100">{m.name}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">Reg ID: #{m.registrationId}</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {canPromote && role === 'member' && (
+                        <Button size="sm" variant="tertiary" onClick={() => onSetRole?.(m.id, 'admin')}>
+                          Make admin
+                        </Button>
+                      )}
+                      {canPromote && role === 'admin' && (
+                        <>
+                          <Button size="sm" variant="tertiary" onClick={() => onSetRole?.(m.id, 'member')}>
+                            Remove admin
+                          </Button>
+                          <Button size="sm" variant="ghost" onClick={() => onSetRole?.(m.id, 'owner')} title="Transfer ownership to this person">
+                            Make owner
+                          </Button>
+                        </>
+                      )}
+                      {removable && onRemoveMember && (
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          loading={pendingMemberId === m.id}
+                          onClick={async () => {
+                            setPendingMemberId(m.id);
+                            await onRemoveMember(m.id);
+                            setPendingMemberId(null);
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      )}
                     </div>
-                  </div>
-
-                  {onRemoveMember ? (
-                    <button
-                      type="button"
-                      disabled={pendingMemberId === m.id}
-                      onClick={async () => {
-                        setPendingMemberId(m.id);
-                        await onRemoveMember(m.id);
-                        setPendingMemberId(null);
-                      }}
-                      className="px-2 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-md text-[10px] font-mono transition-colors disabled:opacity-50"
-                    >
-                      {pendingMemberId === m.id ? '...' : 'Remove'}
-                    </button>
-                  ) : (
-                    <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-300 rounded-md text-[10px] font-mono">
-                      Member
-                    </span>
-                  )}
-                </div>
-              ))}
-            </div>
+                  </li>
+                );
+              })}
+            </ul>
+            {!rolesAvailable && (
+              <p className="text-[11px] text-[var(--text-muted)]">Group roles turn on after the latest database update (migration 013) is applied.</p>
+            )}
           </div>
         )}
 
         {activeTab === 'files' && (
           <div className="flex flex-col gap-2 text-xs">
             {attachments.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">No media or encrypted attachments shared in this group.</div>
+              <div className="p-8 text-center text-[var(--text-muted)]">No files shared in this group yet.</div>
             ) : (
               attachments.map((att) => (
-                <div
-                  key={att.id}
-                  className="p-3.5 bg-[var(--surface-1)] border border-slate-800 rounded-xl flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-300">
-                      <IconFile className="w-4 h-4" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-semibold text-slate-200">{att.fileName}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">{att.fileSize} • Encrypted</span>
-                    </div>
+                <div key={att.id} className="p-3.5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-xl flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-[var(--surface-2)] flex items-center justify-center text-[var(--text-secondary)]">
+                    <IconFile className="w-4 h-4" />
+                  </div>
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-semibold text-[var(--text-primary)] truncate">{att.fileName}</span>
+                    <span className="text-[10px] text-[var(--text-muted)]">{att.fileSize} · encrypted</span>
                   </div>
                 </div>
               ))
@@ -253,33 +275,73 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
           </div>
         )}
 
+        {activeTab === 'settings' && mayEdit && (
+          <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-4 max-w-xl">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="grp-name" className="text-xs font-semibold text-[var(--text-primary)]">Group name</label>
+              <input id="grp-name" className={inputClass} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="grp-desc" className="text-xs font-semibold text-[var(--text-primary)]">
+                Description <span className="font-normal text-[var(--text-muted)]">({description.length}/500)</span>
+              </label>
+              <textarea id="grp-desc" rows={3} className={`${inputClass} resize-none`} value={description} maxLength={500} onChange={(e) => setDescription(e.target.value)} />
+            </div>
+            <div className="flex items-center gap-3">
+              <Button size="sm" variant="primary" loading={saving} onClick={saveSettings} disabled={!name.trim()}>
+                Save changes
+              </Button>
+              {saved && <span role="status" className="text-xs text-[var(--accent-text)]">Saved</span>}
+            </div>
+            <SettingRow title="Only admins can post" description="Members can still read and react. Enforced by the database, not just the app.">
+              <Switch
+                label="Only admins can post"
+                checked={!!group.groupMeta?.onlyAdminsPost}
+                onChange={(v) => void onUpdateSettings?.({ onlyAdminsPost: v })}
+              />
+            </SettingRow>
+          </div>
+        )}
+
         {activeTab === 'security' && (
           <div className="flex flex-col gap-4 text-xs">
-            <div className="p-5 bg-[var(--surface-1)] border border-slate-800 rounded-2xl flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="font-bold text-slate-100 flex items-center gap-2">
-                  <IconShield className="w-4 h-4 text-emerald-400" />
-                  Group Key State
-                </span>
-                <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold">
-                  Key Version {group.groupMeta?.senderKeyVersion || 1}
-                </span>
-              </div>
-              <p className="text-slate-400 leading-relaxed">
-                Group keys automatically rotate upon member departure or key rotation trigger to enforce forward secrecy.
+            <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
+              <span className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <IconShield className="w-4 h-4 text-[var(--accent-text)]" />
+                How this group is encrypted
+              </span>
+              <p className="text-[var(--text-secondary)] leading-relaxed">
+                Messages are encrypted with a group key that is shared with each member&apos;s device. When someone leaves or is removed, an admin&apos;s device
+                creates a new key, so the person who left cannot read new messages. Older messages they already had stay readable to them, and the app does
+                not provide forward secrecy.
               </p>
-              {onRotateKey && (
-                <button
-                  onClick={onRotateKey}
-                  className="py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold rounded-xl border border-slate-700 w-fit transition-colors"
-                >
-                  Rotate Group Encryption Keys
-                </button>
-              )}
             </div>
           </div>
         )}
       </div>
+
+      <Dialog
+        isOpen={confirmLeave}
+        onClose={() => setConfirmLeave(false)}
+        title="Leave this group?"
+        footerAction={
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={async () => {
+              setConfirmLeave(false);
+              await onLeaveGroup?.(group.id);
+            }}
+          >
+            Leave group
+          </Button>
+        }
+      >
+        <p className="text-[var(--text-secondary)]">
+          You will stop receiving messages from {group.title}.
+          {myRole === 'owner' ? ' Ownership passes to the longest-serving admin (or member).' : ''}
+        </p>
+      </Dialog>
     </div>
   );
 };

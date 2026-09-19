@@ -10,6 +10,8 @@ import { AdminDashboard } from '../admin/AdminDashboard';
 import { CommandPalette, type PaletteAction } from '../search/CommandPalette';
 import { ShortcutsDialog } from '../ui/ShortcutsDialog';
 import { SavedMessagesView } from '../saved/SavedMessagesView';
+import { ThreadPanel } from '../chat/ThreadPanel';
+import { isGroupManager, type GroupRole } from '../../lib/groups/roles';
 import { setTheme, readTheme } from '../../lib/ui/theme';
 import { toast } from '../../lib/ui/toastStore';
 import { UserProfileModal } from '../profile/UserProfileModal';
@@ -30,7 +32,7 @@ export interface AppShellProps {
 
   messagesMap: Record<string, MessageData[]>;
   messages: MessageData[];
-  onSendMessage: (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number) => void;
+  onSendMessage: (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number, threadRootId?: string) => void;
   onReactToMessage: (msgId: string, emoji: string) => void;
   onEditMessageSubmit?: (msgId: string, newContent: string) => void;
   onDeleteMessageLocal?: (msgId: string) => void;
@@ -69,6 +71,9 @@ export interface AppShellProps {
   isLoadingMessages?: boolean;
   savedMessages?: MessageData[];
   onToggleSaved?: (messageId: string) => void;
+  onSetMemberRole?: (groupId: string, userId: string, role: GroupRole) => void | Promise<void>;
+  onUpdateGroupSettings?: (groupId: string, patch: { name?: string; description?: string; onlyAdminsPost?: boolean }) => Promise<boolean>;
+  onLeaveGroup?: (groupId: string) => void | Promise<void>;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -115,6 +120,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   isLoadingMessages,
   savedMessages = [],
   onToggleSaved,
+  onSetMemberRole,
+  onUpdateGroupSettings,
+  onLeaveGroup,
 }) => {
   const [activeCategory, setActiveCategory] = useState<ViewCategory>('chats');
   const [showInspector, setShowInspector] = useState(false);
@@ -126,6 +134,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [forwardingMessage, setForwardingMessage] = useState<MessageData | null>(null);
   const [mobileChatView, setMobileChatView] = useState<boolean>(true);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [threadRootId, setThreadRootId] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
 
   // Global shortcuts: Ctrl/Cmd+K toggles the quick switcher, "?" lists shortcuts.
@@ -158,6 +167,11 @@ export const AppShell: React.FC<AppShellProps> = ({
     };
   }, []);
 
+  // A thread belongs to one conversation: close it when the user switches away.
+  useEffect(() => {
+    setThreadRootId(null);
+  }, [activeConversationId]);
+
   const paletteActions: PaletteAction[] = [
     { id: 'new-chat', label: 'Start a new chat', run: onNewMessage },
     { id: 'go-chats', label: 'Go to Chats', run: () => { setActiveCategory('chats'); setMobileChatView(false); } },
@@ -184,6 +198,11 @@ export const AppShell: React.FC<AppShellProps> = ({
     (activeConversation?.type === 'group' ? activeConversation : undefined) || groupConversations[0];
 
   const unreadTotal = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
+
+  const threadRoot = threadRootId ? messages.find((m) => m.id === threadRootId) : undefined;
+  const threadReplies = threadRootId ? messages.filter((m) => m.threadRootId === threadRootId) : [];
+  const activeRoles = activeConversation?.groupMeta?.roles;
+  const iCanPost = !(activeConversation?.groupMeta?.onlyAdminsPost && activeRoles && !isGroupManager(activeRoles[currentUserId]));
 
   const handleStartDirectChat = (user: UserItem) => {
     const existing = conversations.find((c) => c.recipientUser?.id === user.id);
@@ -275,6 +294,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onForwardMessage={(msg) => setForwardingMessage(msg)}
                 onPinMessage={onPinMessageToggle}
                 onStarMessage={onToggleSaved ?? onStarMessageToggle}
+                onOpenThread={(msg) => setThreadRootId(msg.id)}
+                readOnlyReason={iCanPost ? undefined : 'Only admins can post in this group.'}
                 typingNames={typingNames}
                 onTyping={onTyping}
                 canLoadOlder={canLoadOlder}
@@ -290,6 +311,20 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onCancelEdit={() => setEditingMessage(undefined)}
                 onBackToList={() => setMobileChatView(false)}
               />
+
+              {threadRoot && (
+                <ThreadPanel
+                  root={threadRoot}
+                  replies={threadReplies}
+                  canPost={iCanPost}
+                  onClose={() => setThreadRootId(null)}
+                  onSend={(content, file, voiceMs) => onSendMessage(content, undefined, file, voiceMs, threadRoot.id)}
+                  onReactToMessage={onReactToMessage}
+                  onDownloadAttachment={onDownloadAttachment}
+                  onRetryFailedMessage={onRetryFailedMessage}
+                  onTyping={onTyping}
+                />
+              )}
 
               {/* Context Inspector Deck (Desktop slide-over) */}
               {showInspector && (
@@ -337,6 +372,10 @@ export const AppShell: React.FC<AppShellProps> = ({
           {activeCategory === 'groups' && activeGroupConversation && (
             <GroupSpaceView
               group={activeGroupConversation}
+              currentUserId={currentUserId}
+              onSetRole={onSetMemberRole ? (userId, role) => onSetMemberRole(activeGroupConversation.id, userId, role) : undefined}
+              onUpdateSettings={onUpdateGroupSettings ? (patch) => onUpdateGroupSettings(activeGroupConversation.id, patch) : undefined}
+              onLeaveGroup={onLeaveGroup}
               members={[
                 ...(activeGroupConversation.groupMeta?.memberIds?.includes(currentUserId)
                   ? [{ id: currentUserId, name: currentUserName, registrationId: currentUserRegistrationId, role: currentUserRole, deviceCount: 1, joinedAt: '', identityFingerprint: '', presence: 'online' as const }]
