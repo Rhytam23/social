@@ -1,126 +1,175 @@
-# PRIVATE-CHAT
+# Private Chat
 
-PRIVATE-CHAT is an end-to-end encrypted (E2EE), invite-only messaging web application built with Next.js 15, TypeScript, Tailwind CSS, and Supabase.
+A private messaging web app with **end-to-end encryption**. Sign in with email or Google, find people, chat one-to-one or in groups, and share files and voice notes. Message contents are encrypted in your browser and the server only ever stores ciphertext.
 
-> **Note on cryptography**: earlier revisions of this project specified the Signal Protocol via `@signalapp/libsignal-client`. That package ships only native Node.js addons (per-OS `.node` binaries) - it cannot be loaded by a web page at all, only by a Node.js process or an Electron app. Running it server-side would mean the server sees plaintext before encrypting, defeating E2EE entirely. V1 replaces it with [`libsodium-wrappers`](https://github.com/jedisct1/libsodium.js) (WASM, runs identically in the browser and in tests): X25519 key exchange with XSalsa20-Poly1305 authenticated encryption for 1:1 messages, a per-group symmetric key (also XSalsa20-Poly1305) distributed to each member via sealed public-key boxes for groups, WebCrypto AES-256-GCM for attachments, and Argon2id (via `hash-wasm`) + AES-GCM for passphrase-protected key backups. See `docs/V1_STATUS.md` for the full rationale and what was audited/fixed.
+Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Postgres, Realtime, Storage).
 
----
-
-## 1. Core V1 Functionality
-
-- **Familiar 2-Pane Messaging Interface**: Fast, dense, responsive layout (WhatsApp / Telegram ergonomics) with collapsible slide-over security details.
-- **End-to-End Encryption (E2EE)**, all client-side via `crypto/` (libsodium):
-  - **1-to-1 Messaging**: X25519 + XSalsa20-Poly1305 authenticated encryption.
-  - **Group Messaging**: per-group symmetric key, sealed-box distributed per member device, rotated on membership change.
-  - **Attachments & voice notes**: client-side 256-bit AES-GCM encryption before upload to a private Supabase Storage bucket; downloaded ciphertext is decrypted client-side on demand.
-  - **Key Backup**: Argon2id-derived key + AES-GCM passphrase-protected export/import of the device identity key.
-- **Rich Message Interactions**: Quoted replies, emoji reactions, message editing, soft-deletion, attachments, and voice notes - all persisted to Postgres via Supabase, not local-only.
-- **Conversations & Groups**: Direct chat initiation, group creation, and real add/remove-member management with group key rotation.
-- **Invite-only registration**: enforced server-side by a Postgres trigger on `auth.users` (see `database/migrations/006_production_hardening.sql`), not just client-side UI - a request that bypasses the UI entirely still can't create an account without a valid invite.
-- **Two Operating Modes**:
-  - **Local Demo Mode**: dev-only (`NODE_ENV !== 'production'`) preview with seeded personas and `BroadcastChannel` multi-tab sync. Cannot activate in a production build even if Supabase env vars are missing - middleware fails closed (HTTP 500) instead.
-  - **Production Mode**: Supabase-authoritative - Postgres + RLS, Supabase Realtime, private storage buckets.
+> **Status: pre-production.** The messaging, encryption, auth and file pipelines are implemented and covered by automated tests. Not everything has been exercised end to end against a live backend, and some features are still on the [roadmap](docs/ROADMAP.md). See [Known limitations](#known-limitations) and [`docs/V1_STATUS.md`](docs/V1_STATUS.md) before relying on it.
 
 ---
 
-## 2. High-Level Architecture
+## Features
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      Client Layer                           │
-│  Next.js 15 (App Router) + React 19 + Tailwind CSS          │
-│  ChatStore (useSyncExternalStore) + MessagingCrypto session │
-└──────────────┬───────────────────────────────┬──────────────┘
-               │                               │
-               ▼                               ▼
-┌──────────────────────────────┐ ┌────────────────────────────┐
-│   Local view-state cache     │ │   Cryptographic Engine     │
-│   (pin/mute/archive prefs)   │ │   libsodium-wrappers (WASM)│
-│   localStorage, per viewer   │ │   WebCrypto AES-GCM         │
-└──────────────┬───────────────┘ │   Argon2id (hash-wasm)     │
-               │                 └─────────────┬──────────────┘
-               ▼                               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                Hardened API Layer (/api/*)                  │
-│  Next.js Route Handlers + Sliding-Window Rate Limiter       │
-│  IDOR Conversation Membership Guards + Cookie SSR Auth      │
-└──────────────────────────────┬──────────────────────────────┘
-               │
-               ▼
-┌─────────────────────────────────────────────────────────────┐
-│                   Supabase Cloud Backend                    │
-│  PostgreSQL 15 (Row Level Security + invite-gated signup)   │
-│  Supabase Realtime (Postgres Change Feeds)                  │
-│  Private Storage (encrypted_attachments) + public avatars   │
-└─────────────────────────────────────────────────────────────┘
-```
+**Accounts**
+- Sign up with email and password (email confirmation required) or **Continue with Google**
+- Password reset by email, inline validation, resend-confirmation flow
+- First-run onboarding; the first account created becomes the admin
+
+**Messaging**
+- Direct chats and group chats, message history loaded from the database
+- Live delivery of new messages, edits and deletes (Supabase Realtime)
+- Replies, edit, delete, forward, emoji reactions
+- Honest send states: `sending`, `sent`, `failed` with retry (never marked delivered when the server rejected it)
+- Encrypted file attachments (up to 25 MB) and voice notes with real playback
+
+**Encryption** (details in [`docs/E2EE.md`](docs/E2EE.md))
+- 1:1 messages: X25519 key agreement with XSalsa20-Poly1305 (libsodium)
+- Groups: one symmetric key per group, sealed to every member's device key, rotated when members change
+- Attachments: AES-256-GCM in the browser before upload
+- Key backup: export and restore your identity key, protected by a passphrase (Argon2id + AES-GCM)
+- Safety numbers to compare identities
+
+**People, groups, settings**
+- Search people by name, username, email or phone (email and phone are never returned)
+- Create groups, add and remove members, group key rotation on every change
+- Profile photo upload, notification permission, key backup and device list
+- Admin dashboard for roles
+
+**Local demo mode**: run the UI with no backend for development (see [Demo mode](#demo-mode)). It can never run in a production build.
 
 ---
 
-## 3. Environment Configuration
+## Quick start
 
-Copy the example file:
-```bash
-cp .env.example .env.local
-```
-
-### Production Variables (`.env.local`)
-```env
-# Public Supabase Client (Exposed to browser)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key_here
-
-# Server-Only Supabase Admin (CRITICAL SECRET - NEVER PREFIX WITH NEXT_PUBLIC_)
-SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
-
-# Distributed Rate Limiting (Optional - Upstash Redis for multi-instance deployments)
-UPSTASH_REDIS_REST_URL=https://your-redis-instance.upstash.io
-UPSTASH_REDIS_REST_TOKEN=your_upstash_token_here
-```
-
-> [!CAUTION]
-> `SUPABASE_SERVICE_ROLE_KEY` bypasses all Row Level Security policies and is used strictly in server-side handlers (`lib/supabase/admin.ts`). **NEVER expose this key to the browser or prefix it with `NEXT_PUBLIC_`.**
-
-Run every file in `database/migrations/` in order (001 through 006) against your Supabase project before first use.
-
----
-
-## 4. Development & Testing Commands
+You need Node.js 20+, npm, and a free [Supabase](https://supabase.com) project.
 
 ```bash
-# Install dependencies
+git clone https://github.com/Rhytam23/social.git
+cd social
 npm install
+cp .env.example .env.local     # then fill in the three Supabase values
+```
 
-# Start development server (http://localhost:3000)
-npm run dev
+1. Create a Supabase project and copy the **Project URL**, **anon key** and **service_role key** (Project Settings → API) into `.env.local`.
+2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in order** (`001` to `009`).
+3. In Supabase → Authentication, turn on **Confirm email** and add `http://localhost:3000/auth/confirm` to the Redirect URLs.
+4. Start the app:
 
-# Run unit, integration, and security test suites
-npm test
+```bash
+npm run dev      # http://localhost:3000
+```
 
-# Typecheck with TypeScript
-npx tsc --noEmit
+The full walkthrough, including Google sign-in, is in [`docs/SETUP.md`](docs/SETUP.md). If something goes wrong, see [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md).
 
-# Run ESLint
-npm run lint
+### Environment variables
 
-# Build production bundle
-npm run build
+| Variable | Required | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Project URL. Public. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Public `anon` key. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes (server) | **Secret.** Bypasses row level security. Never prefix it with `NEXT_PUBLIC_` and never commit it. |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | No | Shared rate limiting across multiple server instances. Without them, limits are kept in memory per instance. |
 
-# Start production server
-npm run start
+`NEXT_PUBLIC_*` values are baked into the build. After changing them on a host such as Vercel, redeploy.
+
+### Demo mode
+
+With no Supabase variables set, `npm run dev` runs a local demo with seeded example people and messages (clearly labelled as demo data, not encrypted). In a production build, missing variables make the server return HTTP 500 instead of silently running without authentication.
+
+---
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Development server on port 3000 |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | ESLint |
+| `npm test` | Vitest test suite |
+| `npx tsc --noEmit` | Type check |
+
+---
+
+## How it works
+
+```
+Browser                                              Supabase
+┌───────────────────────────────┐                    ┌──────────────────────────┐
+│ React UI + ChatStore          │   ciphertext only  │ Postgres (RLS on every   │
+│ MessagingCrypto (libsodium)   ├───────────────────►│ table), Auth, Realtime,  │
+│ IndexedDB: your private key   │◄───────────────────┤ Storage (private bucket) │
+└───────────────────────────────┘   Next.js /api/*   └──────────────────────────┘
+```
+
+1. On first login your browser generates a key pair. The private key stays in IndexedDB; the public key is published.
+2. To send a message the browser encrypts it for the recipient (or for the group key) and posts `ciphertext` and `nonce`.
+3. The server checks you are a member of the conversation and stores the ciphertext. Everything else about the message, including attachment names and keys, lives *inside* the encrypted payload.
+4. Other members receive it over Realtime and decrypt it locally.
+
+More in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/E2EE.md`](docs/E2EE.md).
+
+### Project structure
+
+```
+app/          Next.js routes: pages, /api route handlers, /auth/confirm
+components/   UI by area: auth, chat, messages, groups, people, settings, admin, layout, ui
+crypto/       Browser encryption: keys, 1:1, groups, attachments, backup (libsodium, WebCrypto)
+lib/          store/ (ChatStore), messaging/ (crypto orchestration, envelopes), supabase/, auth/, rate-limit/
+database/     SQL migrations 001-009 and helper functions
+docs/         Documentation
+hooks/        React hooks
+tests/        Vitest suites
+types/        Shared TypeScript types, database types
 ```
 
 ---
 
-## 5. Deployment Guide
+## Testing
 
-1. Create a Supabase project and run every migration in `database/migrations/` (001 through 006) in order.
-2. Set the environment variables above.
-3. See `docs/V1_STATUS.md` for what has and hasn't been verified against a live Supabase project - this repository's sandbox had no Docker and no live Supabase project available, so migrations 006 and the full signup/messaging/RLS path are unverified against real Postgres. Test them yourself before going live.
+```bash
+npx tsc --noEmit && npm run lint && npm test && npm run build
+```
+
+76 automated tests cover the encryption layer, security and authorization rules, API route authentication, the message store and message display. They do **not** cover the UI in a real browser or anything that needs a live Supabase project (Realtime delivery, live row level security, email). [`docs/TESTING.md`](docs/TESTING.md) has a manual two-account checklist for those.
 
 ---
 
-## 6. Current Limitations & Considerations
+## Deployment
 
-- **Live Cloud Messaging**: Requires provisioning a live Supabase project and running all migrations. Local demo mode (dev-only) never substitutes for this in production.
-- See `docs/V1_STATUS.md` for the full list of what was audited, fixed, tested, and what remains unverified.
+Deploy to Vercel (or any Node host): set the three Supabase variables (mark the service-role key as sensitive), add your production URL to Supabase's Site URL and Redirect URLs, and redeploy after any `NEXT_PUBLIC_*` change. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md).
+
+---
+
+## Known limitations
+
+- **No forward secrecy.** 1:1 messages use a long-lived key pair per user, so a stolen private key exposes past messages that were captured as ciphertext.
+- **One device per account for encryption.** Signing in on a new browser creates a new device key unless you restore your key backup.
+- **The server sees metadata**: who is in which conversation, timestamps, message and attachment sizes.
+- **Public keys are served by the database.** A malicious server could swap a key; compare safety numbers to detect it. The "mark verified" button is not wired up yet.
+- Reactions are saved but are not reloaded from the database after a refresh; pins and stars are stored only in your browser.
+- A group member who has never signed in cannot get the group key until it is re-shared.
+- Profile email and phone number columns are readable by other signed-in users through the Supabase API, even though the app's search route hides them. See [`docs/SECURITY.md`](docs/SECURITY.md).
+
+The complete list, and what is planned, is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+---
+
+## Documentation
+
+| Document | What's in it |
+|---|---|
+| [Setup](docs/SETUP.md) | Supabase project, migrations, auth settings, Google sign-in, first run |
+| [Deployment](docs/DEPLOYMENT.md) | Vercel, environment, release checklist, rollback |
+| [Architecture](docs/ARCHITECTURE.md) | Components, data flows, routes, state |
+| [E2EE](docs/E2EE.md) | Cryptographic design and its limits |
+| [Database](docs/DATABASE.md) | Tables, functions, security rules, storage, migrations |
+| [API](docs/API.md) | Route reference |
+| [Security](docs/SECURITY.md) | Controls, rules and known gaps |
+| [Testing](docs/TESTING.md) | Automated tests and the manual checklist |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Fixes for problems people actually hit |
+| [Decisions](docs/DECISIONS.md) | Why things are built this way |
+| [Roadmap](docs/ROADMAP.md) | What is planned |
+| [Changelog](docs/CHANGELOG.md) | History |
+| [Contributing](docs/CONTRIBUTING.md) | Workflow and rules |
+| [V1 status](docs/V1_STATUS.md) | The V1 audit report |

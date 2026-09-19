@@ -1,6 +1,6 @@
 // Environment-agnostic byte/text/base64 helpers. Deliberately avoid Node's
 // `Buffer` global here: everything in `crypto/` must run in the browser
-// (see docs/20_E2EE_SPEC.md for why), and `Buffer` is not available there
+// (see docs/E2EE.md for why), and `Buffer` is not available there
 // without a bundler polyfill.
 
 export function utf8ToBytes(str: string): Uint8Array {

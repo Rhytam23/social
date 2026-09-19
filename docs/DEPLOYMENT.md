@@ -1,138 +1,76 @@
-# PRIVATE-CHAT — V1 LIVE PRODUCTION DEPLOYMENT GUIDE
+# Deployment
 
-This guide walks through configuring and deploying PRIVATE-CHAT to production with a real, cloud-hosted Supabase backend.
+Private Chat is a standard Next.js 15 app. These steps use Vercel; any Node host works the same way.
 
----
+Finish [Setup](SETUP.md) first (Supabase project, migrations, auth settings). Deploying does not change the database.
 
-## 1. Create a Supabase Project
+## 1. Deploy
 
-1. Log into your account at [supabase.com](https://supabase.com).
-2. Click **"New Project"**.
-3. Fill in:
-   - **Name**: `private-chat-prod` (or your preferred name)
-   - **Database Password**: Generate a secure, high-entropy password (store it securely in your password manager).
-   - **Region**: Choose the region closest to your primary user base (e.g., `us-east-1`, `eu-west-1`).
-4. Wait for the project initialization to complete.
+1. Import the repository into Vercel. The framework preset (Next.js), build command (`npm run build`) and output are the defaults.
+2. Add the environment variables to **Project → Settings → Environment Variables**:
 
----
+   | Variable | Notes |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Copy from Supabase. Do not retype it. |
+   | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public key. |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Secret. Mark it **Sensitive**. Vercel warns ("Needs Attention") on secret-looking variables that are not. |
+   | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional. Recommended once you run more than one instance. |
 
-## 2. Apply Database Migrations
-
-Navigate to **SQL Editor** in the Supabase Dashboard and execute the SQL migration scripts located in `database/migrations/` in sequential order:
-
-1. **`001_initial_schema.sql`**: Creates tables (`profiles`, `invites`, `conversations`, `conversation_members`, `messages`, `message_reactions`, `message_receipts`, `user_devices`, `group_key_envelopes`, `presence`) and indexes.
-2. **`002_rls_policies.sql`**: Enables Row Level Security on all tables and installs security helper functions (`is_conversation_member`, `is_admin`, etc.).
-3. **`003_security_foundation.sql`**: Removes legacy group-admin roles (all group members equal), hardens `profiles.is_admin` escalation prevention triggers, installs `shares_conversation_with` visibility helpers, adds missing composite indexes, and creates `set_updated_at` triggers.
-4. **`004_storage.sql`**: Creates the private `encrypted_attachments` and `attachments` storage buckets and applies RLS policies restricting read/write access to conversation participants.
-
-> **Tip**: You can also use the Supabase CLI:
-> ```bash
-> supabase link --project-ref your-project-ref
-> supabase db push
-> ```
-
----
-
-## 3. Configure Supabase Authentication
-
-1. In Supabase Dashboard, go to **Authentication** → **Providers** → **Email**:
-   - Ensure **Enable Email provider** is turned **ON**.
-   - Set **Confirm email** according to your preference (for quick private onboarding, it can be disabled; for public deployments, enable email verification).
-2. Under **Authentication** → **URL Configuration**:
-   - **Site URL**: `https://your-domain.com` (or your deployment URL).
-   - **Redirect URLs**: Add `https://your-domain.com/**` and `https://your-domain.com/login`.
-
----
-
-## 4. Configure Supabase Realtime
-
-1. In Supabase Dashboard, navigate to **Database** → **Replication** (or **Realtime**).
-2. Enable Realtime broadcast and listen events for the following tables:
-   - `public.messages` (Realtime message delivery)
-   - `public.message_reactions` (Live reaction updates)
-   - `public.message_receipts` (Read/delivered receipts)
-   - `public.conversation_members` (Group participant changes)
-   - `public.presence` (Online status)
-3. Confirm that Postgres Row Level Security (RLS) is active on all replicated tables so that postgres change feeds are strictly filtered by RLS policies before delivery to connected clients.
-
----
-
-## 5. Configure Supabase Storage
-
-1. Navigate to **Storage** → **Buckets**.
-2. Verify that bucket `encrypted_attachments` exists and has **Public Bucket = FALSE** (Private).
-3. If not already created via migration `004_storage.sql`:
-   - Create bucket `encrypted_attachments` with **Public bucket** toggled **OFF**.
-   - Ensure the max file size limit is set to `25MB`.
-   - Allowed MIME types: `application/octet-stream` (all client uploads are encrypted binary payloads).
-
----
-
-## 6. Configure Production Environment Variables
-
-Set the following environment variables in your hosting provider (e.g., Vercel, Railway, Node server):
-
-```env
-# Public Supabase Client (Exposed to browser)
-NEXT_PUBLIC_SUPABASE_URL=https://<your-project-id>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-# Server-Only Supabase Admin (CRITICAL SECRET - NEVER PREFIX WITH NEXT_PUBLIC_)
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
-# Production Rate Limiting (Optional - Upstash Redis for distributed multi-instance limiting)
-UPSTASH_REDIS_REST_URL=https://<your-redis-instance>.upstash.io
-UPSTASH_REDIS_REST_TOKEN=AX...
-```
-
-> [!CAUTION]
-> `SUPABASE_SERVICE_ROLE_KEY` bypasses all Row Level Security policies. It is used exclusively on the server (e.g. `lib/supabase/admin.ts`). **NEVER expose this key to client-side code or prefix it with `NEXT_PUBLIC_`.**
-
----
-
-## 7. Build and Start the Application
-
-### Deploying to Vercel
-1. Import repository into Vercel.
-2. Add the environment variables configured in Step 6.
 3. Deploy.
 
-### Deploying with Node / Docker
-```bash
-# Install dependencies
-npm ci
+**`NEXT_PUBLIC_*` values are baked in at build time.** Editing one in Vercel changes nothing until you redeploy.
 
-# Verify tests and types
-npm test
-npx tsc --noEmit
-npm run lint
+If any Supabase variable is missing in a production build, every request returns HTTP 500 "Server misconfiguration". That is deliberate: the app refuses to run with authentication silently disabled.
 
-# Build production bundle
-npm run build
+## 2. Point Supabase at the live site
 
-# Start production server (default port 3000)
-npm run start
-```
+In Supabase → **Authentication → URL Configuration**:
 
----
+- **Site URL**: your production address.
+- **Redirect URLs**: add `https://<your-domain>/auth/confirm`.
 
-## 8. Two-User Production Smoke Test
+If you use Google sign-in, the Google client's redirect URI stays the Supabase callback URL; nothing on Google's side depends on your domain.
 
-Once deployed, perform the following verification with two real user accounts:
+## 3. Preview deployments
 
-1. **User Registration & Login**:
-   - Open Browser A (User A: `alice@yourdomain.com`). Register, log in, set profile name.
-   - Open Browser B in Incognito / separate browser (User B: `bob@yourdomain.com`). Register and log in.
-2. **Direct Messaging**:
-   - In Browser A, click **New Chat** → Search for `bob` → Start conversation.
-   - Send encrypted message: *"Hello Bob, this is a live E2EE test!"*.
-   - Verify Browser B receives the message in real time with correct sender name and timestamp.
-3. **Interactions**:
-   - In Browser B, add an emoji reaction and reply to the message.
-   - Verify Browser A reflects the reaction and quoted reply in real time.
-4. **Encrypted Attachment**:
-   - In Browser A, attach an image/PDF.
-   - Verify it encrypts client-side, uploads to `encrypted_attachments`, and decrypts smoothly in Browser B.
-5. **Unauthorized Isolation**:
-   - Register User C (`carol@yourdomain.com`).
-   - Verify Carol cannot view, search, subscribe to, or access Alice & Bob's conversation or attachments.
+Preview deployments use whatever variables are set for the Preview environment. If they point at your production Supabase project, every pull request preview reads and writes production data. Use a separate Supabase project for Preview if that matters.
+
+## 4. Pre-release checklist
+
+**Build and tests**
+- [ ] `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` all pass
+- [ ] No secrets in git (`.env*` files are ignored; the service-role key is only in host settings)
+
+**Database and Supabase**
+- [ ] All migrations `001`-`009` applied (run the check query in [Setup](SETUP.md#3-run-the-database-migrations))
+- [ ] Realtime is on for `messages`
+- [ ] Storage buckets exist; `encrypted_attachments` is private
+- [ ] **Confirm email** is on; Site URL and Redirect URLs are the production ones
+- [ ] Custom SMTP is configured (the default mailer is heavily rate limited)
+
+**Behaviour** (manual, see [Testing](TESTING.md#manual-checklist))
+- [ ] Sign up, confirm email, sign in, sign out, sign in again
+- [ ] Two accounts message each other live and after a refresh
+- [ ] A third account cannot read their conversation
+- [ ] Attachment and voice note round trip
+- [ ] Layout at 390px wide and at desktop width
+
+**Operations**
+- [ ] `/privacy` and `/terms` reviewed for your deployment
+- [ ] Someone knows how to roll back (below)
+
+## 5. Bundle size
+
+The main page loads about 380 kB of JavaScript on first load, mostly the libsodium WebAssembly module. Keep that in mind for slow connections.
+
+## 6. Incident and rollback
+
+- **Bad release**: redeploy the previous build from the host's deployment list. Migrations are forward-only, so avoid shipping a schema change and the code that needs it in a way that can't be rolled back independently.
+- **Leaked service-role key**: in Supabase → Project Settings → API, generate a new one, update the host's variable, redeploy.
+- **Compromised admin account**: in the SQL Editor run `update public.profiles set is_admin = false where id = '<user id>';` and delete or disable the user under Authentication → Users.
+- **A user lost their key**: their old messages cannot be recovered on a new device without the key backup file and passphrase. This is inherent to end-to-end encryption.
+
+## 7. Known operational limits
+
+- Rate limiting is per IP and, without Upstash, per server instance. See [Security](SECURITY.md#known-gaps).
+- There is no CI pipeline in the repository yet; run the checks above before merging.
