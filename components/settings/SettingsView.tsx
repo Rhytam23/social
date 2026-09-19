@@ -212,7 +212,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   ];
 
   return (
-    <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col h-full overflow-y-auto p-4 sm:p-8 font-sans max-w-4xl mx-auto w-full">
+    <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col h-full overflow-y-auto p-4 sm:p-8 font-sans max-w-4xl mx-auto w-full [&>*]:shrink-0">
       {/* Top Header */}
       <div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-4 mb-6">
         <h2 className="text-xl font-bold text-slate-100 tracking-tight">Settings</h2>
