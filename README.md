@@ -172,6 +172,7 @@ The complete list, and what is planned, is in [`docs/ROADMAP.md`](docs/ROADMAP.m
 |---|---|
 | [Setup](docs/SETUP.md) | Supabase project, migrations, auth settings, Google sign-in, first run |
 | [Deployment](docs/DEPLOYMENT.md) | Vercel, environment, release checklist, rollback |
+| [Design](docs/DESIGN.md) | Design tokens, shared components, the landing page and its performance rules |
 | [Architecture](docs/ARCHITECTURE.md) | Components, data flows, routes, state |
 | [E2EE](docs/E2EE.md) | Cryptographic design and its limits |
 | [Database](docs/DATABASE.md) | Tables, functions, security rules, storage, migrations |

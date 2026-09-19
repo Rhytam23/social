@@ -21,11 +21,12 @@ export interface ServerRailProps {
  * Communities you belong to sit between the two.
  */
 export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommunityId, unreadByCommunity, homeUnread, onSelectHome, onSelectCommunity, onAdd }) => {
+  // A quiet tile; the active one gets an accent edge and tint instead of a solid fill.
   const item = (active: boolean) =>
-    `relative w-11 h-11 shrink-0 flex items-center justify-center text-xs font-bold transition-all duration-150 ${
+    `pressable relative w-10 h-10 shrink-0 flex items-center justify-center text-xs font-semibold rounded-xl border ${
       active
-        ? 'rounded-2xl bg-[var(--accent-primary)] text-[var(--accent-contrast)]'
-        : 'rounded-3xl bg-[var(--surface-2)] text-[var(--text-primary)] hover:rounded-2xl hover:bg-[var(--surface-hover)]'
+        ? 'bg-[var(--accent-subtle)] text-[var(--accent-text)] border-[var(--accent-line)]'
+        : 'bg-[var(--surface-1)] text-[var(--text-secondary)] border-[var(--border-subtle)] hover:text-[var(--text-primary)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-2)]'
     }`;
 
   const dot = (n: number) =>
@@ -38,7 +39,7 @@ export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommu
   return (
     <nav
       aria-label="Chat and groups"
-      className="shrink-0 flex md:flex-col items-center gap-2 p-2 md:py-3 md:w-[68px] bg-[var(--canvas-bg)] border-b md:border-b-0 md:border-r border-[var(--border-subtle)] overflow-x-auto md:overflow-y-auto"
+      className="shrink-0 flex md:flex-col items-center gap-2 p-2 md:py-3 md:w-[64px] bg-[var(--canvas-bg)] border-b md:border-b-0 md:border-r border-[var(--border-subtle)] overflow-x-auto md:overflow-y-auto"
     >
       <button onClick={onSelectHome} aria-label="Chat: private conversations" aria-current={activeCommunityId === null ? 'page' : undefined} title="Chat: private conversations" className={item(activeCommunityId === null)}>
         <IconLock className="w-5 h-5" />
@@ -63,7 +64,7 @@ export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommu
         onClick={onAdd}
         aria-label="Groups: create a group, or join with an invite"
         title="Groups: create a group, or join with an invite"
-        className="w-11 h-11 shrink-0 rounded-3xl border-2 border-dashed border-[var(--border-strong)] text-[var(--accent-text)] flex items-center justify-center hover:rounded-2xl hover:border-[var(--accent-primary)] transition-all"
+        className="pressable w-10 h-10 shrink-0 rounded-xl border border-dashed border-[var(--border-strong)] text-[var(--text-secondary)] flex items-center justify-center hover:text-[var(--accent-text)] hover:border-[var(--accent-line)] hover:bg-[var(--accent-subtle)]"
       >
         <IconPlus className="w-5 h-5" />
       </button>

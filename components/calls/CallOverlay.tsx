@@ -118,7 +118,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({ state, onAccept, onDec
               onClick={onToggleMute}
               aria-pressed={state.muted}
               aria-label={state.muted ? 'Unmute microphone' : 'Mute microphone'}
-              className={`${roundBtn} ${state.muted ? 'bg-white text-black' : 'bg-white/15 hover:bg-white/25'}`}
+              className={`${roundBtn} ${state.muted ? 'bg-[var(--accent-primary)] text-[var(--accent-contrast)]' : 'bg-white/15 hover:bg-white/25'}`}
             >
               <IconMic className="w-5 h-5" />
             </button>
@@ -127,7 +127,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({ state, onAccept, onDec
                 onClick={onToggleCamera}
                 aria-pressed={state.cameraOff}
                 aria-label={state.cameraOff ? 'Turn camera on' : 'Turn camera off'}
-                className={`${roundBtn} ${state.cameraOff ? 'bg-white text-black' : 'bg-white/15 hover:bg-white/25'}`}
+                className={`${roundBtn} ${state.cameraOff ? 'bg-[var(--accent-primary)] text-[var(--accent-contrast)]' : 'bg-white/15 hover:bg-white/25'}`}
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 10l4.5-2.5v9L15 14m-9 4h7a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z" />

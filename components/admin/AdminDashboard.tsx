@@ -26,7 +26,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, onToggleU
       </div>
 
       {/* Member Permissions Table */}
-      <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-4 shadow-xs">
+      <div className="panel flex flex-col gap-4 shadow-xs">
         <h3 className="text-sm font-bold text-slate-100">
           Member Privileges ({users.length} active users)
         </h3>

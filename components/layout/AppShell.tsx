@@ -423,8 +423,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         {/* Active Workspace / Conversation Pane */}
         <main
           id="main"
+          key={activeCategory}
           tabIndex={-1}
-          className={`${
+          className={`anim-view ${
             !mobileChatView && (activeCategory === 'chats' || showGroupChat) ? 'hidden md:flex' : 'flex'
           } flex-1 h-full overflow-hidden relative`}
         >
@@ -646,7 +647,7 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         {/* Mobile Inspector Drawer */}
         {mobileInspectorOpen && activeConversation && (
-          <div className="fixed inset-0 z-50 flex justify-end lg:hidden bg-black/70 backdrop-blur-xs">
+          <div className="fixed inset-0 z-50 flex justify-end lg:hidden bg-black/60">
             <button
               className="flex-1 h-full"
               onClick={() => setMobileInspectorOpen(false)}

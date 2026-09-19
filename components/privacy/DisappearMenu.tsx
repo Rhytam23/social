@@ -55,7 +55,7 @@ export const DisappearMenu: React.FC<{ current?: number; onChange: (seconds: num
         </svg>
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-11 z-40 w-60 p-1.5 bg-[var(--surface-1)] border border-[var(--border-strong)] rounded-2xl shadow-[var(--shadow-pop)] animate-in zoom-in-95">
+        <div role="menu" className="absolute right-0 top-11 z-40 w-60 p-1.5 floating animate-in zoom-in-95">
           <p className="px-3 py-1.5 text-[10px] text-[var(--text-muted)] leading-relaxed">
             New messages are deleted for everyone after this time. Messages already sent are not changed.
           </p>

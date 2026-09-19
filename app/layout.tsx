@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import { THEME_INIT_SCRIPT } from "../lib/ui/themeScript";
 import { ToastHost } from "../components/ui/toast";
 
 export const metadata: Metadata = {
   title: "Private Chat",
-  description: "Private E2EE Messaging Platform",
+  description: "Private, end-to-end encrypted messaging for people and communities.",
 };
 
 export const viewport: Viewport = {
@@ -20,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" data-theme="dark" suppressHydrationWarning>
+    <html lang="en" data-theme="dark" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>

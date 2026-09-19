@@ -60,7 +60,7 @@ export const NotificationCenter: React.FC<{ onOpenConversation: (id: string) => 
         <div
           role="dialog"
           aria-label="Notifications"
-          className="absolute right-0 top-11 z-40 w-80 max-h-96 overflow-y-auto bg-[var(--surface-1)] border border-[var(--border-strong)] rounded-2xl shadow-[var(--shadow-pop)] animate-in zoom-in-95"
+          className="absolute right-0 top-11 z-40 w-80 max-h-96 overflow-y-auto floating animate-in zoom-in-95"
         >
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)]">
             <span className="text-xs font-bold text-[var(--text-primary)]">Mentions and keywords</span>

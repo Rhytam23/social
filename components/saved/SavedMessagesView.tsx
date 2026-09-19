@@ -31,7 +31,7 @@ export const SavedMessagesView: React.FC<SavedMessagesViewProps> = ({ saved, con
         {saved.map((m) => {
           const conv = conversations.find((c) => c.id === m.conversationId);
           return (
-            <li key={m.id} className="p-4 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-2">
+            <li key={m.id} className="panel p-4 flex flex-col gap-2">
               <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)]">
                 <span>
                   <strong className="text-[var(--text-secondary)]">{m.senderName}</strong> · {conv?.title ?? 'Conversation'} · {m.timestamp}

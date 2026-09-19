@@ -192,3 +192,9 @@ export const IconChevronRight: React.FC<{ className?: string }> = ({ className =
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
   </svg>
 );
+
+export const IconArrowRight: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
+  <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14m-6-6l6 6-6 6" />
+  </svg>
+);

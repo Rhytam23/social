@@ -127,7 +127,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-xs flex items-start justify-center p-4 sm:pt-20 font-sans animate-in"
+      className="fixed inset-0 z-[60] bg-black/60 flex items-start justify-center p-4 sm:pt-20 font-sans animate-in"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -136,7 +136,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Quick switcher"
-        className="w-full max-w-xl bg-[var(--surface-1)] border border-[var(--border-strong)] rounded-2xl shadow-[var(--shadow-pop)] overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95"
+        className="w-full max-w-xl floating overflow-hidden flex flex-col max-h-[80vh] animate-in zoom-in-95"
         onKeyDown={onKeyDown}
       >
         <div className="p-3.5 border-b border-[var(--border-subtle)] flex items-center gap-3">

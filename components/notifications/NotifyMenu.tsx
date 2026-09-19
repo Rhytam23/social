@@ -65,7 +65,7 @@ export const NotifyMenu: React.FC<{
         </svg>
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 top-11 z-40 w-56 p-1.5 bg-[var(--surface-1)] border border-[var(--border-strong)] rounded-2xl shadow-[var(--shadow-pop)] animate-in zoom-in-95">
+        <div role="menu" className="absolute right-0 top-11 z-40 w-56 p-1.5 floating animate-in zoom-in-95">
           {OPTIONS.map((o) => (
             <button
               key={o.key}

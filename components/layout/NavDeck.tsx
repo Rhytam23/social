@@ -196,7 +196,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
             placeholder={activeCategory === 'groups' ? 'Search your groups...' : 'Search your chats...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-slate-700"
+            className="field pl-9 pr-8"
           />
           {onGlobalSearchTrigger && (
             <button
@@ -211,7 +211,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
       </div>
 
       {/* 4. Conversation List Feed */}
-      <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5">
+      <div className="stagger flex-1 overflow-y-auto p-2 flex flex-col gap-0.5">
         {isLoading && sortedConversations.length === 0 ? (
           <ConversationListSkeleton />
         ) : sortedConversations.length === 0 ? (
@@ -225,10 +225,10 @@ export const NavDeck: React.FC<NavDeckProps> = ({
               : 'No chats yet. Use + to message someone by their username.'}
           </div>
         ) : (
-          sortedConversations.map((conv) => {
+          sortedConversations.map((conv, idx) => {
             const isActive = conv.id === activeConversationId && !showArchived;
             return (
-              <div key={conv.id} className="relative group/item">
+              <div key={conv.id} className="relative group/item" style={{ ['--i' as string]: Math.min(idx, 8) }}>
                 <button
                   onClick={() => onSelectConversation(conv.id)}
                   aria-current={isActive ? 'page' : undefined}
@@ -293,7 +293,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
 
                 {/* Context Menu Dropdown */}
                 {activeMenuConvId === conv.id && (
-                  <div className="absolute right-2 top-9 z-30 bg-slate-900 border border-slate-700 rounded-xl p-1.5 shadow-2xl flex flex-col text-xs min-w-[160px] font-sans">
+                  <div className="absolute right-2 top-9 z-30 floating p-1.5 flex flex-col text-xs min-w-[160px] font-sans">
                     <button
                       onClick={() => {
                         onPinConversation?.(conv.id);

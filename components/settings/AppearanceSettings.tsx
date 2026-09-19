@@ -43,7 +43,7 @@ export const AppearanceSettings: React.FC = () => {
   const prefs = usePreferences();
 
   return (
-    <section aria-label="Appearance" className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl">
+    <section aria-label="Appearance" className="panel">
       <SettingRow title="Theme" description="System follows your device's light or dark setting.">
         <Segmented<ThemePreference>
           label="Theme"

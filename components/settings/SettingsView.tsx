@@ -18,6 +18,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { PrivacySettings, type PrivacySettingsProps } from './PrivacySettings';
 
+import { Button } from '../ui/button';
 export type SettingsTab = 'profile' | 'account' | 'privacy' | 'security' | 'appearance' | 'notifications' | 'devices' | 'data' | 'about';
 
 export interface SettingsViewProps {
@@ -239,7 +240,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       >
         <div className="h-16 px-3 flex items-center gap-1 border-b border-[var(--border-subtle)] shrink-0">
           {onClose && (
-            <button type="button" onClick={onClose} aria-label="Back to chats" title="Back to chats" className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+            <button type="button" onClick={onClose} aria-label="Back to chats" title="Back to chats" className="pressable p-2 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)]">
               <IconChevronLeft className="w-4 h-4" />
             </button>
           )}
@@ -310,7 +311,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* TAB 1: PROFILE */}
       {activeTab === 'profile' && (
         <form onSubmit={handleSaveProfile} className="flex flex-col gap-6">
-          <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-5 shadow-xs">
+          <div className="panel flex flex-col gap-5 shadow-xs">
             <div className="flex items-center gap-4">
               <label className="relative w-14 h-14 rounded-2xl bg-emerald-600 text-white font-bold flex items-center justify-center text-lg shadow-md shrink-0 cursor-pointer overflow-hidden group">
                 {avatarUrl ? (
@@ -338,7 +339,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   required
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all"
+                  className="field"
                 />
               </div>
 
@@ -355,7 +356,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     setUsername(e.target.value);
                     setUsernameError(null);
                   }}
-                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all"
+                  className="field"
                 />
                 {usernameError && (
                   <span id="pf-username-err" role="alert" className="text-[11px] text-rose-400">{usernameError}</span>
@@ -371,7 +372,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   placeholder="e.g. they/them"
                   value={pronouns}
                   onChange={(e) => setPronouns(e.target.value)}
-                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all"
+                  className="field"
                 />
               </div>
 
@@ -383,7 +384,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   placeholder="e.g. Asia/Kolkata"
                   value={timezone}
                   onChange={(e) => setTimezone(e.target.value)}
-                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all"
+                  className="field"
                 />
               </div>
 
@@ -398,7 +399,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   placeholder="A short line others see on your profile card."
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all resize-none"
+                  className="field resize-none"
                 />
               </div>
 
@@ -408,7 +409,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="email"
                   disabled
                   value={currentUser.email || 'Registered account'}
-                  className="bg-slate-950/40 border border-slate-800/60 p-2.5 rounded-xl text-xs text-slate-400 cursor-not-allowed"
+                  className="field"
                 />
               </div>
 
@@ -419,18 +420,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   placeholder="+1 555-0199"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all"
+                  className="field"
                 />
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={isSavingProfile || !displayName.trim()}
-              className="self-end py-2 px-5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-xs cursor-pointer disabled:opacity-50"
-            >
-              {isSavingProfile ? 'Saving...' : 'Save Profile'}
-            </button>
+            <Button type="submit" variant="primary" className="self-end" loading={isSavingProfile} disabled={!displayName.trim()}>
+              {isSavingProfile ? 'Saving...' : 'Save profile'}
+            </Button>
           </div>
         </form>
       )}
@@ -438,7 +435,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* TAB 2: ACCOUNT */}
       {activeTab === 'account' && (
         <div className="flex flex-col gap-5">
-          <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-4">
+          <div className="panel flex flex-col gap-4">
             <h3 className="text-sm font-bold text-slate-100">Account Credentials</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
               Your account is authenticated via Supabase Auth with bcrypt/scrypt hashed password credentials.
@@ -464,13 +461,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span className="text-sm font-bold text-rose-300">End Session</span>
                 <span className="text-xs text-slate-400">Lock your cryptographic key store and sign out from this device.</span>
               </div>
-              <button
-                type="button"
-                onClick={onLogout}
-                className="py-2.5 px-5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Sign Out
-              </button>
+              <Button type="button" variant="danger" onClick={onLogout}>
+                Sign out
+              </Button>
             </div>
           )}
         </div>
@@ -493,7 +486,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           {privacyProps && <PrivacySettings part="security" userId={currentUser.id} {...privacyProps} />}
 
           {/* Identity Fingerprint Card */}
-          <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3 shadow-xs">
+          <div className="panel flex flex-col gap-3 shadow-xs">
             <div className="flex items-center gap-2 text-slate-100 font-bold text-sm">
               <IconShield className="w-4 h-4 text-emerald-400" />
               <span>Identity Key Fingerprint</span>
@@ -508,7 +501,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* Argon2id Key Backup */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
+            <div className="panel flex flex-col gap-3">
               <h4 className="text-xs font-bold text-slate-100">Export Encrypted Key Backup</h4>
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 Derive an Argon2id key to encrypt and download your device identity key. Without this backup, losing your device means losing access to your encrypted message history.
@@ -518,19 +511,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder="Passphrase (8+ chars)..."
                 value={backupPassphrase}
                 onChange={(e) => setBackupPassphrase(e.target.value)}
-                className="bg-slate-950/60 border border-slate-800 p-2 rounded-xl text-xs text-slate-200 focus:outline-none"
+                className="field"
               />
-              <button
-                type="button"
-                onClick={handleExportBackup}
-                disabled={isProcessingBackup || !backupPassphrase}
-                className="py-2 bg-slate-100 hover:bg-white text-slate-950 font-bold text-xs rounded-xl transition-all disabled:opacity-50 cursor-pointer"
-              >
-                Export Backup
-              </button>
+              <Button type="button" variant="primary" fullWidth onClick={handleExportBackup} disabled={isProcessingBackup || !backupPassphrase}>
+                Export backup
+              </Button>
             </div>
 
-            <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
+            <div className="panel flex flex-col gap-3">
               <h4 className="text-xs font-bold text-slate-100">Restore Key Backup</h4>
               <p className="text-[11px] text-slate-400 leading-relaxed">
                 Restore your identity key from a previously exported encrypted backup file&apos;s contents.
@@ -540,23 +528,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder="Backup Passphrase..."
                 value={restorePassphrase}
                 onChange={(e) => setRestorePassphrase(e.target.value)}
-                className="bg-slate-950/60 border border-slate-800 p-2 rounded-xl text-xs text-slate-200 focus:outline-none"
+                className="field"
               />
               <textarea
                 placeholder="Paste backup ciphertext..."
                 value={restoreJson}
                 onChange={(e) => setRestoreJson(e.target.value)}
                 rows={1}
-                className="bg-slate-950/60 border border-slate-800 p-2 rounded-xl text-xs text-slate-200 font-mono focus:outline-none resize-none"
+                className="field font-mono resize-none"
               />
-              <button
-                type="button"
-                onClick={handleRestoreBackup}
-                disabled={isProcessingBackup || !restorePassphrase || !restoreJson}
-                className="py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl border border-slate-700 transition-all disabled:opacity-50 cursor-pointer"
-              >
-                Restore Backup
-              </button>
+              <Button type="button" variant="secondary" fullWidth onClick={handleRestoreBackup} disabled={isProcessingBackup || !restorePassphrase || !restoreJson}>
+                Restore backup
+              </Button>
             </div>
           </div>
         </div>
@@ -566,7 +549,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {activeTab === 'devices' && (
         <div className="flex flex-col gap-6">
           {/* Active Devices */}
-          <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-4 shadow-xs">
+          <div className="panel flex flex-col gap-4 shadow-xs">
             <h3 className="text-sm font-bold text-slate-100">Registered Devices</h3>
             <div className="flex flex-col gap-2">
               {devices.map((device) => (
@@ -596,12 +579,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   </div>
 
                   {!device.isCurrentDevice && (
-                    <button
-                      onClick={() => onRevokeDevice(device.id)}
-                      className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
-                    >
+                    <Button variant="danger" size="sm" onClick={() => onRevokeDevice(device.id)}>
                       Revoke
-                    </button>
+                    </Button>
                   )}
                 </div>
               ))}
@@ -631,7 +611,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {/* TAB 6: ABOUT */}
       {activeTab === 'about' && (
-        <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-4 shadow-xs text-xs">
+        <div className="panel flex flex-col gap-4 shadow-xs text-xs">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
               <IconLock className="w-5 h-5" />
