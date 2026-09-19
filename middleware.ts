@@ -30,6 +30,17 @@ export async function middleware(request: NextRequest) {
     );
   }
 
+  // When the redirect URL we asked for is not in Supabase's allow-list,
+  // Supabase falls back to the bare Site URL and appends ?code= (or ?error=)
+  // there. The home page would ignore it and show the landing page as if the
+  // sign-in never happened, so hand those params to the callback route.
+  if (pathname === "/" && (request.nextUrl.searchParams.has("code") || request.nextUrl.searchParams.has("error") || request.nextUrl.searchParams.has("error_code"))) {
+    const callbackUrl = new URL("/auth/confirm", request.url);
+    request.nextUrl.searchParams.forEach((value, key) => callbackUrl.searchParams.set(key, value));
+    if (!callbackUrl.searchParams.has("next")) callbackUrl.searchParams.set("next", "/");
+    return NextResponse.redirect(callbackUrl);
+  }
+
   // Protected user routes
   const isProtectedUserRoute =
     pathname.startsWith("/chat") ||

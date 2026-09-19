@@ -44,6 +44,10 @@ rollback;
 
 A red error message names the failing statement. No error means the trigger is healthy.
 
+## `new row violates row-level security policy for table "conversations"`
+
+Shown when starting a chat or group. The app creates the conversation and reads it back in one step, but the read policy only allowed existing members and the creator is not a member yet. Run `database/migrations/010_conversation_creator_can_read.sql` in the Supabase SQL Editor (safe to re-run), then try again.
+
 ## Google sign-in problems
 
 The login page shows a reason after "We couldn't complete Google sign-in", for example `(Reason: Database error saving new user)`. Use it with this table:
