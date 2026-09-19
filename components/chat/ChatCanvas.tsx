@@ -158,7 +158,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           <div className="flex flex-col truncate">
             <div className="flex items-center gap-2 truncate">
               <h2 className="text-sm font-bold text-slate-100 truncate font-sans">
-                {conversation.title}
+                {conversation.communityId ? `# ${conversation.title}` : conversation.title}
               </h2>
               {conversation.isMuted && (
                 <span className="text-[10px] text-slate-500">Muted</span>
@@ -166,7 +166,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
             </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-400">
               <span>
-                {conversation.type === 'group'
+                {conversation.communityId && conversation.topic
+                  ? conversation.topic
+                  : conversation.type === 'group'
                   ? `${conversation.groupMeta?.memberCount ?? ''} members`.trim()
                   : PRESENCE_LABEL[conversation.recipientUser?.presence ?? 'offline']}
               </span>

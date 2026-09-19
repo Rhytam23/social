@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ViewCategory, ConversationItem, MessageData, DeviceItem, UserItem } from '../../types/ui';
+import { ViewCategory, ConversationItem, MessageData, DeviceItem, UserItem, CommunityItem, CommunityMemberItem } from '../../types/ui';
 import { NavDeck } from './NavDeck';
 import { MobileNav } from './MobileNav';
 import { ChatCanvas } from '../chat/ChatCanvas';
@@ -11,6 +11,9 @@ import { CommandPalette, type PaletteAction } from '../search/CommandPalette';
 import { ShortcutsDialog } from '../ui/ShortcutsDialog';
 import { SavedMessagesView } from '../saved/SavedMessagesView';
 import { ThreadPanel } from '../chat/ThreadPanel';
+import { ServerRail } from '../community/ServerRail';
+import { CommunitySidebar } from '../community/CommunitySidebar';
+import { CreateOrJoinDialog, CreateChannelDialog, CommunitySettingsDialog } from '../community/CommunityDialogs';
 import { isGroupManager, type GroupRole } from '../../lib/groups/roles';
 import { setTheme, readTheme } from '../../lib/ui/theme';
 import { toast } from '../../lib/ui/toastStore';
@@ -75,6 +78,19 @@ export interface AppShellProps {
   onUpdateGroupSettings?: (groupId: string, patch: { name?: string; description?: string; onlyAdminsPost?: boolean }) => Promise<boolean>;
   onLeaveGroup?: (groupId: string) => void | Promise<void>;
   onSetConversationNotify?: (conversationId: string, level: 'all' | 'mentions' | 'none' | 'default', muteMs?: number) => void;
+
+  // Communities (shown only when provided, i.e. in connected mode)
+  communities?: CommunityItem[];
+  communityMembers?: Record<string, CommunityMemberItem[]>;
+  initialInviteCode?: string;
+  onLoadCommunityMembers?: (communityId: string) => void | Promise<void>;
+  onCreateCommunity?: (name: string, description: string) => Promise<{ communityId: string; channelId: string } | null>;
+  onJoinCommunity?: (code: string) => Promise<string | null>;
+  onCreateChannel?: (communityId: string, name: string, isPrivate: boolean, memberIds: string[]) => Promise<string | null>;
+  onCreateInvite?: (communityId: string) => Promise<string | null>;
+  onSetCommunityRole?: (communityId: string, userId: string, role: 'owner' | 'admin' | 'member') => Promise<void>;
+  onRemoveCommunityMember?: (communityId: string, userId: string) => Promise<void>;
+  onLeaveCommunity?: (communityId: string) => Promise<boolean>;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -125,6 +141,17 @@ export const AppShell: React.FC<AppShellProps> = ({
   onUpdateGroupSettings,
   onLeaveGroup,
   onSetConversationNotify,
+  communities,
+  communityMembers = {},
+  initialInviteCode,
+  onLoadCommunityMembers,
+  onCreateCommunity,
+  onJoinCommunity,
+  onCreateChannel,
+  onCreateInvite,
+  onSetCommunityRole,
+  onRemoveCommunityMember,
+  onLeaveCommunity,
 }) => {
   const [activeCategory, setActiveCategory] = useState<ViewCategory>('chats');
   const [showInspector, setShowInspector] = useState(false);
@@ -137,6 +164,15 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [mobileChatView, setMobileChatView] = useState<boolean>(true);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [threadRootId, setThreadRootId] = useState<string | null>(null);
+  const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
+  const [createOrJoinOpen, setCreateOrJoinOpen] = useState(false);
+  const [channelDialogOpen, setChannelDialogOpen] = useState(false);
+  const [communitySettingsOpen, setCommunitySettingsOpen] = useState(false);
+
+  // An invite link (?join=CODE) opens the join dialog once.
+  useEffect(() => {
+    if (initialInviteCode) setCreateOrJoinOpen(true);
+  }, [initialInviteCode]);
   const [online, setOnline] = useState(true);
 
   // Global shortcuts: Ctrl/Cmd+K toggles the quick switcher, "?" lists shortcuts.
@@ -192,14 +228,41 @@ export const AppShell: React.FC<AppShellProps> = ({
     { id: 'shortcuts', label: 'Show keyboard shortcuts', hint: '?', run: () => setShortcutsOpen(true) },
   ];
 
-  const activeConversation =
-    conversations.find((c) => c.id === activeConversationId) || conversations[0];
+  const communitiesEnabled = communities !== undefined;
+  const activeCommunity = communities?.find((c) => c.id === activeCommunityId) ?? null;
+  // Channels live inside their community; Home shows only direct messages and plain groups.
+  const homeConversations = conversations.filter((c) => !c.communityId);
+  const communityChannels = activeCommunity ? conversations.filter((c) => c.communityId === activeCommunity.id) : [];
+  const visibleConversations = activeCommunity ? communityChannels : homeConversations;
 
-  const groupConversations = conversations.filter((c) => c.type === 'group');
+  const activeConversation =
+    visibleConversations.find((c) => c.id === activeConversationId) || visibleConversations[0];
+
+  const groupConversations = homeConversations.filter((c) => c.type === 'group');
   const activeGroupConversation =
     (activeConversation?.type === 'group' ? activeConversation : undefined) || groupConversations[0];
 
-  const unreadTotal = conversations.reduce((acc, c) => acc + c.unreadCount, 0);
+  const unreadTotal = homeConversations.reduce((acc, c) => acc + c.unreadCount, 0);
+  const unreadByCommunity: Record<string, number> = {};
+  for (const c of conversations) {
+    if (c.communityId && !c.isMuted) unreadByCommunity[c.communityId] = (unreadByCommunity[c.communityId] ?? 0) + c.unreadCount;
+  }
+
+  const selectCommunity = (id: string) => {
+    setActiveCommunityId(id);
+    setActiveCategory('chats');
+    setMobileChatView(false);
+    void onLoadCommunityMembers?.(id);
+    const first = conversations.find((c) => c.communityId === id);
+    if (first) onSelectConversation(first.id);
+  };
+  const selectHome = () => {
+    setActiveCommunityId(null);
+    setActiveCategory('chats');
+    setMobileChatView(false);
+    const first = homeConversations[0];
+    if (first) onSelectConversation(first.id);
+  };
 
   const threadRoot = threadRootId ? messages.find((m) => m.id === threadRootId) : undefined;
   const threadReplies = threadRootId ? messages.filter((m) => m.threadRootId === threadRootId) : [];
@@ -225,6 +288,20 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
       )}
       {/* Main Workspace Body - Pure 2-Pane Edge-to-Edge Architecture */}
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+      {communitiesEnabled && (
+        <div className={`${mobileChatView && activeCategory === 'chats' ? 'hidden md:flex' : 'flex'} md:h-full`}>
+          <ServerRail
+            communities={communities}
+            activeCommunityId={activeCommunityId}
+            unreadByCommunity={unreadByCommunity}
+            homeUnread={unreadTotal}
+            onSelectHome={selectHome}
+            onSelectCommunity={selectCommunity}
+            onAdd={() => setCreateOrJoinOpen(true)}
+          />
+        </div>
+      )}
       <div className="flex-1 flex overflow-hidden relative h-full w-full">
         {/* Navigation Deck Pane (Desktop: Side Pane; Mobile: Single Pane when !mobileChatView) */}
         <div
@@ -232,6 +309,25 @@ export const AppShell: React.FC<AppShellProps> = ({
             mobileChatView && activeCategory === 'chats' ? 'hidden md:flex' : 'flex'
           } h-full w-full md:w-80 lg:w-96 shrink-0`}
         >
+          {activeCommunity ? (
+            <CommunitySidebar
+              community={activeCommunity}
+              channels={communityChannels}
+              activeConversationId={activeConversationId}
+              onSelectChannel={(id) => {
+                onSelectConversation(id);
+                setMobileChatView(true);
+              }}
+              onOpenSettings={() => {
+                void onLoadCommunityMembers?.(activeCommunity.id);
+                setCommunitySettingsOpen(true);
+              }}
+              onCreateChannel={() => {
+                void onLoadCommunityMembers?.(activeCommunity.id);
+                setChannelDialogOpen(true);
+              }}
+            />
+          ) : (
           <NavDeck
             currentUserName={currentUserName}
             currentUserRegistrationId={currentUserRegistrationId}
@@ -241,7 +337,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               setActiveCategory(cat);
               setMobileChatView(false);
             }}
-            conversations={conversations}
+            conversations={homeConversations}
             activeConversationId={activeConversationId}
             onSelectConversation={(id) => {
               onSelectConversation(id);
@@ -262,6 +358,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             onClearHistoryConversation={onClearHistoryConversation}
             onDeleteConversationLocally={onDeleteConversationLocally}
           />
+          )}
         </div>
 
         {/* Active Workspace / Conversation Pane */}
@@ -479,6 +576,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
         )}
       </div>
+      </div>
 
       {/* Mobile Bottom Navigation Bar */}
       <MobileNav
@@ -516,6 +614,68 @@ export const AppShell: React.FC<AppShellProps> = ({
         onStartChat={(u) => handleStartDirectChat(u)}
         sharedGroups={conversations.filter((c) => c.type === 'group')}
       />
+
+      {communitiesEnabled && (
+        <>
+          <CreateOrJoinDialog
+            isOpen={createOrJoinOpen}
+            onClose={() => setCreateOrJoinOpen(false)}
+            initialCode={initialInviteCode}
+            onCreate={async (name, description) => {
+              const res = await onCreateCommunity?.(name, description);
+              if (res) {
+                setActiveCommunityId(res.communityId);
+                setActiveCategory('chats');
+                setMobileChatView(true);
+                onSelectConversation(res.channelId);
+              }
+              return !!res;
+            }}
+            onJoin={async (code) => {
+              const id = await onJoinCommunity?.(code);
+              if (id) selectCommunity(id);
+              return !!id;
+            }}
+          />
+          {activeCommunity && (
+            <>
+              <CreateChannelDialog
+                isOpen={channelDialogOpen}
+                onClose={() => setChannelDialogOpen(false)}
+                members={communityMembers[activeCommunity.id] ?? []}
+                currentUserId={currentUserId}
+                onCreate={async (name, isPrivate, memberIds) => {
+                  const id = await onCreateChannel?.(activeCommunity.id, name, isPrivate, memberIds);
+                  if (id) {
+                    onSelectConversation(id);
+                    setMobileChatView(true);
+                  }
+                  return !!id;
+                }}
+              />
+              <CommunitySettingsDialog
+                isOpen={communitySettingsOpen}
+                onClose={() => setCommunitySettingsOpen(false)}
+                community={activeCommunity}
+                members={communityMembers[activeCommunity.id] ?? []}
+                currentUserId={currentUserId}
+                onCreateInvite={async () => (await onCreateInvite?.(activeCommunity.id)) ?? null}
+                onSetRole={async (userId, role) => {
+                  await onSetCommunityRole?.(activeCommunity.id, userId, role);
+                }}
+                onRemove={async (userId) => {
+                  await onRemoveCommunityMember?.(activeCommunity.id, userId);
+                }}
+                onLeave={async () => {
+                  const ok = (await onLeaveCommunity?.(activeCommunity.id)) ?? false;
+                  if (ok) selectHome();
+                  return ok;
+                }}
+              />
+            </>
+          )}
+        </>
+      )}
 
       {/* Forward Message Modal */}
       <ForwardMessageModal

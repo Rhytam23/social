@@ -17,7 +17,21 @@ import {
   TypingDots,
 } from '../../components/ui/primitives';
 import { toast } from '../../lib/ui/toastStore';
+import { ServerRail } from '../../components/community/ServerRail';
+import { CommunitySidebar } from '../../components/community/CommunitySidebar';
+import { CreateOrJoinDialog } from '../../components/community/CommunityDialogs';
+import type { CommunityItem, ConversationItem } from '../../types/ui';
 import { useTheme, type ThemePreference } from '../../lib/ui/theme';
+
+const SAMPLE_COMMUNITIES: CommunityItem[] = [
+  { id: 'c1', name: 'Design team', role: 'owner' },
+  { id: 'c2', name: 'Book club', role: 'member' },
+];
+const SAMPLE_CHANNELS: ConversationItem[] = [
+  { id: 'a', title: 'general', type: 'group', unreadCount: 3, communityId: 'c1' },
+  { id: 'b', title: 'announcements', type: 'group', unreadCount: 0, communityId: 'c1' },
+  { id: 'p', title: 'leads', type: 'group', unreadCount: 1, communityId: 'c1', isPrivateChannel: true },
+];
 
 /** Living style guide. Development only: production builds return 404. */
 export default function DesignSystemPage() {
@@ -26,6 +40,8 @@ export default function DesignSystemPage() {
   const [theme, setTheme] = useTheme();
   const [on, setOn] = useState(true);
   const [open, setOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
+  const [activeCommunity, setActiveCommunity] = useState<string | null>('c1');
 
   return (
     <main id="main" tabIndex={-1} className="max-w-3xl mx-auto p-6 flex flex-col gap-10 font-sans">
@@ -96,6 +112,30 @@ export default function DesignSystemPage() {
         <Dialog isOpen={open} onClose={() => setOpen(false)} title="Example dialog" footerAction={<Button variant="primary" size="sm" onClick={() => setOpen(false)}>Done</Button>}>
           Focus stays inside, Escape closes, and focus returns to the button.
         </Dialog>
+      </section>
+
+      <section aria-labelledby="ds-community" className="flex flex-col gap-3">
+        <h2 id="ds-community" className="text-sm font-semibold text-[var(--text-secondary)]">Communities</h2>
+        <div className="flex h-72 border border-[var(--border-subtle)] rounded-2xl overflow-hidden">
+          <ServerRail
+            communities={SAMPLE_COMMUNITIES}
+            activeCommunityId={activeCommunity}
+            unreadByCommunity={{ c1: 4 }}
+            homeUnread={2}
+            onSelectHome={() => setActiveCommunity(null)}
+            onSelectCommunity={setActiveCommunity}
+            onAdd={() => setJoinOpen(true)}
+          />
+          <CommunitySidebar
+            community={SAMPLE_COMMUNITIES[0]}
+            channels={SAMPLE_CHANNELS}
+            activeConversationId="a"
+            onSelectChannel={() => {}}
+            onOpenSettings={() => toast('Community settings')}
+            onCreateChannel={() => toast('Add channel')}
+          />
+        </div>
+        <CreateOrJoinDialog isOpen={joinOpen} onClose={() => setJoinOpen(false)} onCreate={async () => true} onJoin={async () => true} />
       </section>
 
       <section aria-labelledby="ds-states" className="grid gap-4 sm:grid-cols-3">

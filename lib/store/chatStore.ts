@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ConversationItem, MessageData, UserItem, DeviceItem, UserPresence } from '../../types/ui';
+import { ConversationItem, MessageData, UserItem, DeviceItem, UserPresence, CommunityItem, CommunityMemberItem } from '../../types/ui';
 import { getPreferences } from '../prefs/preferences';
+import { isGroupRole } from '../groups/roles';
 import { extractMentionIds } from '../notifications/rules';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
@@ -41,6 +42,8 @@ export interface ChatStoreState {
   typing: Record<string, string[]>;
   /** Bookmarked messages (ids only; text stays end-to-end encrypted) */
   saved: Array<{ messageId: string; conversationId: string }>;
+  communities: CommunityItem[];
+  communityMembers: Record<string, CommunityMemberItem[]>;
   error: string | null;
 }
 
@@ -112,6 +115,9 @@ function summaryToConversationItem(summary: ConversationSummary, existing?: Conv
     isPinned: existing?.isPinned,
     isMuted: existing?.isMuted,
     isArchived: existing?.isArchived,
+    communityId: summary.communityId,
+    topic: summary.topic ?? undefined,
+    isPrivateChannel: summary.isPrivateChannel,
     lastMessage: existing?.lastMessage || { snippet: 'No messages yet', timestamp: '' },
     recipientUser:
       summary.type === 'private' && summary.otherParticipant
@@ -201,6 +207,8 @@ export class ChatStore {
       devices: [],
       typing: {},
       saved: [],
+      communities: [],
+      communityMembers: {},
       error: null,
     };
   }
@@ -1334,7 +1342,9 @@ export class ChatStore {
       this.lastMemberIds.set(summary.id, summary.memberIds);
       if (!prev || !summary.roles) continue;
       const someoneLeft = prev.some((id) => !summary.memberIds.includes(id));
-      if (!someoneLeft) continue;
+      // Group adds rotate immediately in addGroupMember; channel joins happen inside a database function, so a manager does it here.
+      const someoneJoined = !!summary.communityId && summary.memberIds.some((id) => !prev.includes(id));
+      if (!someoneLeft && !someoneJoined) continue;
       const managers = summary.memberIds.filter((id) => summary.roles![id] === 'owner' || summary.roles![id] === 'admin').sort();
       if (managers[0] !== me) continue; // exactly one manager rotates, to avoid racing key versions
       try {
@@ -1400,6 +1410,136 @@ export class ChatStore {
     this.notify();
   }
 
+
+  // ============================================================
+  // Communities and channels (needs migration 014). Every write is a
+  // database function that checks permissions; keys are shared here on
+  // the client, so the server never holds a channel key.
+  // ============================================================
+
+  /** Supabase client without generated types for the community tables and functions. */
+  private get raw(): SupabaseClient | null {
+    return this.supabase as unknown as SupabaseClient | null;
+  }
+
+  public async loadCommunities(): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    try {
+      const { data, error } = await this.raw
+        .from('community_members')
+        .select('role, communities(id, name, description, owner_id)')
+        .eq('user_id', this.state.currentUser.id);
+      if (error) return; // migration 014 not applied yet
+      const rows = (data as unknown as Array<{ role: string; communities: { id: string; name: string; description: string | null; owner_id: string | null } | null }>) || [];
+      const items: CommunityItem[] = rows
+        .filter((r) => r.communities)
+        .map((r) => ({
+          id: r.communities!.id,
+          name: r.communities!.name,
+          description: r.communities!.description ?? undefined,
+          ownerId: r.communities!.owner_id ?? undefined,
+          role: isGroupRole(r.role) ? r.role : 'member',
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      this.setState({ communities: items });
+    } catch {
+      // communities are optional until the migration is applied
+    }
+  }
+
+  public async loadCommunityMembers(communityId: string): Promise<void> {
+    if (!this.raw) return;
+    const { data, error } = await this.raw
+      .from('community_members')
+      .select('user_id, role, joined_at, profiles(display_name, username, avatar_url)')
+      .eq('community_id', communityId);
+    if (error) return;
+    const rows = (data as unknown as Array<{ user_id: string; role: string; joined_at: string; profiles: { display_name: string; username: string; avatar_url: string | null } | null }>) || [];
+    const members: CommunityMemberItem[] = rows.map((r) => ({
+      userId: r.user_id,
+      name: r.profiles?.display_name || 'Member',
+      username: r.profiles?.username,
+      avatarUrl: r.profiles?.avatar_url ?? undefined,
+      role: isGroupRole(r.role) ? r.role : 'member',
+      joinedAt: r.joined_at,
+    }));
+    this.setState({ communityMembers: { ...this.state.communityMembers, [communityId]: members } });
+  }
+
+  /** Creates the key for a brand new channel and shares it with the people who are in it. */
+  private async provisionChannelKey(channelId: string): Promise<void> {
+    if (!this.supabase) return;
+    const { data } = await this.supabase.from('conversation_members').select('user_id').eq('conversation_id', channelId).is('left_at', null);
+    await this.distributeNewGroupKey(channelId, (data || []).map((m) => m.user_id), 1);
+  }
+
+  /** Runs a community database function and turns a failure into a visible error instead of a silent no-op. */
+  private async rpc<T>(fn: string, args: Record<string, unknown>): Promise<T | null> {
+    if (!this.raw) return null;
+    const { data, error } = await this.raw.rpc(fn, args);
+    if (error) {
+      const needsMigration = /function .* does not exist|schema cache|Could not find the function/i.test(error.message);
+      this.setState({ error: needsMigration ? 'Communities need the latest database update (migration 014).' : error.message });
+      return null;
+    }
+    return data as T;
+  }
+
+  public async createCommunity(name: string, description: string): Promise<{ communityId: string; channelId: string } | null> {
+    if (this.state.mode !== 'connected') return null;
+    const rows = await this.rpc<Array<{ out_community_id: string; out_channel_id: string }>>('create_community', { p_name: name, p_description: description });
+    const first = rows?.[0];
+    if (!first) return null;
+    await this.provisionChannelKey(first.out_channel_id);
+    await this.loadCommunities();
+    await this.loadConversationsReal();
+    return { communityId: first.out_community_id, channelId: first.out_channel_id };
+  }
+
+  public async createChannel(communityId: string, name: string, isPrivate: boolean, memberIds: string[]): Promise<string | null> {
+    if (this.state.mode !== 'connected') return null;
+    const channelId = await this.rpc<string>('create_channel', { p_community: communityId, p_name: name, p_private: isPrivate, p_member_ids: memberIds });
+    if (!channelId) return null;
+    await this.provisionChannelKey(channelId);
+    await this.loadConversationsReal();
+    return channelId;
+  }
+
+  public async createInvite(communityId: string): Promise<string | null> {
+    return this.rpc<string>('create_community_invite', { p_community: communityId, p_hours: 168, p_max_uses: 50 });
+  }
+
+  public async joinCommunity(code: string): Promise<string | null> {
+    if (this.state.mode !== 'connected') return null;
+    const id = await this.rpc<string>('join_community', { p_code: code });
+    if (!id) return null;
+    await this.loadCommunities();
+    await this.loadConversationsReal();
+    return id;
+  }
+
+  public async leaveCommunity(communityId: string): Promise<boolean> {
+    if (this.state.mode !== 'connected') return false;
+    const ok = await this.rpc<null>('leave_community', { p_community: communityId });
+    if (ok === null && this.state.error) return false;
+    await this.loadCommunities();
+    await this.loadConversationsReal();
+    return true;
+  }
+
+  public async removeCommunityMember(communityId: string, userId: string): Promise<void> {
+    await this.rpc<null>('remove_community_member', { p_community: communityId, p_user: userId });
+    await this.loadCommunityMembers(communityId);
+    this.refreshConversations();
+  }
+
+  public async setCommunityRole(communityId: string, userId: string, role: 'owner' | 'admin' | 'member'): Promise<void> {
+    await this.rpc<null>('set_community_role', { p_community: communityId, p_user: userId, p_role: role });
+    await this.loadCommunities();
+    await this.loadCommunityMembers(communityId);
+    this.refreshConversations();
+  }
+
   public clearError() {
     this.setState({ error: null });
   }
@@ -1426,6 +1566,8 @@ export class ChatStore {
       devices: [],
       typing: {},
       saved: [],
+      communities: [],
+      communityMembers: {},
       error: null,
     });
   }
@@ -1483,6 +1625,8 @@ export class ChatStore {
       devices,
       typing: {},
       saved: [],
+      communities: [],
+      communityMembers: {},
       error: null,
     };
     this.notify();

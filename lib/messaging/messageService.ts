@@ -15,6 +15,10 @@ export interface ConversationSummary {
   roles?: Record<string, GroupRole>;
   description?: string | null;
   onlyAdminsPost?: boolean;
+  /** Set when this conversation is a community channel (needs migration 014). */
+  communityId?: string;
+  topic?: string | null;
+  isPrivateChannel?: boolean;
   otherParticipant?: { id: string; username: string; displayName: string; avatarUrl: string | null };
 }
 
@@ -54,21 +58,35 @@ export async function fetchConversations(
   if (conversationIds.length === 0) return [];
 
   // description / only_admins_post / role come from migration 013; fall back if it is not applied yet.
-  type ConvRow = { id: string; type: string; name: string | null; updated_at: string; description?: string | null; only_admins_post?: boolean };
-  let convRows: ConvRow[] | null = null;
-  const withSettings = await supabase
-    .from('conversations')
-    .select('id, type, name, updated_at, description, only_admins_post')
-    .in('id', conversationIds)
-    .order('updated_at', { ascending: false });
-  if (withSettings.error) {
-    const plain = await supabase.from('conversations').select('id, type, name, updated_at').in('id', conversationIds).order('updated_at', { ascending: false });
-    if (plain.error) throw new Error(plain.error.message);
-    convRows = plain.data as ConvRow[];
-  } else {
-    convRows = withSettings.data as ConvRow[];
+  type ConvRow = {
+    id: string;
+    type: string;
+    name: string | null;
+    updated_at: string;
+    description?: string | null;
+    only_admins_post?: boolean;
+    community_id?: string | null;
+    topic?: string | null;
+    is_private?: boolean;
+  };
+  // Newest column set first; each older migration level is a fallback.
+  const columnSets = [
+    'id, type, name, updated_at, description, only_admins_post, community_id, topic, is_private',
+    'id, type, name, updated_at, description, only_admins_post',
+    'id, type, name, updated_at',
+  ];
+  let conversations: ConvRow[] = [];
+  let lastError = '';
+  for (const columns of columnSets) {
+    const res = await supabase.from('conversations').select(columns).in('id', conversationIds).order('updated_at', { ascending: false });
+    if (!res.error) {
+      conversations = (res.data as unknown as ConvRow[]) || [];
+      lastError = '';
+      break;
+    }
+    lastError = res.error.message;
   }
-  const conversations = convRows || [];
+  if (lastError) throw new Error(lastError);
 
   type MemberRow = { conversation_id: string; user_id: string; role?: string; profiles: ProfileRow | null };
   let allMembers: MemberRow[] | null = null;
@@ -100,14 +118,21 @@ export async function fetchConversations(
     const members = membersByConversation.get(conv.id) || [];
     const summary: ConversationSummary = {
       id: conv.id,
-      type: conv.type as 'private' | 'group',
+      // A community channel behaves like a group for encryption and membership.
+      type: conv.type === 'private' ? 'private' : 'group',
       name: conv.name,
       updatedAt: conv.updated_at,
       memberCount: members.length,
       memberIds: members.map((m) => m.userId),
     };
 
-    if (conv.type === 'group') {
+    if (conv.community_id) {
+      summary.communityId = conv.community_id;
+      summary.topic = conv.topic ?? null;
+      summary.isPrivateChannel = !!conv.is_private;
+    }
+
+    if (conv.type !== 'private') {
       if (members.some((m) => m.role)) {
         summary.roles = Object.fromEntries(members.map((m) => [m.userId, m.role ?? 'member'])) as Record<string, GroupRole>;
       }

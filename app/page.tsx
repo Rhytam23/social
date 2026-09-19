@@ -30,6 +30,7 @@ export default function HomePage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | undefined>(undefined);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const cryptoRef = useRef<MessagingCrypto | null>(null);
   const initedRef = useRef(false);
@@ -74,6 +75,10 @@ export default function HomePage() {
         store.applyReactionEvent('DELETE', payload.old as { message_id?: string; user_id?: string; reaction?: string });
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_members' }, () => {
+        store.refreshConversations();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'community_members' }, () => {
+        void store.loadCommunities();
         store.refreshConversations();
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
@@ -161,6 +166,7 @@ export default function HomePage() {
         liveRef.current = live;
         live.start();
         void store.loadSavedMessages();
+        void store.loadCommunities();
       } catch (liveErr) {
         console.warn('Live channels unavailable', liveErr);
       }
@@ -203,6 +209,35 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, configured, state.mode, conversationIdsKey]);
+
+  // An invite link (?join=CODE) is remembered across the sign-in redirect, then offered once signed in.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('join');
+      if (code) {
+        sessionStorage.setItem('pc_pending_join', code);
+        params.delete('join');
+        const qs = params.toString();
+        window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
+      }
+    } catch {
+      // storage unavailable: the link simply has to be opened again after signing in
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || state.mode !== 'connected') return;
+    try {
+      const pending = sessionStorage.getItem('pc_pending_join');
+      if (pending) {
+        sessionStorage.removeItem('pc_pending_join');
+        setInviteCode(pending);
+      }
+    } catch {
+      // ignore
+    }
+  }, [isAuthenticated, state.mode]);
 
   // Alerts for incoming messages (toast, desktop notification, sound), decided on this device.
   useEffect(() => {
@@ -494,6 +529,17 @@ export default function HomePage() {
           .filter((m): m is MessageData => !!m)}
         onToggleSaved={handleStarMessageToggle}
         onSetConversationNotify={(id, level, ms) => store.setConversationNotify(id, level, ms)}
+        communities={state.mode === 'connected' ? state.communities : undefined}
+        communityMembers={state.communityMembers}
+        initialInviteCode={inviteCode}
+        onLoadCommunityMembers={(id) => store.loadCommunityMembers(id)}
+        onCreateCommunity={(name, description) => store.createCommunity(name, description)}
+        onJoinCommunity={(code) => store.joinCommunity(code)}
+        onCreateChannel={(communityId, name, isPrivate, memberIds) => store.createChannel(communityId, name, isPrivate, memberIds)}
+        onCreateInvite={(id) => store.createInvite(id)}
+        onSetCommunityRole={(id, userId, role) => store.setCommunityRole(id, userId, role)}
+        onRemoveCommunityMember={(id, userId) => store.removeCommunityMember(id, userId)}
+        onLeaveCommunity={(id) => store.leaveCommunity(id)}
         onSetMemberRole={(groupId, userId, role) => store.setMemberRole(groupId, userId, role)}
         onUpdateGroupSettings={(groupId, patch) => store.updateGroupSettings(groupId, patch)}
         onLeaveGroup={(groupId) => store.leaveGroup(groupId)}

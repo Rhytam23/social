@@ -84,6 +84,10 @@ export interface ConversationItem {
   isArchived?: boolean;
   draftText?: string;
   pinnedMessageId?: string;
+  /** Set on channels that belong to a community. */
+  communityId?: string;
+  topic?: string;
+  isPrivateChannel?: boolean;
   lastMessage?: {
     snippet: string;
     timestamp: string;
@@ -127,3 +131,20 @@ export interface UserItem {
   presence?: UserPresence;
 }
 
+export interface CommunityItem {
+  id: string;
+  name: string;
+  description?: string;
+  /** Your role in the community. */
+  role: GroupRole;
+  ownerId?: string;
+}
+
+export interface CommunityMemberItem {
+  userId: string;
+  name: string;
+  username?: string;
+  avatarUrl?: string;
+  role: GroupRole;
+  joinedAt: string;
+}
