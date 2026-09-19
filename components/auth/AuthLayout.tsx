@@ -28,9 +28,6 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-center gap-2">
               <h1 className="text-xl font-bold tracking-tight text-white">Private Chat</h1>
-              <span className="px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-semibold">
-                Invite Only
-              </span>
             </div>
             <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
               {subtitle}

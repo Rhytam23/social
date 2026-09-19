@@ -1,18 +1,11 @@
 'use client';
 
 import React from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { LoginForm } from '../../../components/auth/LoginForm';
 
 export default function InvitePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
-  return (
-    <LoginForm
-      initialTab="signup"
-      initialInviteToken={searchParams.get('token') || ''}
-      onLoginSuccess={() => router.push('/')}
-    />
-  );
+  return <LoginForm initialTab="signup" onLoginSuccess={() => router.push('/')} />;
 }

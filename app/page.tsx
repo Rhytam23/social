@@ -346,7 +346,7 @@ export default function HomePage() {
   }
 
   return (
-    <>
+    <div className="fixed inset-0 flex flex-col overflow-hidden">
       {state.mode === 'demo' && (
         <div className="bg-emerald-950/60 border-b border-emerald-500/20 px-4 py-1.5 flex items-center justify-between text-[11px] text-emerald-300 font-sans z-50">
           <div className="flex items-center gap-2">
@@ -492,6 +492,6 @@ export default function HomePage() {
           )}
         </div>
       </Dialog>
-    </>
+    </div>
   );
 }
