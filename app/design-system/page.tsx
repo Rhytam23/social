@@ -19,7 +19,7 @@ import {
 import { toast } from '../../lib/ui/toastStore';
 import { ServerRail } from '../../components/community/ServerRail';
 import { CommunitySidebar } from '../../components/community/CommunitySidebar';
-import { CreateOrJoinDialog } from '../../components/community/CommunityDialogs';
+import { GroupsDialog } from '../../components/groups/GroupsDialog';
 import type { CommunityItem, ConversationItem } from '../../types/ui';
 import { useTheme, type ThemePreference } from '../../lib/ui/theme';
 
@@ -135,7 +135,7 @@ export default function DesignSystemPage() {
             onCreateChannel={() => toast('Add channel')}
           />
         </div>
-        <CreateOrJoinDialog isOpen={joinOpen} onClose={() => setJoinOpen(false)} onCreate={async () => true} onJoin={async () => true} />
+        <GroupsDialog isOpen={joinOpen} onClose={() => setJoinOpen(false)} contacts={[]} currentUserId="me" onLookup={async () => ({ status: 'none' })} onCreateGroup={async () => true} onCreateCommunity={async () => true} onJoin={async () => true} />
       </section>
 
       <section aria-labelledby="ds-states" className="grid gap-4 sm:grid-cols-3">

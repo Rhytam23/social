@@ -4,6 +4,7 @@ import { initialsOf } from '../ui/avatar';
 import { IconLock, IconPlus } from '../ui/icons';
 
 export interface ServerRailProps {
+  /** Empty in demo mode, where communities are not available. */
   communities: CommunityItem[];
   activeCommunityId: string | null;
   /** Unread channel messages per community id. */
@@ -14,7 +15,11 @@ export interface ServerRailProps {
   onAdd: () => void;
 }
 
-/** Left rail on desktop, a scrolling strip on phones: Home (chats) plus each community. */
+/**
+ * Left rail on desktop, a scrolling strip on phones.
+ * Lock = Chat (private, one-to-one conversations). Plus = Groups (create, join, invite).
+ * Communities you belong to sit between the two.
+ */
 export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommunityId, unreadByCommunity, homeUnread, onSelectHome, onSelectCommunity, onAdd }) => {
   const item = (active: boolean) =>
     `relative w-11 h-11 shrink-0 flex items-center justify-center text-xs font-bold transition-all duration-150 ${
@@ -32,13 +37,14 @@ export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommu
 
   return (
     <nav
-      aria-label="Communities"
+      aria-label="Chat and groups"
       className="shrink-0 flex md:flex-col items-center gap-2 p-2 md:py-3 md:w-[68px] bg-[var(--canvas-bg)] border-b md:border-b-0 md:border-r border-[var(--border-subtle)] overflow-x-auto md:overflow-y-auto"
     >
-      <button onClick={onSelectHome} aria-label="Home: direct messages and groups" aria-current={activeCommunityId === null ? 'page' : undefined} title="Home" className={item(activeCommunityId === null)}>
+      <button onClick={onSelectHome} aria-label="Chat: private conversations" aria-current={activeCommunityId === null ? 'page' : undefined} title="Chat: private conversations" className={item(activeCommunityId === null)}>
         <IconLock className="w-5 h-5" />
         {dot(homeUnread)}
       </button>
+      <span className="hidden md:block -mt-1 text-[10px] font-semibold text-[var(--text-secondary)]" aria-hidden="true">Chat</span>
       <span className="hidden md:block w-8 h-px bg-[var(--border-subtle)]" role="separator" />
       {communities.map((c) => (
         <button
@@ -55,12 +61,13 @@ export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommu
       ))}
       <button
         onClick={onAdd}
-        aria-label="Create or join a community"
-        title="Create or join a community"
+        aria-label="Groups: create a group, or join with an invite"
+        title="Groups: create a group, or join with an invite"
         className="w-11 h-11 shrink-0 rounded-3xl border-2 border-dashed border-[var(--border-strong)] text-[var(--accent-text)] flex items-center justify-center hover:rounded-2xl hover:border-[var(--accent-primary)] transition-all"
       >
         <IconPlus className="w-5 h-5" />
       </button>
+      <span className="hidden md:block -mt-1 text-[10px] font-semibold text-[var(--text-secondary)]" aria-hidden="true">Groups</span>
     </nav>
   );
 };

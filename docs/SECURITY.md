@@ -23,7 +23,7 @@ What the app protects, what it deliberately does not, the rules contributors mus
 - **Fail closed.** In production a missing or placeholder Supabase configuration returns HTTP 500. Demo mode exists only when `NODE_ENV` is not `production`.
 - **Signup requires a confirmed email** (with Supabase's Confirm email setting on) or a Google account.
 - **Open-redirect protection** on `/auth/confirm`: `next` must be a same-site path.
-- **Search hides private fields**: `/api/users` matches on email and phone but never returns them.
+- **People are found by exact username only**: `/api/users?username=` never searches or returns display name, email, phone or bio-based matches, and never returns email or phone. Migration `016` also stops clients calling the old email/phone lookup function. **Limit:** any signed-in user can still read the non-private `profiles` columns (username, display name, photo, bio) with the Supabase API directly, so the username-only rule is enforced by the app and its API route, not by row-level security. Tightening that means restricting `profiles` reads to contacts, which touches every screen that shows a name and needs testing on a live project.
 - **Private conversations are capped at two members** by a trigger.
 - **Encrypted uploads** into a private bucket, 25 MB limit, path scoped to the conversation.
 - **Rate limits** on every API route.

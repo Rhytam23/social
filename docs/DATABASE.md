@@ -23,6 +23,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `013_group_roles_threads.sql` | `conversation_members.role`, `conversations.description` / `only_admins_post`, `messages.thread_root_id`, `is_group_admin()`, `is_group_owner()`, role guard trigger, tighter member and group policies | Yes |
 | `014_communities.sql` | `communities`, `community_members`, `community_invites`, channels as `conversations` of type `channel`; seven functions (`create_community`, `create_channel`, `join_community`, ...) | Yes |
 | `015_privacy_controls.sql` | `conversations.disappear_after`, `messages.expires_at` (trigger), `purge_expired_messages()`, `set_disappearing()`, `blocks`, `reports`; messages insert rule refuses blocked senders | Yes |
+| `016_username_only_discovery.sql` | Revokes client access to `find_profiles_by_contact()` (people are found by exact username only) | Yes |
 | `functions/atomic_invite_consumption.sql` | `consume_invite` (unused; the invite feature was removed from the app) | Yes. Not numbered; skip on new installs |
 
 ## Tables
@@ -96,7 +97,7 @@ Migration `008` puts `messages`, `message_reactions`, `message_receipts`, `conve
 
 ## Added by migrations 011 to 015
 
-- **Profiles.** Other members can read every profile column except `email` and `phone_number`. Those two are readable only through `get_my_contact()` (your own) and the exact-match lookup `find_profiles_by_contact()`. **Any new `profiles` column that other people should see must be added to the `GRANT SELECT (...)` list in `011`.**
+- **Profiles.** Other members can read every profile column except `email` and `phone_number`. Those two are readable only through `get_my_contact()` (your own). The exact-match lookup `find_profiles_by_contact()` from `011` is no longer callable by clients after `016`. **Any new `profiles` column that other people should see must be added to the `GRANT SELECT (...)` list in `011`.**
 - **Unread and saved.** `last_read_at` per member drives unread counts. `saved_messages` stores only message ids; the text stays encrypted.
 - **Roles.** `owner > admin > member` per group. Only the owner can change roles (a trigger enforces it even for direct API calls). Adding members needs a group admin. "Only admins can post" is enforced in the messages insert rule.
 - **Threads.** `messages.thread_root_id` links a reply to its parent. The server can see which message a reply belongs to, not what it says.

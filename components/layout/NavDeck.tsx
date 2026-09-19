@@ -7,6 +7,7 @@ import {
   IconPin,
   IconPlus,
   IconSearch,
+  IconSettings,
   IconShield,
 } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
@@ -23,8 +24,15 @@ export interface NavDeckProps {
   conversations: ConversationItem[];
   activeConversationId: string;
   onSelectConversation: (id: string) => void;
+  /** Start a direct chat (Chats). */
   onNewMessage: () => void;
+  /** Create or join a group (Groups). */
+  onNewGroup?: () => void;
+  onOpenSettings?: () => void;
+  /** Unread in direct chats. */
   unreadTotal: number;
+  /** Unread in groups. */
+  groupUnreadTotal?: number;
   isLoading?: boolean;
   onStatusChanged?: () => void;
   onGlobalSearchTrigger?: () => void;
@@ -48,7 +56,10 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   activeConversationId,
   onSelectConversation,
   onNewMessage,
+  onNewGroup,
+  onOpenSettings,
   unreadTotal,
+  groupUnreadTotal = 0,
   isLoading,
   onStatusChanged,
   onGlobalSearchTrigger,
@@ -65,10 +76,9 @@ export const NavDeck: React.FC<NavDeckProps> = ({
 
   const categories: { key: ViewCategory; label: string; badge?: number }[] = [
     { key: 'chats', label: 'Chats', badge: unreadTotal },
-    { key: 'groups', label: 'Groups' },
+    { key: 'groups', label: 'Groups', badge: groupUnreadTotal },
     { key: 'saved', label: 'Saved' },
     { key: 'people', label: 'People' },
-    { key: 'settings', label: 'Security' },
     ...(userRole === 'admin' ? [{ key: 'admin' as ViewCategory, label: 'Admin' }] : []),
   ];
 
@@ -84,7 +94,8 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   const filteredConversations = conversations.filter((c) => {
     if (showArchived) return c.isArchived;
     if (c.isArchived) return false;
-    if (activeCategory === 'groups' && c.type !== 'group') return false;
+    // Chats are private one-to-one conversations; groups have their own tab.
+    if (activeCategory === 'groups' ? c.type !== 'group' : c.type === 'group') return false;
     if (!searchQuery.trim()) return true;
     return (
       c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -115,14 +126,25 @@ export const NavDeck: React.FC<NavDeckProps> = ({
 
         <div className="flex items-center gap-1">
           <NotificationCenter onOpenConversation={onSelectConversation} />
-          <button
-            onClick={onNewMessage}
-            className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
-            title="Start new conversation"
-            aria-label="Start new conversation"
-          >
-            <IconPlus className="w-4 h-4" />
-          </button>
+          {activeCategory === 'groups' && onNewGroup ? (
+            <button
+              onClick={onNewGroup}
+              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+              title="Create or join a group"
+              aria-label="Create or join a group"
+            >
+              <IconPlus className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={onNewMessage}
+              className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
+              title="Start a new chat"
+              aria-label="Start a new chat"
+            >
+              <IconPlus className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -171,7 +193,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
           <IconSearch className="w-4 h-4 text-slate-400 absolute left-3" />
           <input
             type="text"
-            placeholder="Search or start new chat..."
+            placeholder={activeCategory === 'groups' ? 'Search your groups...' : 'Search your chats...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full bg-slate-950/60 border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-slate-700"
@@ -198,7 +220,9 @@ export const NavDeck: React.FC<NavDeckProps> = ({
               ? 'No archived conversations.'
               : searchQuery
               ? `No chats match "${searchQuery}"`
-              : 'No active conversations.'}
+              : activeCategory === 'groups'
+              ? 'No groups yet. Use + to create one or join with an invite.'
+              : 'No chats yet. Use + to message someone by their username.'}
           </div>
         ) : (
           sortedConversations.map((conv) => {
@@ -340,10 +364,26 @@ export const NavDeck: React.FC<NavDeckProps> = ({
         )}
       </div>
 
-      {/* Security Footer Note */}
-      <div className="p-3 border-t border-[var(--border-subtle)] bg-slate-950/30 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-        <IconShield className="w-3.5 h-3.5 text-emerald-400" />
-        <span>End-to-end encrypted</span>
+      {/* Footer: Settings, plus the encryption note */}
+      <div className="p-2 border-t border-[var(--border-subtle)] bg-slate-950/30 flex items-center justify-between gap-2 shrink-0">
+        {onOpenSettings && (
+          <button
+            onClick={onOpenSettings}
+            aria-current={activeCategory === 'settings' ? 'page' : undefined}
+            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
+              activeCategory === 'settings'
+                ? 'bg-slate-800 text-slate-100'
+                : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+            }`}
+          >
+            <IconSettings className="w-4 h-4" />
+            Settings
+          </button>
+        )}
+        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 pr-2">
+          <IconShield className="w-3.5 h-3.5 text-emerald-400" />
+          End-to-end encrypted
+        </span>
       </div>
     </nav>
   );

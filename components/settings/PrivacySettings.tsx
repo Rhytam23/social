@@ -11,6 +11,8 @@ import { checkPin, createPinRecord, isValidPin, loadPinRecord, removePinRecord, 
 const inputClass =
   'bg-[var(--surface-2)] border border-[var(--border-subtle)] px-2.5 py-1.5 rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/60';
 
+export type PrivacyPart = 'privacy' | 'security' | 'devices' | 'data';
+
 export interface PrivacySettingsProps {
   userId: string;
   blockedUsers: Array<{ id: string; name: string; avatarUrl?: string }>;
@@ -20,7 +22,12 @@ export interface PrivacySettingsProps {
   canBlock: boolean;
 }
 
-export const PrivacySettings: React.FC<PrivacySettingsProps> = ({ userId, blockedUsers, onUnblock, onSignOutOtherSessions, onExportData, canBlock }) => {
+interface PartProps {
+  /** Which group of controls to show; Settings has a page for each. */
+  part: PrivacyPart;
+}
+
+export const PrivacySettings: React.FC<PrivacySettingsProps & PartProps> = ({ part, userId, blockedUsers, onUnblock, onSignOutOtherSessions, onExportData, canBlock }) => {
   const prefs = usePreferences();
   const p = prefs.privacy;
   const setP = (patch: Partial<typeof p>) => updatePreferences((d) => ({ ...d, privacy: { ...d.privacy, ...patch } }));
@@ -63,7 +70,14 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({ userId, blocke
 
   return (
     <section aria-label="Privacy controls" className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col">
-      <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">What others can see</h3>
+      {part === 'privacy' && (
+        <>
+      <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Who can find you</h3>
+      <p className="text-xs text-[var(--text-muted)] pb-3">
+        People can only find you by your exact username. Your name, email address and phone number are never searchable.
+      </p>
+
+      <h3 className="text-sm font-bold text-[var(--text-primary)] mt-4 mb-1">What others can see</h3>
       <SettingRow title="Read receipts" description="Show when you have read messages. If you turn this off you also stop seeing when others read yours.">
         <Switch label="Read receipts" checked={p.readReceipts} onChange={(v) => setP({ readReceipts: v })} />
       </SettingRow>
@@ -74,7 +88,12 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({ userId, blocke
         <Switch label="Show when I am online" checked={p.showOnline} onChange={(v) => setP({ showOnline: v })} />
       </SettingRow>
 
-      <h3 className="text-sm font-bold text-[var(--text-primary)] mt-6 mb-1">App lock</h3>
+        </>
+      )}
+
+      {part === 'security' && (
+        <>
+      <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">App lock</h3>
       {hasPin && p.appLock.enabled ? (
         <>
           <SettingRow title="Lock after" description="Also locks whenever the app is reopened.">
@@ -111,7 +130,11 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({ userId, blocke
         </SettingRow>
       )}
       {pinError && <p role="alert" className="text-xs text-[var(--danger-neutral)] pb-2">{pinError}</p>}
+        </>
+      )}
 
+      {part === 'privacy' && (
+        <>
       <h3 className="text-sm font-bold text-[var(--text-primary)] mt-6 mb-1">Blocked people</h3>
       {!canBlock ? (
         <p className="text-xs text-[var(--text-muted)] py-2">Blocking needs the latest database update (migration 015).</p>
@@ -131,7 +154,10 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({ userId, blocke
         </ul>
       )}
 
-      <h3 className="text-sm font-bold text-[var(--text-primary)] mt-6 mb-1">Sessions and data</h3>
+        </>
+      )}
+
+      {part === 'devices' && (
       <SettingRow title="Sign out of other devices" description="Ends your login on every other browser and device. Encrypted keys stay where they are.">
         <Button
           size="sm"
@@ -144,9 +170,13 @@ export const PrivacySettings: React.FC<PrivacySettingsProps> = ({ userId, blocke
           Sign out others
         </Button>
       </SettingRow>
+      )}
+
+      {part === 'data' && (
       <SettingRow title="Export my data" description="Downloads your profile, settings and blocked list as a file. Messages stay encrypted on the server, so they are not included.">
         <Button size="sm" variant="secondary" onClick={onExportData}>Download</Button>
       </SettingRow>
+      )}
     </section>
   );
 };

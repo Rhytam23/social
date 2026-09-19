@@ -431,9 +431,9 @@ export default function HomePage() {
     await store.createDirectConversation(user);
   };
 
-  const handleCreateGroupChat = async (groupName: string, memberIds: string[]) => {
-    setNewChatModalOpen(false);
-    await store.createGroupConversation(groupName, memberIds);
+  const handleCreateGroupChat = async (groupName: string, memberIds: string[]): Promise<boolean> => {
+    const id = await store.createGroupConversation(groupName, memberIds);
+    return id !== '';
   };
 
   const handleLogout = async () => {
@@ -591,6 +591,9 @@ export default function HomePage() {
         onRestoreKeyBackup={handleRestoreKeyBackup}
         onRevokeDevice={handleRevokeDevice}
         onNewMessage={() => setNewChatModalOpen(true)}
+        onStartDirectChat={handleStartDirectChat}
+        onLookupUser={(raw) => store.lookupUsername(raw)}
+        onCreateGroup={handleCreateGroupChat}
         onPinConversation={(id) => store.pinConversation(id)}
         onMuteConversation={(id) => store.muteConversation(id)}
         onArchiveConversation={(id) => store.archiveConversation(id)}
@@ -672,10 +675,11 @@ export default function HomePage() {
       <NewConversationModal
         isOpen={newChatModalOpen}
         onClose={() => setNewChatModalOpen(false)}
-        users={state.allUsers}
+        contacts={state.allUsers}
         currentUserId={state.currentUser.id}
+        onLookup={(raw) => store.lookupUsername(raw)}
         onStartDirectChat={handleStartDirectChat}
-        onCreateGroupChat={handleCreateGroupChat}
+        blockedIds={state.blocked}
       />
     </div>
   );

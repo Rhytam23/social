@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewCategory } from '../../types/ui';
-import { IconLock, IconSearch, IconShield, IconUsers } from '../ui/icons';
+import { IconLock, IconSearch, IconSettings, IconUsers } from '../ui/icons';
 import { CountBadge } from '../ui/primitives';
 
 export interface MobileNavProps {
@@ -16,7 +16,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeCategory, onSelectCa
     { key: 'chats', label: 'Chats', icon: <IconLock className="w-5 h-5" />, badge: unreadTotal },
     { key: 'groups', label: 'Groups', icon: <IconUsers className="w-5 h-5" /> },
     { key: 'people', label: 'People', icon: <IconUsers className="w-5 h-5" /> },
-    { key: 'settings', label: 'You', icon: <IconShield className="w-5 h-5" /> },
+    { key: 'settings', label: 'Settings', icon: <IconSettings className="w-5 h-5" /> },
   ];
 
   const itemClass = (isActive: boolean) =>
