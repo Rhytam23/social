@@ -33,6 +33,7 @@ export default function HomePage() {
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [bootError, setBootError] = useState<string | null>(null);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const cryptoRef = useRef<MessagingCrypto | null>(null);
   const initedRef = useRef(false);
@@ -86,6 +87,7 @@ export default function HomePage() {
       return;
     }
 
+    let signedIn = false;
     try {
       const supabase = createClient();
       const {
@@ -99,6 +101,8 @@ export default function HomePage() {
         return;
       }
 
+      signedIn = true;
+      setBootError(null);
       setIsAuthenticated(true);
 
       const { data: profile } = (await supabase
@@ -133,8 +137,16 @@ export default function HomePage() {
       if (profile?.avatar_url) {
         store.updateCurrentUserProfile({ avatarUrl: profile.avatar_url });
       }
-    } catch {
-      setIsAuthenticated(false);
+    } catch (err) {
+      // Only a failed auth check may send the user back to the landing page.
+      // If we already know they're signed in, a later setup failure (profile
+      // fetch, key setup, store init) must not look like being logged out.
+      if (signedIn) {
+        console.error('Post-login setup failed', err);
+        setBootError(err instanceof Error ? err.message : 'Could not finish setting up your session.');
+      } else {
+        setIsAuthenticated(false);
+      }
     } finally {
       setAuthLoading(false);
     }
@@ -293,6 +305,25 @@ export default function HomePage() {
         <p className="text-xs text-slate-400 max-w-sm">
           NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set. This deployment cannot authenticate users.
         </p>
+      </div>
+    );
+  }
+
+  if (isAuthenticated && bootError) {
+    return (
+      <div className="h-screen w-screen bg-[#070b14] flex flex-col items-center justify-center font-sans text-center p-6 gap-3">
+        <h1 className="text-sm font-bold text-rose-400">You&apos;re signed in, but setup didn&apos;t finish</h1>
+        <p className="text-xs text-slate-400 max-w-sm break-words">{bootError}</p>
+        <button
+          onClick={() => {
+            setBootError(null);
+            setAuthLoading(true);
+            void bootstrapSession();
+          }}
+          className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer"
+        >
+          Try again
+        </button>
       </div>
     );
   }
