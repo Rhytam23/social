@@ -16,9 +16,17 @@ export async function GET(request: NextRequest) {
   const rawNext = searchParams.get('next') || '/';
   const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
 
-  const linkError = searchParams.get('error_code') || searchParams.get('error');
-  if (linkError) {
-    const reason = linkError === 'otp_expired' ? 'link_expired' : 'confirmation_failed';
+  // OAuth sign-ins (Google) pass provider=<name> in redirectTo so failures can
+  // be reported as sign-in problems rather than email-confirmation problems.
+  const isOAuth = searchParams.has('provider');
+  const failure = isOAuth ? 'oauth_failed' : 'confirmation_failed';
+
+  const linkError = searchParams.get('error');
+  const linkErrorCode = searchParams.get('error_code');
+  if (linkError || linkErrorCode) {
+    let reason = failure;
+    if (linkErrorCode === 'otp_expired') reason = 'link_expired';
+    else if (isOAuth && linkError === 'access_denied') reason = 'oauth_cancelled';
     return NextResponse.redirect(`${origin}/login?error=${reason}`);
   }
 
@@ -32,5 +40,5 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/login?error=confirmation_failed`);
+  return NextResponse.redirect(`${origin}/login?error=${failure}`);
 }
