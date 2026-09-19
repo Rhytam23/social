@@ -12,6 +12,8 @@ import { loadOwnProfile, saveOwnProfile } from '../lib/profile/profileClient';
 import { initPreferences, type Preferences } from '../lib/prefs/preferences';
 import { LiveChannels } from '../lib/realtime/liveChannels';
 import { handleIncoming, markConversationNotificationsRead } from '../lib/notifications/notifier';
+import { AppLockGate } from '../components/privacy/AppLockGate';
+import { getPreferences } from '../lib/prefs/preferences';
 import { createClient } from '../lib/supabase/client';
 import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
 import { MessagingCrypto } from '../lib/messaging/messagingCrypto';
@@ -79,6 +81,7 @@ export default function HomePage() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'community_members' }, () => {
         void store.loadCommunities();
+        void store.loadBlocked();
         store.refreshConversations();
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
@@ -254,6 +257,17 @@ export default function HomePage() {
     markConversationNotificationsRead(state.activeConversationId);
   }, [state.activeConversationId]);
 
+  // Disappearing messages: drop expired ones from view and ask the server to delete them.
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const t = setInterval(() => {
+      setClockTick((n) => n + 1);
+      void store.purgeExpired();
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [isAuthenticated, store]);
+
   // Unread count in the browser tab title.
   const totalUnread = state.conversations.reduce((sum, c) => (c.isMuted ? sum : sum + c.unreadCount), 0);
   useEffect(() => {
@@ -269,9 +283,28 @@ export default function HomePage() {
     state.conversations.find((c) => c.id === state.activeConversationId) ||
     state.conversations[0];
 
-  const activeMessages = activeConversation
-    ? state.messagesMap[activeConversation.id] || []
-    : [];
+  const activeMessages = (activeConversation ? state.messagesMap[activeConversation.id] || [] : []).filter(
+    (m) => !m.expiresAt || Date.parse(m.expiresAt) > Date.now()
+  );
+
+  const handleExportData = () => {
+    const me = state.currentUser;
+    const data = {
+      exportedAt: new Date().toISOString(),
+      note: 'Messages are end-to-end encrypted and are not included in this export.',
+      profile: { name: me.name, username: me.username, email: me.email, phone: me.phoneNumber, bio: me.bio, pronouns: me.pronouns, timezone: me.timezone },
+      preferences: getPreferences(),
+      blockedUserIds: state.blocked,
+      communities: state.communities.map((c) => ({ name: c.name, role: c.role })),
+      devices: state.devices.map((d) => ({ name: d.deviceName, lastActive: d.lastActive })),
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'private-chat-export.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleSendMessage = (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number, threadRootId?: string) => {
     void store.sendMessage(content, replyToId, attachmentFile, voiceDurationMs, threadRootId);
@@ -529,6 +562,26 @@ export default function HomePage() {
           .filter((m): m is MessageData => !!m)}
         onToggleSaved={handleStarMessageToggle}
         onSetConversationNotify={(id, level, ms) => store.setConversationNotify(id, level, ms)}
+        currentUser={state.currentUser}
+        blockedIds={state.blocked}
+        onBlockUser={(id) => void store.blockUser(id)}
+        onUnblockUser={(id) => void store.unblockUser(id)}
+        onReportMessage={state.mode === 'connected' ? (id, reason, includeText) => store.reportMessage(id, reason, includeText) : undefined}
+        onSetDisappearing={state.mode === 'connected' ? (id, seconds) => void store.setDisappearing(id, seconds) : undefined}
+        onVerifyPeer={(id) => store.verifyConversationPeer(id)}
+        onAcceptKeyChange={(id) => store.acceptKeyChange(id)}
+        privacyProps={{
+          blockedUsers: state.blocked.map((id) => {
+            const u = state.allUsers.find((x) => x.id === id);
+            return { id, name: u?.name ?? 'Unknown user', avatarUrl: u?.avatarUrl };
+          }),
+          canBlock: state.mode === 'connected',
+          onUnblock: (id) => void store.unblockUser(id),
+          onSignOutOtherSessions: async () => {
+            await createClient().auth.signOut({ scope: 'others' });
+          },
+          onExportData: handleExportData,
+        }}
         communities={state.mode === 'connected' ? state.communities : undefined}
         communityMembers={state.communityMembers}
         initialInviteCode={inviteCode}
@@ -544,6 +597,8 @@ export default function HomePage() {
         onUpdateGroupSettings={(groupId, patch) => store.updateGroupSettings(groupId, patch)}
         onLeaveGroup={(groupId) => store.leaveGroup(groupId)}
       />
+
+      {configured && state.mode === 'connected' && <AppLockGate userId={state.currentUser.id} onSignOut={handleLogout} />}
 
       <OnboardingModal
         isOpen={onboardingOpen}

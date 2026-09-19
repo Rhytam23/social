@@ -6,6 +6,7 @@ import { IconChevronDown, IconLock, IconPin, IconSearch, IconShield, IconX } fro
 import { PRESENCE_LABEL } from '../ui/avatar';
 import { MessageListSkeleton, TypingDots } from '../ui/primitives';
 import { NotifyMenu } from '../notifications/NotifyMenu';
+import { DisappearMenu } from '../privacy/DisappearMenu';
 
 export interface ChatCanvasProps {
   conversation: ConversationItem;
@@ -38,6 +39,10 @@ export interface ChatCanvasProps {
   readOnlyReason?: string;
   onSetNotify?: (level: 'all' | 'mentions' | 'none' | 'default', muteMs?: number) => void;
   mentionCandidates?: Array<{ id: string; name: string; username?: string }>;
+  onSetDisappear?: (seconds: number | null) => void;
+  onAcceptKeyChange?: () => void;
+  onVerifyPeer?: () => void;
+  onReportMessage?: (msg: MessageData) => void;
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -69,6 +74,10 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   readOnlyReason,
   onSetNotify,
   mentionCandidates,
+  onSetDisappear,
+  onAcceptKeyChange,
+  onVerifyPeer,
+  onReportMessage,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
@@ -182,6 +191,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onSetDisappear && <DisappearMenu current={conversation.disappearAfter} onChange={onSetDisappear} />}
           {onSetNotify && <NotifyMenu conversation={conversation} onChange={onSetNotify} />}
           <button
             onClick={() => setShowInChatSearch(!showInChatSearch)}
@@ -206,6 +216,16 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           )}
         </div>
       </div>
+
+      {conversation.recipientUser?.keyChanged && (
+        <div role="alert" className="px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/30 text-xs text-[var(--warning)] flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="flex-1 min-w-[12rem]">
+            {conversation.recipientUser.name}&apos;s security code changed. This happens when they use a new device or reinstall. If you did not expect it, compare safety numbers before sharing anything sensitive.
+          </span>
+          {onVerifyPeer && <button onClick={onVerifyPeer} className="font-semibold underline">I verified it</button>}
+          {onAcceptKeyChange && <button onClick={onAcceptKeyChange} className="font-semibold underline">Dismiss</button>}
+        </div>
+      )}
 
       {/* In-Chat Filter Search Bar */}
       {showInChatSearch && (
@@ -311,6 +331,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                     onPinMessage={onPinMessage}
                     onStarMessage={onStarMessage}
                     onOpenThread={onOpenThread}
+                    onReportMessage={onReportMessage}
                     threadReplyCount={threadCounts.get(msg.id) ?? 0}
                   />
                 </React.Fragment>

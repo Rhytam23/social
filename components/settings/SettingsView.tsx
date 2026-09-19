@@ -14,6 +14,7 @@ import { createClient } from '../../lib/supabase/client';
 import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
 import { AppearanceSettings } from './AppearanceSettings';
 import { NotificationSettings } from './NotificationSettings';
+import { PrivacySettings, type PrivacySettingsProps } from './PrivacySettings';
 
 export type SettingsTab = 'profile' | 'account' | 'privacy' | 'appearance' | 'notifications' | 'about';
 
@@ -27,6 +28,7 @@ export interface SettingsViewProps {
   onRestoreKeyBackup: (passphrase: string, backupJson: string) => Promise<void>;
   onRevokeDevice: (deviceId: string) => void;
   onLogout?: () => void;
+  privacyProps?: Omit<PrivacySettingsProps, 'userId'>;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -39,6 +41,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRestoreKeyBackup,
   onRevokeDevice,
   onLogout,
+  privacyProps,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
@@ -434,6 +437,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {/* TAB 3: PRIVACY & SECURITY */}
       {activeTab === 'privacy' && (
         <div className="flex flex-col gap-6">
+          {privacyProps && <PrivacySettings userId={currentUser.id} {...privacyProps} />}
+
           {/* Identity Fingerprint Card */}
           <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3 shadow-xs">
             <div className="flex items-center gap-2 text-slate-100 font-bold text-sm">

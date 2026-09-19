@@ -55,7 +55,10 @@ export async function GET(request: NextRequest) {
     return q;
   };
   const baseColumns = 'id, conversation_id, sender_id, ciphertext, nonce, encryption_version, reply_to_message_id, created_at, edited_at, deleted_at';
-  let { data: messages, error: msgError } = await buildQuery(baseColumns + ', thread_root_id');
+  let { data: messages, error: msgError } = await buildQuery(baseColumns + ', thread_root_id, expires_at');
+  if (msgError) {
+    ({ data: messages, error: msgError } = await buildQuery(baseColumns + ', thread_root_id'));
+  }
   if (msgError) {
     ({ data: messages, error: msgError } = await buildQuery(baseColumns));
   }
@@ -194,7 +197,12 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertError || !newMsg) {
-      return NextResponse.json({ error: insertError?.message || 'Failed to persist message.' }, { status: 500 });
+      // Row level security is what refuses a blocked sender; say so plainly instead of leaking policy text.
+      const denied = !!insertError && /row-level security/i.test(insertError.message);
+      return NextResponse.json(
+        { error: denied ? 'You cannot send messages to this conversation right now.' : insertError?.message || 'Failed to persist message.' },
+        { status: denied ? 403 : 500 }
+      );
     }
 
     return NextResponse.json(newMsg, { status: 201 });

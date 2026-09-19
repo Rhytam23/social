@@ -9,6 +9,9 @@ export interface UserProfileModalProps {
   onClose: () => void;
   onStartChat: (user: UserItem) => void;
   sharedGroups?: ConversationItem[];
+  isBlocked?: boolean;
+  onBlock?: (user: UserItem) => void;
+  onUnblock?: (user: UserItem) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -17,6 +20,9 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onStartChat,
   sharedGroups = [],
+  isBlocked,
+  onBlock,
+  onUnblock,
 }) => {
   if (!isOpen || !user) return null;
 
@@ -81,6 +87,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
             {user.bio && <p className="text-xs text-slate-300 leading-relaxed mt-1 break-words">{user.bio}</p>}
             {localTime && <span className="text-[11px] text-slate-400 mt-1">Local time {localTime}</span>}
           </div>
+
+          {(onBlock || onUnblock) && (
+            <div className="flex gap-2">
+              {isBlocked ? (
+                <button onClick={() => onUnblock?.(user)} className="py-1.5 px-3 text-xs font-semibold rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800">Unblock</button>
+              ) : (
+                <button onClick={() => onBlock?.(user)} className="py-1.5 px-3 text-xs font-semibold rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10">Block</button>
+              )}
+            </div>
+          )}
 
           {/* Security & Verification Card */}
           <div className="p-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl flex flex-col gap-2 text-xs">

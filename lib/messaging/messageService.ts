@@ -15,6 +15,7 @@ export interface ConversationSummary {
   roles?: Record<string, GroupRole>;
   description?: string | null;
   onlyAdminsPost?: boolean;
+  disappearAfter?: number | null;
   /** Set when this conversation is a community channel (needs migration 014). */
   communityId?: string;
   topic?: string | null;
@@ -31,6 +32,7 @@ export interface DecryptedMessageRow {
   deletedAt: string | null;
   replyToMessageId: string | null;
   threadRootId?: string | null;
+  expiresAt?: string | null;
   envelope: MessageEnvelope | null;
   decryptError?: string;
 }
@@ -68,9 +70,11 @@ export async function fetchConversations(
     community_id?: string | null;
     topic?: string | null;
     is_private?: boolean;
+    disappear_after?: number | null;
   };
   // Newest column set first; each older migration level is a fallback.
   const columnSets = [
+    'id, type, name, updated_at, description, only_admins_post, community_id, topic, is_private, disappear_after',
     'id, type, name, updated_at, description, only_admins_post, community_id, topic, is_private',
     'id, type, name, updated_at, description, only_admins_post',
     'id, type, name, updated_at',
@@ -126,6 +130,8 @@ export async function fetchConversations(
       memberIds: members.map((m) => m.userId),
     };
 
+    summary.disappearAfter = conv.disappear_after ?? null;
+
     if (conv.community_id) {
       summary.communityId = conv.community_id;
       summary.topic = conv.topic ?? null;
@@ -159,7 +165,7 @@ export async function fetchConversations(
 async function decryptRow(
   crypto: MessagingCrypto,
   conversation: ConversationSummary,
-  row: { id: string; conversation_id: string; sender_id: string; ciphertext: string; nonce: string; encryption_version: number; created_at: string; edited_at: string | null; deleted_at: string | null; reply_to_message_id: string | null; thread_root_id?: string | null }
+  row: { id: string; conversation_id: string; sender_id: string; ciphertext: string; nonce: string; encryption_version: number; created_at: string; edited_at: string | null; deleted_at: string | null; reply_to_message_id: string | null; thread_root_id?: string | null; expires_at?: string | null }
 ): Promise<DecryptedMessageRow> {
   const base = {
     id: row.id,
@@ -170,6 +176,7 @@ async function decryptRow(
     deletedAt: row.deleted_at,
     replyToMessageId: row.reply_to_message_id,
     threadRootId: row.thread_root_id ?? null,
+    expiresAt: row.expires_at ?? null,
   };
 
   if (row.deleted_at) {
@@ -226,6 +233,7 @@ export async function fetchMessageHistory(
     encryption_version: number;
     reply_to_message_id: string | null;
     thread_root_id?: string | null;
+    expires_at?: string | null;
     created_at: string;
     edited_at: string | null;
     deleted_at: string | null;

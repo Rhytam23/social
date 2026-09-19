@@ -11,6 +11,8 @@ import { CommandPalette, type PaletteAction } from '../search/CommandPalette';
 import { ShortcutsDialog } from '../ui/ShortcutsDialog';
 import { SavedMessagesView } from '../saved/SavedMessagesView';
 import { ThreadPanel } from '../chat/ThreadPanel';
+import { ReportDialog } from '../privacy/ReportDialog';
+import type { PrivacySettingsProps } from '../settings/PrivacySettings';
 import { ServerRail } from '../community/ServerRail';
 import { CommunitySidebar } from '../community/CommunitySidebar';
 import { CreateOrJoinDialog, CreateChannelDialog, CommunitySettingsDialog } from '../community/CommunityDialogs';
@@ -91,6 +93,19 @@ export interface AppShellProps {
   onSetCommunityRole?: (communityId: string, userId: string, role: 'owner' | 'admin' | 'member') => Promise<void>;
   onRemoveCommunityMember?: (communityId: string, userId: string) => Promise<void>;
   onLeaveCommunity?: (communityId: string) => Promise<boolean>;
+
+  // Signed-in user's full profile (bio, email, fingerprint...). allUsers never contains yourself.
+  currentUser?: UserItem;
+
+  // Privacy
+  blockedIds?: string[];
+  onBlockUser?: (userId: string) => void;
+  onUnblockUser?: (userId: string) => void;
+  onReportMessage?: (messageId: string, reason: string, includeText: boolean) => Promise<boolean>;
+  onSetDisappearing?: (conversationId: string, seconds: number | null) => void;
+  onVerifyPeer?: (conversationId: string) => void;
+  onAcceptKeyChange?: (conversationId: string) => void;
+  privacyProps?: Omit<PrivacySettingsProps, 'userId'>;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -152,6 +167,15 @@ export const AppShell: React.FC<AppShellProps> = ({
   onSetCommunityRole,
   onRemoveCommunityMember,
   onLeaveCommunity,
+  currentUser,
+  blockedIds = [],
+  onBlockUser,
+  onUnblockUser,
+  onReportMessage,
+  onSetDisappearing,
+  onVerifyPeer,
+  onAcceptKeyChange,
+  privacyProps,
 }) => {
   const [activeCategory, setActiveCategory] = useState<ViewCategory>('chats');
   const [showInspector, setShowInspector] = useState(false);
@@ -168,6 +192,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [createOrJoinOpen, setCreateOrJoinOpen] = useState(false);
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
   const [communitySettingsOpen, setCommunitySettingsOpen] = useState(false);
+  const [reportingMessage, setReportingMessage] = useState<MessageData | null>(null);
 
   // An invite link (?join=CODE) opens the join dialog once.
   useEffect(() => {
@@ -267,6 +292,12 @@ export const AppShell: React.FC<AppShellProps> = ({
   const threadRoot = threadRootId ? messages.find((m) => m.id === threadRootId) : undefined;
   const threadReplies = threadRootId ? messages.filter((m) => m.threadRootId === threadRootId) : [];
   const activeRoles = activeConversation?.groupMeta?.roles;
+  const blockedDirect =
+    activeConversation?.type === 'direct' && !!activeConversation.recipientUser && blockedIds.includes(activeConversation.recipientUser.id);
+  // Messages from people you blocked are hidden inside groups and channels.
+  const shownMessages = blockedIds.length === 0
+    ? messages
+    : messages.map((m) => (!m.isSelf && blockedIds.includes(m.senderId) ? { ...m, kind: 'system' as const, content: 'Message from someone you blocked', attachments: undefined, reactions: [] } : m));
   const iCanPost = !(activeConversation?.groupMeta?.onlyAdminsPost && activeRoles && !isGroupManager(activeRoles[currentUserId]));
 
   const handleStartDirectChat = (user: UserItem) => {
@@ -373,7 +404,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             <>
               <ChatCanvas
                 conversation={activeConversation}
-                messages={messages}
+                messages={shownMessages}
                 onSendMessage={onSendMessage}
                 replyTarget={
                   replyTargetMessage
@@ -394,7 +425,21 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onPinMessage={onPinMessageToggle}
                 onStarMessage={onToggleSaved ?? onStarMessageToggle}
                 onOpenThread={(msg) => setThreadRootId(msg.id)}
-                readOnlyReason={iCanPost ? undefined : 'Only admins can post in this group.'}
+                readOnlyReason={
+                  blockedDirect
+                    ? `You blocked ${activeConversation.title}. Unblock them in Settings, Privacy & Security, to message them.`
+                    : iCanPost
+                    ? undefined
+                    : 'Only admins can post in this group.'
+                }
+                onSetDisappear={
+                  onSetDisappearing && (activeConversation.type === 'direct' || (activeRoles && isGroupManager(activeRoles[currentUserId])))
+                    ? (seconds) => onSetDisappearing(activeConversation.id, seconds)
+                    : undefined
+                }
+                onAcceptKeyChange={onAcceptKeyChange ? () => onAcceptKeyChange(activeConversation.id) : undefined}
+                onVerifyPeer={onVerifyPeer ? () => onVerifyPeer(activeConversation.id) : undefined}
+                onReportMessage={onReportMessage ? (m) => setReportingMessage(m) : undefined}
                 onSetNotify={onSetConversationNotify ? (level, ms) => onSetConversationNotify(activeConversation.id, level, ms) : undefined}
                 mentionCandidates={users.filter((u) => u.id !== currentUserId && (activeConversation.groupMeta?.memberIds?.includes(u.id) ?? false))}
                 typingNames={typingNames}
@@ -446,6 +491,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                       members={users}
                       messages={messages}
                       onDownloadAttachment={onDownloadAttachment}
+                      onVerifyIdentityKey={onVerifyPeer ? () => onVerifyPeer(activeConversation.id) : undefined}
                     />
                   </div>
                 </div>
@@ -529,24 +575,25 @@ export const AppShell: React.FC<AppShellProps> = ({
           {activeCategory === 'settings' && (
             <SettingsView
               currentUser={
-                users.find((u) => u.id === currentUserId) || {
+                currentUser || {
                   id: currentUserId,
                   name: currentUserName,
                   registrationId: currentUserRegistrationId,
                   role: currentUserRole,
                   deviceCount: devices.length,
                   joinedAt: 'Active',
-                  identityFingerprint: '45A8-99F1-20B3-881C-00D9-FF41-92A3-77E5',
+                  identityFingerprint: '',
                   presence: 'online',
                 }
               }
               devices={devices}
-              identityFingerprint="45A8-99F1-20B3-881C-00D9-FF41-92A3-77E5"
+              identityFingerprint={currentUser?.identityFingerprint ?? ''}
               registrationId={currentUserRegistrationId}
               onExportKeyBackup={onExportKeyBackup}
               onRestoreKeyBackup={onRestoreKeyBackup}
               onRevokeDevice={onRevokeDevice}
               onLogout={onLogout}
+              privacyProps={privacyProps}
             />
           )}
 
@@ -613,6 +660,15 @@ export const AppShell: React.FC<AppShellProps> = ({
         onClose={() => setSelectedProfileUser(null)}
         onStartChat={(u) => handleStartDirectChat(u)}
         sharedGroups={conversations.filter((c) => c.type === 'group')}
+        isBlocked={!!selectedProfileUser && blockedIds.includes(selectedProfileUser.id)}
+        onBlock={onBlockUser && selectedProfileUser?.id !== currentUserId ? (u) => onBlockUser(u.id) : undefined}
+        onUnblock={onUnblockUser ? (u) => onUnblockUser(u.id) : undefined}
+      />
+
+      <ReportDialog
+        message={reportingMessage}
+        onClose={() => setReportingMessage(null)}
+        onSubmit={async (messageId, reason, includeText) => (await onReportMessage?.(messageId, reason, includeText)) ?? false}
       />
 
       {communitiesEnabled && (

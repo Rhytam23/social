@@ -31,6 +31,8 @@ export interface MessageItemProps {
   /** Opens the thread under this message (reply count is shown when > 0). */
   onOpenThread?: (msg: MessageData) => void;
   threadReplyCount?: number;
+  /** Report someone else's message to platform administrators. */
+  onReportMessage?: (msg: MessageData) => void;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -46,6 +48,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onStarMessage,
   onOpenThread,
   threadReplyCount = 0,
+  onReportMessage,
 }) => {
   const isSelf = message.isSelf;
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -355,6 +358,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   title={message.isStarred ? 'Unstar message' : 'Star message'}
                 >
                   <IconStar className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {!isSelf && onReportMessage && (
+                <button
+                  onClick={() => onReportMessage(message)}
+                  className="p-1 text-slate-300 hover:text-rose-400 hover:bg-slate-800 rounded-lg text-xs leading-none"
+                  title="Report message"
+                  aria-label="Report message"
+                >
+                  &#9873;
                 </button>
               )}
 

@@ -43,6 +43,8 @@ export interface MessageData {
   kind?: MessageKind;
   /** Set on replies that live in a thread under another message. */
   threadRootId?: string;
+  /** ISO time after which the message disappears (disappearing messages). */
+  expiresAt?: string;
   conversationId: string;
   senderId: string;
   senderName: string;
@@ -88,6 +90,8 @@ export interface ConversationItem {
   communityId?: string;
   topic?: string;
   isPrivateChannel?: boolean;
+  /** Seconds after which new messages disappear; undefined means off. */
+  disappearAfter?: number;
   lastMessage?: {
     snippet: string;
     timestamp: string;
@@ -99,6 +103,8 @@ export interface ConversationItem {
     registrationId: number;
     identityFingerprint: string;
     isVerified: boolean;
+    /** True when the contact's security code differs from the one we saw before. */
+    keyChanged?: boolean;
     presence?: UserPresence;
   };
   groupMeta?: {

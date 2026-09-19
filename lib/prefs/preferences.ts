@@ -16,7 +16,6 @@ export interface Preferences {
     readReceipts: boolean;
     typingIndicators: boolean;
     showOnline: boolean;
-    linkPreviews: boolean;
     appLock: { enabled: boolean; timeoutMin: number };
   };
   status: { choice: StatusChoice; text: string };
@@ -35,7 +34,6 @@ export const DEFAULT_PREFERENCES: Preferences = {
     readReceipts: true,
     typingIndicators: true,
     showOnline: true,
-    linkPreviews: false,
     appLock: { enabled: false, timeoutMin: 5 },
   },
   status: { choice: 'auto', text: '' },

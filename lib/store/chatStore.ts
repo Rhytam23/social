@@ -24,6 +24,7 @@ export interface RealtimeMessageRow {
   created_at: string;
   reply_to_message_id: string | null;
   thread_root_id?: string | null;
+  expires_at?: string | null;
   edited_at?: string | null;
   deleted_at?: string | null;
 }
@@ -44,6 +45,8 @@ export interface ChatStoreState {
   saved: Array<{ messageId: string; conversationId: string }>;
   communities: CommunityItem[];
   communityMembers: Record<string, CommunityMemberItem[]>;
+  /** User ids you have blocked. */
+  blocked: string[];
   error: string | null;
 }
 
@@ -115,6 +118,7 @@ function summaryToConversationItem(summary: ConversationSummary, existing?: Conv
     isPinned: existing?.isPinned,
     isMuted: existing?.isMuted,
     isArchived: existing?.isArchived,
+    disappearAfter: summary.disappearAfter ?? undefined,
     communityId: summary.communityId,
     topic: summary.topic ?? undefined,
     isPrivateChannel: summary.isPrivateChannel,
@@ -167,6 +171,7 @@ function decryptedRowToMessage(row: DecryptedMessageRow, currentUserId: string, 
     id: row.id,
     kind,
     threadRootId: row.threadRootId ?? undefined,
+    expiresAt: row.expiresAt ?? undefined,
     conversationId: row.conversationId,
     senderId: row.senderId,
     senderName,
@@ -209,6 +214,7 @@ export class ChatStore {
       saved: [],
       communities: [],
       communityMembers: {},
+      blocked: [],
       error: null,
     };
   }
@@ -374,8 +380,9 @@ export class ChatStore {
               const peer = await this.crypto!.getPeerDevice(s.otherParticipant!.id);
               if (!peer) return;
               const safetyNumber = await computeSafetyNumber(this.crypto!.myPublicKeyB64(), peer.publicKeyB64);
+              const trust = this.applyKeyTrust(s.otherParticipant!.id, safetyNumber);
               this.state.conversations = this.state.conversations.map((c) =>
-                c.id === s.id && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, identityFingerprint: safetyNumber } } : c
+                c.id === s.id && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, identityFingerprint: safetyNumber, isVerified: trust.isVerified, keyChanged: trust.keyChanged } } : c
               );
             } catch {
               // Peer hasn't set up a device yet - leave the fingerprint blank.
@@ -508,6 +515,7 @@ export class ChatStore {
       deletedAt: row.deleted_at ?? null,
       replyToMessageId: row.reply_to_message_id,
       threadRootId: row.thread_root_id ?? null,
+      expiresAt: row.expires_at ?? null,
     };
     try {
       if (!this.crypto) throw new Error('Encryption session not ready');
@@ -1540,6 +1548,153 @@ export class ChatStore {
     this.refreshConversations();
   }
 
+
+  // ============================================================
+  // Privacy: blocking, reports, disappearing messages, key verification
+  // ============================================================
+
+  private storageJson<T>(key: string, fallback: T): T {
+    if (typeof window === 'undefined') return fallback;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private saveStorageJson(key: string, value: unknown) {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // storage full or blocked: verification state simply will not persist
+    }
+  }
+
+  public async loadBlocked(): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    const { data, error } = await this.raw.from('blocks').select('blocked_id');
+    if (error) return; // migration 015 not applied yet
+    this.setState({ blocked: ((data as Array<{ blocked_id: string }> | null) || []).map((r) => r.blocked_id) });
+  }
+
+  public async blockUser(userId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    const { error } = await this.raw.from('blocks').insert({ blocker_id: this.state.currentUser.id, blocked_id: userId } as never);
+    if (error) {
+      this.setState({ error: /blocks/.test(error.message) ? 'Blocking needs the latest database update (migration 015).' : error.message });
+      return;
+    }
+    this.setState({ blocked: [...new Set([...this.state.blocked, userId])] });
+  }
+
+  public async unblockUser(userId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    const { error } = await this.raw.from('blocks').delete().eq('blocker_id', this.state.currentUser.id).eq('blocked_id', userId);
+    if (error) {
+      this.setState({ error: error.message });
+      return;
+    }
+    this.setState({ blocked: this.state.blocked.filter((id) => id !== userId) });
+  }
+
+  /** Sends a report to platform admins. The message text is included only if the reporter chose to share it. */
+  public async reportMessage(messageId: string, reason: string, includeText: boolean): Promise<boolean> {
+    if (this.state.mode !== 'connected' || !this.raw) return false;
+    const msg = Object.values(this.state.messagesMap).flat().find((m) => m.id === messageId);
+    if (!msg) return false;
+    const { error } = await this.raw.from('reports').insert({
+      reporter_id: this.state.currentUser.id,
+      reported_user_id: msg.senderId,
+      conversation_id: msg.conversationId,
+      message_id: msg.id,
+      reason: reason.trim().slice(0, 500),
+      excerpt: includeText ? msg.content.slice(0, 2000) : null,
+    } as never);
+    if (error) {
+      this.setState({ error: /reports/.test(error.message) ? 'Reporting needs the latest database update (migration 015).' : error.message });
+      return false;
+    }
+    return true;
+  }
+
+  /** Sets (or clears, with null) the disappearing-message timer for a conversation. */
+  public async setDisappearing(conversationId: string, seconds: number | null): Promise<void> {
+    if (this.state.mode !== 'connected') return;
+    const ok = await this.rpc<null>('set_disappearing', { p_conversation: conversationId, p_seconds: seconds });
+    if (ok === null && this.state.error) return;
+    this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, disappearAfter: seconds ?? undefined } : c));
+    this.notify();
+    const label = seconds === null ? 'off' : seconds >= 604800 ? `${Math.round(seconds / 86400)} days` : seconds >= 86400 ? `${Math.round(seconds / 86400)} day${seconds >= 172800 ? 's' : ''}` : `${Math.round(seconds / 3600)} hours`;
+    void this.sendSystemNote(conversationId, seconds === null ? `${this.state.currentUser.name} turned off disappearing messages` : `${this.state.currentUser.name} set new messages to disappear after ${label}`);
+    await this.loadConversationsReal();
+  }
+
+  /** Deletes expired rows on the server and drops them from memory. Safe to call often. */
+  public async purgeExpired(): Promise<void> {
+    const now = Date.now();
+    let changed = false;
+    const next: Record<string, MessageData[]> = {};
+    for (const [convId, list] of Object.entries(this.state.messagesMap)) {
+      const kept = list.filter((m) => !m.expiresAt || Date.parse(m.expiresAt) > now);
+      if (kept.length !== list.length) changed = true;
+      next[convId] = kept;
+    }
+    if (changed) {
+      this.state.messagesMap = next;
+      this.notify();
+    }
+    if (this.state.mode === 'connected' && this.raw) {
+      try {
+        await this.raw.rpc('purge_expired_messages');
+      } catch {
+        // migration 015 not applied yet
+      }
+    }
+  }
+
+  private verifyKeyPrefix(): string {
+    return `pc_keys_${this.state.currentUser.id}`;
+  }
+
+  /** Records the contact's security code the first time we see it; flags later changes; applies "verified". */
+  private applyKeyTrust(peerId: string, fingerprint: string): { isVerified: boolean; keyChanged: boolean } {
+    const seen = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_seen`, {});
+    const verified = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_verified`, {});
+    if (!seen[peerId]) {
+      seen[peerId] = fingerprint;
+      this.saveStorageJson(`${this.verifyKeyPrefix()}_seen`, seen);
+    }
+    return { isVerified: verified[peerId] === fingerprint, keyChanged: seen[peerId] !== fingerprint };
+  }
+
+  /** "I compared the safety number with them": remembers the current code as verified. */
+  public verifyConversationPeer(conversationId: string): void {
+    const conv = this.state.conversations.find((c) => c.id === conversationId);
+    if (!conv?.recipientUser) return;
+    const { id, identityFingerprint } = conv.recipientUser;
+    const verified = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_verified`, {});
+    const seen = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_seen`, {});
+    verified[id] = identityFingerprint;
+    seen[id] = identityFingerprint;
+    this.saveStorageJson(`${this.verifyKeyPrefix()}_verified`, verified);
+    this.saveStorageJson(`${this.verifyKeyPrefix()}_seen`, seen);
+    this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, isVerified: true, keyChanged: false } } : c));
+    this.notify();
+  }
+
+  /** Accepts a changed security code without verifying it (the banner goes away, "verified" stays off). */
+  public acceptKeyChange(conversationId: string): void {
+    const conv = this.state.conversations.find((c) => c.id === conversationId);
+    if (!conv?.recipientUser) return;
+    const seen = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_seen`, {});
+    seen[conv.recipientUser.id] = conv.recipientUser.identityFingerprint;
+    this.saveStorageJson(`${this.verifyKeyPrefix()}_seen`, seen);
+    this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, keyChanged: false } } : c));
+    this.notify();
+  }
+
   public clearError() {
     this.setState({ error: null });
   }
@@ -1568,6 +1723,7 @@ export class ChatStore {
       saved: [],
       communities: [],
       communityMembers: {},
+      blocked: [],
       error: null,
     });
   }
@@ -1627,6 +1783,7 @@ export class ChatStore {
       saved: [],
       communities: [],
       communityMembers: {},
+      blocked: [],
       error: null,
     };
     this.notify();
