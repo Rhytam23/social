@@ -5,6 +5,7 @@ import { MessageComposer } from '../messages/MessageComposer';
 import { IconChevronDown, IconLock, IconPin, IconSearch, IconShield, IconX } from '../ui/icons';
 import { PRESENCE_LABEL } from '../ui/avatar';
 import { MessageListSkeleton, TypingDots } from '../ui/primitives';
+import { NotifyMenu } from '../notifications/NotifyMenu';
 
 export interface ChatCanvasProps {
   conversation: ConversationItem;
@@ -35,6 +36,8 @@ export interface ChatCanvasProps {
   onOpenThread?: (msg: MessageData) => void;
   /** When set, the composer is replaced by this notice (for example admin-only groups). */
   readOnlyReason?: string;
+  onSetNotify?: (level: 'all' | 'mentions' | 'none' | 'default', muteMs?: number) => void;
+  mentionCandidates?: Array<{ id: string; name: string; username?: string }>;
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -64,6 +67,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   onLoadOlder,
   onOpenThread,
   readOnlyReason,
+  onSetNotify,
+  mentionCandidates,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
@@ -175,6 +180,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onSetNotify && <NotifyMenu conversation={conversation} onChange={onSetNotify} />}
           <button
             onClick={() => setShowInChatSearch(!showInChatSearch)}
             className={`p-2 rounded-xl transition-colors ${
@@ -352,6 +358,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           onSaveEditMessage={onSaveEditMessage}
           onCancelEdit={onCancelEdit}
           onTyping={onTyping}
+          mentionCandidates={mentionCandidates}
         />
         )}
       </div>

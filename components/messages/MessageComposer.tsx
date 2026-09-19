@@ -13,6 +13,8 @@ export interface MessageComposerProps {
   onSaveEditMessage?: (msgId: string, newContent: string) => void;
   onCancelEdit?: () => void;
   onTyping?: () => void;
+  /** People who can be @mentioned in this conversation (groups). */
+  mentionCandidates?: Array<{ id: string; name: string; username?: string }>;
   disabled?: boolean;
 }
 
@@ -24,8 +26,11 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   onSaveEditMessage,
   onCancelEdit,
   onTyping,
+  mentionCandidates = [],
   disabled = false,
 }) => {
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
   const [content, setContent] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
@@ -56,7 +61,36 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
     if (onClearReply) onClearReply();
   };
 
+  const mentionMatches =
+    mentionQuery === null
+      ? []
+      : mentionCandidates
+          .filter((c) => c.name.toLowerCase().includes(mentionQuery.toLowerCase()) || (c.username ?? '').toLowerCase().startsWith(mentionQuery.toLowerCase()))
+          .slice(0, 5);
+
+  const pickMention = (c: { name: string; username?: string }) => {
+    const handle = c.username || c.name.split(/\s+/)[0];
+    setContent((prev) => prev.replace(/(^|\s)@[\w.]{0,30}$/, (_m, lead: string) => `${lead}@${handle} `));
+    setMentionQuery(null);
+  };
+
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (mentionMatches.length > 0) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        setMentionIndex((i) => (e.key === 'ArrowDown' ? (i + 1) % mentionMatches.length : (i - 1 + mentionMatches.length) % mentionMatches.length));
+        return;
+      }
+      if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        pickMention(mentionMatches[mentionIndex]);
+        return;
+      }
+      if (e.key === 'Escape') {
+        setMentionQuery(null);
+        return;
+      }
+    }
     // Ctrl/Cmd+B bold, +I italic, +E code, applied around the selection.
     if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'e'].includes(e.key.toLowerCase())) {
       e.preventDefault();
@@ -327,12 +361,35 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             </button>
 
             {/* Text Area */}
-            <div className="flex-1 py-1">
+            <div className="flex-1 py-1 relative">
+              {mentionMatches.length > 0 && (
+                <ul role="listbox" aria-label="Mention someone" className="absolute bottom-full left-0 mb-2 w-56 bg-[var(--surface-1)] border border-[var(--border-strong)] rounded-xl shadow-[var(--shadow-pop)] p-1 z-30">
+                  {mentionMatches.map((c, i) => (
+                    <li key={c.id} role="option" aria-selected={i === mentionIndex}>
+                      <button
+                        type="button"
+                        onMouseDown={(ev) => {
+                          ev.preventDefault();
+                          pickMention(c);
+                        }}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-[var(--text-primary)] ${i === mentionIndex ? 'bg-[var(--surface-2)]' : ''}`}
+                      >
+                        {c.name}
+                        {c.username && <span className="text-[var(--text-muted)]"> @{c.username}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <textarea
                 value={content}
                 onChange={(e) => {
                   setContent(e.target.value);
                   if (e.target.value) onTyping?.();
+                  const upToCaret = e.target.value.slice(0, e.target.selectionStart);
+                  const m = /(^|\s)@([\w.]{0,30})$/.exec(upToCaret);
+                  setMentionQuery(m && mentionCandidates.length > 0 ? m[2] : null);
+                  setMentionIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={editingMessage ? 'Edit message...' : 'Write an encrypted message...'}

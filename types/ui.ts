@@ -77,6 +77,10 @@ export interface ConversationItem {
   unreadCount: number;
   isPinned?: boolean;
   isMuted?: boolean;
+  /** Per-conversation notification override ('default' follows Settings). */
+  notifyLevel?: 'all' | 'mentions' | 'none';
+  /** Epoch ms; the conversation is silent until then. */
+  mutedUntil?: number;
   isArchived?: boolean;
   draftText?: string;
   pinnedMessageId?: string;

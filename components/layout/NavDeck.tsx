@@ -11,6 +11,7 @@ import {
 } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
 import { StatusMenu } from './StatusMenu';
+import { NotificationCenter } from '../notifications/NotificationCenter';
 import { CountBadge, ConversationListSkeleton } from '../ui/primitives';
 
 export interface NavDeckProps {
@@ -113,6 +114,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
+          <NotificationCenter onOpenConversation={onSelectConversation} />
           <button
             onClick={onNewMessage}
             className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"

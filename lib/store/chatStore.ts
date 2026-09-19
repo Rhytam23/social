@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ConversationItem, MessageData, UserItem, DeviceItem, UserPresence } from '../../types/ui';
 import { getPreferences } from '../prefs/preferences';
+import { extractMentionIds } from '../notifications/rules';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
 import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
@@ -44,6 +45,8 @@ export interface ChatStoreState {
 }
 
 type Listener = () => void;
+
+type ViewPref = { pinned?: boolean; muted?: boolean; archived?: boolean; notify?: 'all' | 'mentions' | 'none'; mutedUntil?: number };
 
 const STORAGE_KEY = 'private_chat_v1_demo_store';
 const CURRENT_USER_KEY = 'private_chat_v1_demo_current_user_id';
@@ -250,7 +253,7 @@ export class ChatStore {
     return `${VIEW_PREFS_KEY_PREFIX}${this.state.currentUser.id}`;
   }
 
-  private loadViewPrefs(): Record<string, { pinned?: boolean; muted?: boolean; archived?: boolean }> {
+  private loadViewPrefs(): Record<string, ViewPref> {
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(this.viewPrefsKey());
@@ -260,7 +263,7 @@ export class ChatStore {
     }
   }
 
-  private saveViewPrefs(prefs: Record<string, { pinned?: boolean; muted?: boolean; archived?: boolean }>) {
+  private saveViewPrefs(prefs: Record<string, ViewPref>) {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(this.viewPrefsKey(), JSON.stringify(prefs));
@@ -272,7 +275,18 @@ export class ChatStore {
   private applyViewPrefs(conversations: ConversationItem[]): ConversationItem[] {
     const prefs = this.loadViewPrefs();
     return conversations
-      .map((c) => ({ ...c, isPinned: !!prefs[c.id]?.pinned, isMuted: !!prefs[c.id]?.muted, isArchived: !!prefs[c.id]?.archived }))
+      .map((c) => {
+        const p = prefs[c.id];
+        const timed = !!p?.mutedUntil && p.mutedUntil > Date.now();
+        return {
+          ...c,
+          isPinned: !!p?.pinned,
+          isMuted: !!p?.muted || timed || p?.notify === 'none',
+          notifyLevel: p?.notify,
+          mutedUntil: timed ? p?.mutedUntil : undefined,
+          isArchived: !!p?.archived,
+        };
+      })
       .filter((c) => !c.isArchived);
   }
 
@@ -579,6 +593,8 @@ export class ChatStore {
 
     if (!isSelf) {
       const viewing = this.state.activeConversationId === row.conversation_id && (typeof document === 'undefined' || document.visibilityState === 'visible');
+      const conv = this.state.conversations.find((c) => c.id === row.conversation_id);
+      if (conv) this.incomingListeners.forEach((l) => l({ message, conversation: conv, isViewing: viewing }));
       if (viewing) void this.markConversationRead(row.conversation_id);
       else void this.writeReceipts([row.id], false);
     }
@@ -638,7 +654,8 @@ export class ChatStore {
           ? { v: 1, kind: 'voice', attachment: attachmentEnvelope, durationMs: voiceDurationMs || 0 }
           : { v: 1, kind: 'attachment', text: content || undefined, attachment: attachmentEnvelope };
       } else {
-        envelope = { v: 1, kind: 'text', text: content };
+        const mentionIds = extractMentionIds(content, this.state.allUsers.filter((u) => summary.memberIds.includes(u.id)));
+        envelope = mentionIds.length > 0 ? { v: 1, kind: 'text', text: content, mentions: mentionIds } : { v: 1, kind: 'text', text: content };
       }
 
       const { row } = await sendEnvelope(this.crypto, summary, envelope, replyToId, threadRootId);
@@ -937,6 +954,27 @@ export class ChatStore {
   public pinConversation(convId: string) {
     this.toggleViewPref(convId, 'pinned');
   }
+  /** Sets how loudly a conversation alerts: all, mentions only, or none; optionally for a limited time. */
+  public setConversationNotify(convId: string, level: 'all' | 'mentions' | 'none' | 'default', muteMs?: number) {
+    const prefs = this.loadViewPrefs();
+    const next: ViewPref = { ...(prefs[convId] || {}) };
+    next.notify = level === 'default' ? undefined : level;
+    next.mutedUntil = muteMs ? Date.now() + muteMs : undefined;
+    if (level === 'default') next.muted = false;
+    prefs[convId] = next;
+    this.saveViewPrefs(prefs);
+    this.state.conversations = this.applyViewPrefs(this.state.conversations);
+    this.notify();
+  }
+
+  private incomingListeners: Set<(e: { message: MessageData; conversation: ConversationItem; isViewing: boolean }) => void> = new Set();
+
+  /** Subscribes to messages from other people as they arrive (used for notifications). */
+  public onIncoming(listener: (e: { message: MessageData; conversation: ConversationItem; isViewing: boolean }) => void): () => void {
+    this.incomingListeners.add(listener);
+    return () => this.incomingListeners.delete(listener);
+  }
+
   public muteConversation(convId: string) {
     this.toggleViewPref(convId, 'muted');
   }

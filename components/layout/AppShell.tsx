@@ -74,6 +74,7 @@ export interface AppShellProps {
   onSetMemberRole?: (groupId: string, userId: string, role: GroupRole) => void | Promise<void>;
   onUpdateGroupSettings?: (groupId: string, patch: { name?: string; description?: string; onlyAdminsPost?: boolean }) => Promise<boolean>;
   onLeaveGroup?: (groupId: string) => void | Promise<void>;
+  onSetConversationNotify?: (conversationId: string, level: 'all' | 'mentions' | 'none' | 'default', muteMs?: number) => void;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -123,6 +124,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onSetMemberRole,
   onUpdateGroupSettings,
   onLeaveGroup,
+  onSetConversationNotify,
 }) => {
   const [activeCategory, setActiveCategory] = useState<ViewCategory>('chats');
   const [showInspector, setShowInspector] = useState(false);
@@ -296,6 +298,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onStarMessage={onToggleSaved ?? onStarMessageToggle}
                 onOpenThread={(msg) => setThreadRootId(msg.id)}
                 readOnlyReason={iCanPost ? undefined : 'Only admins can post in this group.'}
+                onSetNotify={onSetConversationNotify ? (level, ms) => onSetConversationNotify(activeConversation.id, level, ms) : undefined}
+                mentionCandidates={users.filter((u) => u.id !== currentUserId && (activeConversation.groupMeta?.memberIds?.includes(u.id) ?? false))}
                 typingNames={typingNames}
                 onTyping={onTyping}
                 canLoadOlder={canLoadOlder}

@@ -13,6 +13,7 @@ import {
 import { createClient } from '../../lib/supabase/client';
 import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
 import { AppearanceSettings } from './AppearanceSettings';
+import { NotificationSettings } from './NotificationSettings';
 
 export type SettingsTab = 'profile' | 'account' | 'privacy' | 'appearance' | 'notifications' | 'about';
 
@@ -65,14 +66,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Avatar upload state
   const [avatarUrl, setAvatarUrl] = useState(currentUser.avatarUrl);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-
-  // Notifications State
-  const [soundsEnabled, setSoundsEnabled] = useState(true);
-  const [browserPermStatus, setBrowserPermStatus] = useState<string>(
-    typeof window !== 'undefined' && 'Notification' in window
-      ? Notification.permission
-      : 'unsupported'
-  );
 
   const formatFingerprint = (fp: string) => {
     return fp.match(/.{1,4}/g)?.join(' ') || fp;
@@ -203,17 +196,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setErrorMessage(err instanceof Error ? err.message : 'Failed to upload avatar.');
     } finally {
       setIsUploadingAvatar(false);
-    }
-  };
-
-  const requestBrowserNotifications = async () => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      try {
-        const perm = await Notification.requestPermission();
-        setBrowserPermStatus(perm);
-      } catch {
-        // ignore
-      }
     }
   };
 
@@ -569,40 +551,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {activeTab === 'appearance' && <AppearanceSettings />}
 
       {/* TAB 5: NOTIFICATIONS */}
-      {activeTab === 'notifications' && (
-        <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-5 shadow-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-200">Message Audio Chimes</span>
-              <span className="text-[11px] text-slate-400">Play subtle audio alert on new incoming message</span>
-            </div>
-            <input
-              type="checkbox"
-              checked={soundsEnabled}
-              onChange={(e) => setSoundsEnabled(e.target.checked)}
-              className="w-4 h-4 accent-emerald-500 cursor-pointer"
-            />
-          </div>
-
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-slate-200">Browser Push Alerts</span>
-              <span className="text-[11px] text-slate-400">
-                Current status: <span className="font-mono text-emerald-400">{browserPermStatus}</span>
-              </span>
-            </div>
-            {browserPermStatus !== 'granted' && browserPermStatus !== 'unsupported' && (
-              <button
-                type="button"
-                onClick={requestBrowserNotifications}
-                className="py-1.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
-              >
-                Enable Alerts
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {activeTab === 'notifications' && <NotificationSettings />}
 
       {/* TAB 6: ABOUT */}
       {activeTab === 'about' && (

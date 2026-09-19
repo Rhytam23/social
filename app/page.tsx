@@ -11,6 +11,7 @@ import { UserItem, MessageData } from '../types/ui';
 import { loadOwnProfile, saveOwnProfile } from '../lib/profile/profileClient';
 import { initPreferences, type Preferences } from '../lib/prefs/preferences';
 import { LiveChannels } from '../lib/realtime/liveChannels';
+import { handleIncoming, markConversationNotificationsRead } from '../lib/notifications/notifier';
 import { createClient } from '../lib/supabase/client';
 import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
 import { MessagingCrypto } from '../lib/messaging/messagingCrypto';
@@ -202,6 +203,27 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, configured, state.mode, conversationIdsKey]);
+
+  // Alerts for incoming messages (toast, desktop notification, sound), decided on this device.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    return store.onIncoming((event) =>
+      handleIncoming(event, {
+        me: { id: state.currentUser.id, name: state.currentUser.name, username: state.currentUser.username },
+        openConversation: (id) => store.selectConversation(id),
+      })
+    );
+  }, [isAuthenticated, store, state.currentUser.id, state.currentUser.name, state.currentUser.username]);
+
+  useEffect(() => {
+    markConversationNotificationsRead(state.activeConversationId);
+  }, [state.activeConversationId]);
+
+  // Unread count in the browser tab title.
+  const totalUnread = state.conversations.reduce((sum, c) => (c.isMuted ? sum : sum + c.unreadCount), 0);
+  useEffect(() => {
+    document.title = totalUnread > 0 ? `(${totalUnread > 99 ? '99+' : totalUnread}) Private Chat` : 'Private Chat';
+  }, [totalUnread]);
 
   // Typing indicators follow the conversation the user is looking at.
   useEffect(() => {
@@ -471,6 +493,7 @@ export default function HomePage() {
           .map((s) => state.messagesMap[s.conversationId]?.find((m) => m.id === s.messageId))
           .filter((m): m is MessageData => !!m)}
         onToggleSaved={handleStarMessageToggle}
+        onSetConversationNotify={(id, level, ms) => store.setConversationNotify(id, level, ms)}
         onSetMemberRole={(groupId, userId, role) => store.setMemberRole(groupId, userId, role)}
         onUpdateGroupSettings={(groupId, patch) => store.updateGroupSettings(groupId, patch)}
         onLeaveGroup={(groupId) => store.leaveGroup(groupId)}
