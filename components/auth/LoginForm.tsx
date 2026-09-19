@@ -40,6 +40,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showAlreadyRegistered, setShowAlreadyRegistered] = useState(false);
 
@@ -61,7 +62,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       setErrorMsg(
         "We couldn't complete email confirmation from that link. If you already used it, your email may be confirmed - try signing in."
       );
+    } else if (reason === 'oauth_cancelled') {
+      setErrorMsg('Google sign-in was cancelled. Please try again.');
+    } else if (reason === 'oauth_failed') {
+      setErrorMsg("We couldn't complete Google sign-in. Please try again, or use your email and password.");
     }
+  }, []);
+
+  // Coming back to this page from Google via the browser's back button
+  // restores it from cache with the loading state still set.
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) setIsGoogleLoading(false);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
   }, []);
 
   useEffect(() => {
@@ -245,6 +260,30 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     setIsResending(false);
   };
 
+  const handleGoogleSignIn = async () => {
+    if (isGoogleLoading) return;
+    setIsGoogleLoading(true);
+    resetFeedback();
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/confirm?next=/&provider=google`,
+          queryParams: { prompt: 'select_account' },
+        },
+      });
+      if (error) {
+        setErrorMsg(error.message);
+        setIsGoogleLoading(false);
+      }
+      // On success the browser is already navigating to Google.
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Could not start Google sign-in.');
+      setIsGoogleLoading(false);
+    }
+  };
+
   const handleQuickDemoLogin = (userId: string, userEmail: string) => {
     const store = getChatStore();
     store.switchDemoUser(userId);
@@ -364,6 +403,31 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             Create Account
           </button>
         </div>
+
+        {isSupabaseConfigured && (
+          <>
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isGoogleLoading || isSubmitting}
+              className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-900 font-semibold rounded-xl text-xs transition-all shadow-xs disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2.5"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4 shrink-0">
+                <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.45a5.51 5.51 0 0 1-2.39 3.62v3h3.87c2.27-2.09 3.57-5.17 3.57-8.81z" />
+                <path fill="#34A853" d="M12 24c3.24 0 5.96-1.08 7.94-2.92l-3.87-3c-1.07.72-2.45 1.15-4.07 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.09A12 12 0 0 0 12 24z" />
+                <path fill="#FBBC05" d="M5.27 14.27A7.2 7.2 0 0 1 4.9 12c0-.79.14-1.55.37-2.27V6.64H1.27A12 12 0 0 0 0 12c0 1.94.46 3.77 1.27 5.36l4-3.09z" />
+                <path fill="#EA4335" d="M12 4.77c1.76 0 3.35.61 4.6 1.8l3.43-3.43C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.64l4 3.09C6.22 6.88 8.87 4.77 12 4.77z" />
+              </svg>
+              <span>{isGoogleLoading ? 'Redirecting to Google...' : 'Continue with Google'}</span>
+            </button>
+
+            <div className="flex items-center gap-3 text-[11px] text-slate-500" role="separator">
+              <span className="flex-1 h-px bg-slate-800" />
+              <span>or use email</span>
+              <span className="flex-1 h-px bg-slate-800" />
+            </div>
+          </>
+        )}
 
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3.5">
           {errorMsg && (
