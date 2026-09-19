@@ -144,7 +144,6 @@ async function decryptRow(
 
 /** Loads message history for a conversation (most recent `limit`, ascending). */
 export async function fetchMessageHistory(
-  supabase: SupabaseClient<Database>,
   crypto: MessagingCrypto,
   conversation: ConversationSummary,
   limit = 100

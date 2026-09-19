@@ -331,7 +331,7 @@ export class ChatStore {
     await Promise.all(
       summaries.map(async (s) => {
         try {
-          const history = await fetchMessageHistory(this.supabase!, this.crypto!, s, 1);
+          const history = await fetchMessageHistory(this.crypto!, s, 1);
           const last = history[history.length - 1];
           if (!last) return;
           const lastVisible = [...history].reverse().find((m) => !isHiddenEnvelope(m.envelope));
@@ -408,7 +408,7 @@ export class ChatStore {
     this.notify();
 
     try {
-      const rows = await fetchMessageHistory(this.supabase, this.crypto, summary);
+      const rows = await fetchMessageHistory(this.crypto, summary);
       const senderName = (id: string) =>
         id === this.state.currentUser.id ? this.state.currentUser.name : this.participantNames.get(id) || this.state.allUsers.find((u) => u.id === id)?.name || 'Member';
 

@@ -12,7 +12,7 @@ export interface EncryptedMessagePayload {
 // (libsodium crypto_box). Bumping the version lets old fake-encrypted rows
 // (if any exist from a prior deploy) be detected and rejected instead of
 // silently mis-decrypted.
-export const MESSAGE_ENCRYPTION_VERSION = 2;
+const MESSAGE_ENCRYPTION_VERSION = 2;
 
 /**
  * Encrypts `plaintext` for a specific recipient device using their long-term

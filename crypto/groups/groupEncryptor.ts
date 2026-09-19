@@ -15,7 +15,7 @@ export interface GroupKeyEnvelopePayload {
   encryptedGroupKey: string; // Base64 JSON of {ciphertext, nonce} - crypto_box(groupKey) to the recipient
 }
 
-export const GROUP_ENCRYPTION_VERSION = 2;
+const GROUP_ENCRYPTION_VERSION = 2;
 
 /** Generates a fresh random 256-bit symmetric group key. */
 export async function generateGroupKey(): Promise<Uint8Array> {
