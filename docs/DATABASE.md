@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 009**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 010**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -17,6 +17,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `007_open_registration.sql` | `handle_new_user` without the invite requirement | Yes |
 | `008_realtime_publication.sql` | Adds tables to the Realtime publication; `REPLICA IDENTITY FULL` on two tables | Yes |
 | `009_oauth_profile_metadata.sql` | Final `handle_new_user` | Yes. Run it last after re-running `005`-`007` |
+| `010_conversation_creator_can_read.sql` | Conversation creators can read their own conversation, fixing "new row violates row-level security policy for table conversations" when starting a chat | Yes |
 | `functions/atomic_invite_consumption.sql` | `consume_invite` (unused; the invite feature was removed from the app) | Yes. Not numbered; skip on new installs |
 
 ## Tables

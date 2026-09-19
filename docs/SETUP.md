@@ -45,6 +45,7 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 007 | `007_open_registration.sql` | Signup no longer needs an invite |
 | 008 | `008_realtime_publication.sql` | Turns on live delivery for messages, reactions, receipts, members, presence |
 | 009 | `009_oauth_profile_metadata.sql` | Final signup trigger: names and avatars from Google, valid unique usernames |
+| 010 | `010_conversation_creator_can_read.sql` | Fixes "new row violates row-level security policy for table conversations" when starting a chat or group |
 
 `database/functions/atomic_invite_consumption.sql` belongs to the removed invite feature. New installs do not need it.
 
