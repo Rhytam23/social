@@ -17,7 +17,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
   totalSteps,
 }) => {
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans">
+    <div data-theme="dark" className="min-h-screen bg-[var(--canvas-bg)] text-slate-100 flex flex-col items-center justify-center p-4 sm:p-6 font-sans">
       <div className="w-full max-w-md flex flex-col gap-6">
         {/* Brand Header */}
         <div className="flex flex-col items-center text-center gap-3">
@@ -54,7 +54,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({
         )}
 
         {/* Main Content Card */}
-        <div className="bg-[#0f172a] border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col gap-5">
+        <div className="bg-[var(--surface-1)] border border-slate-800/80 rounded-2xl p-6 shadow-xl flex flex-col gap-5">
           <div className="border-b border-slate-800/80 pb-4">
             <h2 className="text-base font-bold text-slate-100">{title}</h2>
           </div>

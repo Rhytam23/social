@@ -34,7 +34,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-sm bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-sm bg-[var(--surface-1)] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header Banner */}
         <div className="h-20 bg-gradient-to-r from-slate-900 to-slate-800 relative flex items-start justify-end p-3">
           <button
@@ -49,10 +49,10 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         <div className="px-6 pb-6 pt-0 flex flex-col gap-4 relative">
           <div className="-mt-10 flex justify-between items-end">
             <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-slate-800 border-4 border-[#0f172a] flex items-center justify-center text-xl font-bold text-white shadow-xl">
+              <div className="w-20 h-20 rounded-full bg-slate-800 border-4 border-[var(--surface-1)] flex items-center justify-center text-xl font-bold text-white shadow-xl">
                 {getInitials(user.name)}
               </div>
-              <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-[#0f172a]" />
+              <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-[var(--surface-1)]" />
             </div>
 
             <button

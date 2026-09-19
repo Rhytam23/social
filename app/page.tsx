@@ -300,7 +300,7 @@ export default function HomePage() {
   // silently granting access.
   if (configured === false && !isDemoModeAllowed() && isAuthenticated === false) {
     return (
-      <div className="h-screen w-screen bg-[#070b14] flex flex-col items-center justify-center font-sans text-center p-6">
+      <div className="h-screen w-screen bg-[var(--canvas-bg)] flex flex-col items-center justify-center font-sans text-center p-6">
         <h1 className="text-sm font-bold text-rose-400 mb-2">Server misconfiguration</h1>
         <p className="text-xs text-slate-400 max-w-sm">
           NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set. This deployment cannot authenticate users.
@@ -311,7 +311,7 @@ export default function HomePage() {
 
   if (isAuthenticated && bootError) {
     return (
-      <div className="h-screen w-screen bg-[#070b14] flex flex-col items-center justify-center font-sans text-center p-6 gap-3">
+      <div className="h-screen w-screen bg-[var(--canvas-bg)] flex flex-col items-center justify-center font-sans text-center p-6 gap-3">
         <h1 className="text-sm font-bold text-rose-400">You&apos;re signed in, but setup didn&apos;t finish</h1>
         <p className="text-xs text-slate-400 max-w-sm break-words">{bootError}</p>
         <button
@@ -332,7 +332,7 @@ export default function HomePage() {
   if (configured && !isAuthenticated) {
     if (authModalTab) {
       return (
-        <div className="relative min-h-screen bg-[#070b14]">
+        <div data-theme="dark" className="relative min-h-screen bg-[var(--canvas-bg)]">
           <div className="absolute top-4 left-4 z-50">
             <button
               onClick={() => setAuthModalTab(null)}
@@ -426,6 +426,7 @@ export default function HomePage() {
         onClearHistoryConversation={(id) => store.clearHistoryConversation(id)}
         onDeleteConversationLocally={(id) => store.deleteConversationLocally(id)}
         onLogout={handleLogout}
+        isLoading={state.isLoading}
       />
 
       <OnboardingModal

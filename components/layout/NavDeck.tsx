@@ -9,6 +9,8 @@ import {
   IconSearch,
   IconShield,
 } from '../ui/icons';
+import { Avatar } from '../ui/avatar';
+import { CountBadge, ConversationListSkeleton } from '../ui/primitives';
 
 export interface NavDeckProps {
   currentUserName: string;
@@ -21,6 +23,7 @@ export interface NavDeckProps {
   onSelectConversation: (id: string) => void;
   onNewMessage: () => void;
   unreadTotal: number;
+  isLoading?: boolean;
   onGlobalSearchTrigger?: () => void;
 
   // Conversation Actions
@@ -43,6 +46,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   onSelectConversation,
   onNewMessage,
   unreadTotal,
+  isLoading,
   onGlobalSearchTrigger,
   onPinConversation,
   onMuteConversation,
@@ -93,13 +97,11 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   const archivedCount = conversations.filter((c) => c.isArchived).length;
 
   return (
-    <nav className="w-full md:w-80 lg:w-96 bg-[var(--surface-1)] border-r border-[var(--border-subtle)] flex flex-col shrink-0 h-full font-sans">
+    <nav aria-label="Conversations" className="w-full md:w-80 lg:w-96 bg-[var(--surface-1)] border-r border-[var(--border-subtle)] flex flex-col shrink-0 h-full font-sans">
       {/* 1. Left Sidebar Header (WhatsApp Web Usability) */}
       <div className="h-16 px-4 bg-slate-950/40 border-b border-[var(--border-subtle)] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-slate-700 text-white font-bold flex items-center justify-center text-xs shrink-0 ring-2 ring-slate-800">
-            {getInitials(currentUserName)}
-          </div>
+          <Avatar name={currentUserName} size="sm" />
           <div className="flex flex-col">
             <span className="text-xs font-bold text-slate-100 leading-tight">{currentUserName}</span>
             <span className="text-[10px] font-mono text-slate-400">#{currentUserRegistrationId}</span>
@@ -111,6 +113,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
             onClick={onNewMessage}
             className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors"
             title="Start new conversation"
+            aria-label="Start new conversation"
           >
             <IconPlus className="w-4 h-4" />
           </button>
@@ -181,7 +184,9 @@ export const NavDeck: React.FC<NavDeckProps> = ({
 
       {/* 4. Conversation List Feed */}
       <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-0.5">
-        {sortedConversations.length === 0 ? (
+        {isLoading && sortedConversations.length === 0 ? (
+          <ConversationListSkeleton />
+        ) : sortedConversations.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-400">
             {showArchived
               ? 'No archived conversations.'
@@ -196,6 +201,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
               <div key={conv.id} className="relative group/item">
                 <button
                   onClick={() => onSelectConversation(conv.id)}
+                  aria-current={isActive ? 'page' : undefined}
                   className={`w-full p-3 text-left rounded-2xl transition-all flex items-center gap-3 relative ${
                     isActive
                       ? 'bg-slate-800/90 text-white border border-slate-700/80 shadow-xs'
@@ -208,20 +214,13 @@ export const NavDeck: React.FC<NavDeckProps> = ({
                   )}
 
                   {/* Avatar */}
-                  <div className="relative shrink-0">
-                    <div
-                      className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold border transition-colors ${
-                        conv.type === 'group'
-                          ? 'bg-amber-950/40 border-amber-500/30 text-amber-300'
-                          : 'bg-slate-700/80 border-slate-600/50 text-slate-100'
-                      }`}
-                    >
+                  {conv.type === 'group' ? (
+                    <div className="w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-xs font-bold border bg-amber-500/15 border-amber-500/30 text-amber-400">
                       {getInitials(conv.title)}
                     </div>
-                    {conv.type === 'direct' && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-slate-900" />
-                    )}
-                  </div>
+                  ) : (
+                    <Avatar name={conv.title} size="md" presence={conv.recipientUser?.presence ?? 'offline'} />
+                  )}
 
                   <div className="flex-1 min-w-0 flex flex-col gap-0.5">
                     <div className="flex items-center justify-between gap-1">
@@ -245,11 +244,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
                           conv.lastMessage?.snippet || 'No messages yet'
                         )}
                       </p>
-                      {conv.unreadCount > 0 && (
-                        <span className="w-4 h-4 rounded-full bg-emerald-500 text-slate-950 font-bold text-[10px] flex items-center justify-center shrink-0">
-                          {conv.unreadCount}
-                        </span>
-                      )}
+                      <CountBadge count={conv.unreadCount} />
                     </div>
                   </div>
                 </button>

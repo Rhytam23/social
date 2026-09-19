@@ -256,7 +256,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
             {/* Contextual Action Hover Toolbar (Desktop & Mobile Touch Menu) */}
             <div
-              className={`absolute -top-3.5 hidden group-hover:flex items-center gap-1 bg-[#090d16] border border-slate-700 p-1 rounded-xl shadow-xl z-20 ${
+              className={`absolute -top-3.5 hidden group-hover:flex items-center gap-1 bg-[var(--canvas-bg)] border border-slate-700 p-1 rounded-xl shadow-xl z-20 ${
                 isSelf ? 'right-2' : 'left-2'
               }`}
             >

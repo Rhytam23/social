@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ViewCategory, ConversationItem, MessageData, DeviceItem, UserItem } from '../../types/ui';
 import { NavDeck } from './NavDeck';
 import { MobileNav } from './MobileNav';
@@ -7,7 +7,10 @@ import { InspectorDeck } from '../chat/InspectorDeck';
 import { PeopleDirectory } from '../people/PeopleDirectory';
 import { SettingsView } from '../settings/SettingsView';
 import { AdminDashboard } from '../admin/AdminDashboard';
-import { GlobalSearchModal } from '../search/GlobalSearchModal';
+import { CommandPalette, type PaletteAction } from '../search/CommandPalette';
+import { ShortcutsDialog } from '../ui/ShortcutsDialog';
+import { setTheme, readTheme } from '../../lib/ui/theme';
+import { toast } from '../../lib/ui/toastStore';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { GroupSpaceView } from '../groups/GroupSpaceView';
 import { ForwardMessageModal } from '../messages/ForwardMessageModal';
@@ -56,6 +59,7 @@ export interface AppShellProps {
   onClearHistoryConversation?: (convId: string) => void;
   onDeleteConversationLocally?: (convId: string) => void;
   onLogout?: () => void;
+  isLoading?: boolean;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -93,6 +97,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onClearHistoryConversation,
   onDeleteConversationLocally,
   onLogout,
+  isLoading,
 }) => {
   const [activeCategory, setActiveCategory] = useState<ViewCategory>('chats');
   const [showInspector, setShowInspector] = useState(false);
@@ -103,6 +108,56 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [editingMessage, setEditingMessage] = useState<MessageData | undefined>(undefined);
   const [forwardingMessage, setForwardingMessage] = useState<MessageData | null>(null);
   const [mobileChatView, setMobileChatView] = useState<boolean>(true);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
+  const [online, setOnline] = useState(true);
+
+  // Global shortcuts: Ctrl/Cmd+K toggles the quick switcher, "?" lists shortcuts.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setSearchModalOpen((o) => !o);
+        return;
+      }
+      const t = e.target as HTMLElement | null;
+      const typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable);
+      if (e.key === '?' && !typing) {
+        e.preventDefault();
+        setShortcutsOpen(true);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setOnline(navigator.onLine);
+    sync();
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', sync);
+    return () => {
+      window.removeEventListener('online', sync);
+      window.removeEventListener('offline', sync);
+    };
+  }, []);
+
+  const paletteActions: PaletteAction[] = [
+    { id: 'new-chat', label: 'Start a new chat', run: onNewMessage },
+    { id: 'go-chats', label: 'Go to Chats', run: () => { setActiveCategory('chats'); setMobileChatView(false); } },
+    { id: 'go-groups', label: 'Go to Groups', run: () => setActiveCategory('groups') },
+    { id: 'go-people', label: 'Go to People', run: () => setActiveCategory('people') },
+    { id: 'go-settings', label: 'Open Settings', run: () => setActiveCategory('settings') },
+    {
+      id: 'theme',
+      label: 'Switch theme (dark / light)',
+      run: () => {
+        const next = readTheme() === 'light' ? 'dark' : 'light';
+        setTheme(next);
+        toast(`Switched to ${next} theme`, { kind: 'success' });
+      },
+    },
+    { id: 'shortcuts', label: 'Show keyboard shortcuts', hint: '?', run: () => setShortcutsOpen(true) },
+  ];
 
   const activeConversation =
     conversations.find((c) => c.id === activeConversationId) || conversations[0];
@@ -125,7 +180,12 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-[var(--canvas-bg)] overflow-hidden font-sans pb-16 md:pb-0">
+    <div className="flex flex-col h-[100dvh] w-screen bg-[var(--canvas-bg)] overflow-hidden font-sans pb-16 md:pb-0">
+      {!online && (
+        <div role="status" className="shrink-0 bg-amber-500/15 border-b border-amber-500/30 text-[var(--warning)] text-xs text-center py-1.5 px-3">
+          You&apos;re offline. Messages will send when you reconnect.
+        </div>
+      )}
       {/* Main Workspace Body - Pure 2-Pane Edge-to-Edge Architecture */}
       <div className="flex-1 flex overflow-hidden relative h-full w-full">
         {/* Navigation Deck Pane (Desktop: Side Pane; Mobile: Single Pane when !mobileChatView) */}
@@ -154,6 +214,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
             onNewMessage={onNewMessage}
             unreadTotal={unreadTotal}
+            isLoading={isLoading}
             onGlobalSearchTrigger={() => setSearchModalOpen(true)}
             onPinConversation={onPinConversation}
             onMuteConversation={onMuteConversation}
@@ -165,7 +226,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         </div>
 
         {/* Active Workspace / Conversation Pane */}
-        <div
+        <main
+          id="main"
+          tabIndex={-1}
           className={`${
             !mobileChatView && activeCategory === 'chats' ? 'hidden md:flex' : 'flex'
           } flex-1 h-full overflow-hidden relative`}
@@ -315,7 +378,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               onToggleUserRole={onToggleUserRole}
             />
           )}
-        </div>
+        </main>
 
         {/* Mobile Inspector Drawer */}
         {mobileInspectorOpen && activeConversation && (
@@ -342,18 +405,22 @@ export const AppShell: React.FC<AppShellProps> = ({
         onSelectCategory={(cat) => setActiveCategory(cat)}
         unreadTotal={unreadTotal}
         userRole={currentUserRole}
+        onOpenSearch={() => setSearchModalOpen(true)}
       />
 
-      {/* Global Search Modal */}
-      <GlobalSearchModal
+      {/* Quick switcher (Ctrl/Cmd+K) and shortcut list */}
+      <ShortcutsDialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} />
+      <CommandPalette
         isOpen={searchModalOpen}
         onClose={() => setSearchModalOpen(false)}
         conversations={conversations}
         users={users}
         messagesMap={messagesMap}
+        actions={paletteActions}
         onSelectConversation={(id) => {
           onSelectConversation(id);
           setActiveCategory('chats');
+          setMobileChatView(true);
         }}
         onSelectUser={(u) => {
           setSelectedProfileUser(u);

@@ -2,7 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ------------------------------------------------------------------
+   Design tokens. Dark is the default; light applies with
+   data-theme="light", or with data-theme="system" when the OS prefers it.
+   Tailwind's slate scale and emerald 300/400 read these variables (see
+   tailwind.config.ts), so every existing slate-* class follows the theme.
+   ------------------------------------------------------------------ */
+:root,
+[data-theme='dark'] {
+  color-scheme: dark;
   --canvas-bg: #090d16;
   --surface-1: #111827;
   --surface-2: #1f2937;
@@ -14,19 +22,122 @@
   --text-muted: #6b7280;
   --accent-primary: #10b981;
   --accent-primary-hover: #059669;
+  --accent-contrast: #052e21;
+  --accent-text: #34d399;
   --accent-subtle: rgba(16, 185, 129, 0.12);
   --danger-neutral: #ef4444;
   --danger-subtle: rgba(239, 68, 68, 0.12);
+  --warning: #f59e0b;
+  --success: #10b981;
+  --presence-online: #10b981;
+  --presence-away: #f59e0b;
+  --presence-dnd: #ef4444;
+  --presence-meeting: #8b5cf6;
+  --presence-offline: #6b7280;
+  --shadow-pop: 0 18px 50px rgba(0, 0, 0, 0.5);
+
+  --slate-50: 248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --slate-950: 2 6 23;
+  --emerald-300: 110 231 183;
+  --emerald-400: 52 211 153;
+
+  --motion-fast: 120ms;
+  --motion-base: 200ms;
+  --motion-slow: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+[data-theme='light'] {
+  color-scheme: light;
+  --canvas-bg: #f8fafc;
+  --surface-1: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-hover: #e2e8f0;
+  --border-subtle: rgba(15, 23, 42, 0.1);
+  --border-strong: rgba(15, 23, 42, 0.2);
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --accent-primary: #059669;
+  --accent-primary-hover: #047857;
+  --accent-contrast: #ffffff;
+  --accent-text: #047857;
+  --accent-subtle: rgba(5, 150, 105, 0.12);
+  --danger-neutral: #dc2626;
+  --danger-subtle: rgba(220, 38, 38, 0.1);
+  --warning: #b45309;
+  --shadow-pop: 0 18px 50px rgba(15, 23, 42, 0.18);
+
+  --slate-50: 2 6 23;
+  --slate-100: 15 23 42;
+  --slate-200: 30 41 59;
+  --slate-300: 51 65 85;
+  --slate-400: 71 85 105;
+  --slate-500: 100 116 139;
+  --slate-600: 148 163 184;
+  --slate-700: 203 213 225;
+  --slate-800: 226 232 240;
+  --slate-900: 241 245 249;
+  --slate-950: 248 250 252;
+  --emerald-300: 4 120 87;
+  --emerald-400: 4 120 87;
+}
+
+@media (prefers-color-scheme: light) {
+  [data-theme='system'] {
+    color-scheme: light;
+    --canvas-bg: #f8fafc;
+    --surface-1: #ffffff;
+    --surface-2: #f1f5f9;
+    --surface-hover: #e2e8f0;
+    --border-subtle: rgba(15, 23, 42, 0.1);
+    --border-strong: rgba(15, 23, 42, 0.2);
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --text-muted: #64748b;
+    --accent-primary: #059669;
+    --accent-primary-hover: #047857;
+    --accent-contrast: #ffffff;
+    --accent-text: #047857;
+    --accent-subtle: rgba(5, 150, 105, 0.12);
+    --danger-neutral: #dc2626;
+    --danger-subtle: rgba(220, 38, 38, 0.1);
+    --warning: #b45309;
+    --shadow-pop: 0 18px 50px rgba(15, 23, 42, 0.18);
+    --slate-50: 2 6 23;
+    --slate-100: 15 23 42;
+    --slate-200: 30 41 59;
+    --slate-300: 51 65 85;
+    --slate-400: 71 85 105;
+    --slate-500: 100 116 139;
+    --slate-600: 148 163 184;
+    --slate-700: 203 213 225;
+    --slate-800: 226 232 240;
+    --slate-900: 241 245 249;
+    --slate-950: 248 250 252;
+    --emerald-300: 4 120 87;
+    --emerald-400: 4 120 87;
+  }
 }
 
 * {
   box-sizing: border-box;
 }
 
-html, body {
+html,
+body {
   background-color: var(--canvas-bg) !important;
   color: var(--text-primary) !important;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Helvetica, Arial, sans-serif !important;
   margin: 0 !important;
   padding: 0 !important;
   min-height: 100%;
@@ -34,21 +145,115 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Hover text that was hard-coded white must stay readable on light surfaces. */
+[data-theme='light'] .hover\:text-white:hover {
+  color: var(--text-primary);
+}
+
+/* One consistent, visible keyboard focus ring. */
+:where(a, button, input, textarea, select, summary, [role='button'], [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 100;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+  font-size: 13px;
+  font-weight: 600;
+  transition: top var(--motion-fast) var(--ease-out);
+}
+.skip-link:focus {
+  top: 8px;
+}
+
 /* Custom smooth scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
-
 ::-webkit-scrollbar-track {
   background: transparent;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(127, 127, 127, 0.3);
   border-radius: 9999px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: rgba(127, 127, 127, 0.5);
 }
+
+/* ------------------------------------------------------------------
+   Motion. The animate-in / zoom-in-95 / slide-in-from-* classes are
+   already used across the app; they used to do nothing because the
+   Tailwind animate plugin was never installed. These define them.
+   ------------------------------------------------------------------ */
+@keyframes pc-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pc-zoom {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pc-slide-right {
+  from { opacity: 0.4; transform: translateX(24px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes pc-slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pc-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+@keyframes pc-typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+@keyframes pc-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+@keyframes pc-ring {
+  0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); }
+  100% { box-shadow: 0 0 0 14px rgba(16, 185, 129, 0); }
+}
+
+.animate-in { animation: pc-fade var(--motion-base) var(--ease-out) both; }
+.animate-in.zoom-in-95 { animation-name: pc-zoom; }
+.animate-in.slide-in-from-right { animation-name: pc-slide-right; }
+.animate-in.slide-in-from-bottom { animation-name: pc-slide-up; }
+.anim-slide-up { animation: pc-slide-up var(--motion-base) var(--ease-out) both; }
+.anim-pop { animation: pc-pop var(--motion-slow) var(--ease-out) both; }
+.anim-ring { animation: pc-ring 1.4s ease-out infinite; }
+.typing-dot { animation: pc-typing 1.1s infinite ease-in-out; }
+.typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.typing-dot:nth-child(3) { animation-delay: 0.3s; }
+.skeleton {
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--surface-hover) 37%, var(--surface-2) 63%);
+  background-size: 400% 100%;
+  animation: pc-shimmer 1.6s ease infinite;
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Bottom safe-area for notched phones */
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }

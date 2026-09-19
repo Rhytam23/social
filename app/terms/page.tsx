@@ -6,9 +6,9 @@ import { IconLock, IconShield } from '../../components/ui/icons';
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 font-sans flex flex-col">
+    <div className="min-h-screen bg-[var(--canvas-bg)] text-slate-100 font-sans flex flex-col">
       {/* Header */}
-      <header className="border-b border-slate-800 bg-[#070b14]/90 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-slate-800 bg-[var(--canvas-bg)]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 text-white font-bold text-sm">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
@@ -75,7 +75,7 @@ export default function TermsOfServicePage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 py-6 text-center text-[11px] text-slate-600 bg-[#05080f]">
+      <footer className="border-t border-slate-900 py-6 text-center text-[11px] text-slate-600 bg-[var(--canvas-bg)]">
         Private Chat V1 • Genuine Client-Side Privacy
       </footer>
     </div>
