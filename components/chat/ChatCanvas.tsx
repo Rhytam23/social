@@ -43,6 +43,8 @@ export interface ChatCanvasProps {
   onAcceptKeyChange?: () => void;
   onVerifyPeer?: () => void;
   onReportMessage?: (msg: MessageData) => void;
+  /** Start a voice (false) or video (true) call with the other person (direct chats only). */
+  onStartCall?: (video: boolean) => void;
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -78,6 +80,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   onAcceptKeyChange,
   onVerifyPeer,
   onReportMessage,
+  onStartCall,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
@@ -191,6 +194,30 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onStartCall && (
+            <>
+              <button
+                onClick={() => onStartCall(false)}
+                aria-label="Start a voice call"
+                title="Voice call"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h2.3a1 1 0 01.95.68l1.1 3.3a1 1 0 01-.5 1.2l-1.5.75a11 11 0 005.3 5.3l.75-1.5a1 1 0 011.2-.5l3.3 1.1a1 1 0 01.68.95V19a2 2 0 01-2 2A16 16 0 013 5z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => onStartCall(true)}
+                aria-label="Start a video call"
+                title="Video call"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 10l4.5-2.5v9L15 14m-9 4h7a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            </>
+          )}
           {onSetDisappear && <DisappearMenu current={conversation.disappearAfter} onChange={onSetDisappear} />}
           {onSetNotify && <NotifyMenu conversation={conversation} onChange={onSetNotify} />}
           <button

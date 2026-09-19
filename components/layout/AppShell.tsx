@@ -106,6 +106,9 @@ export interface AppShellProps {
   onVerifyPeer?: (conversationId: string) => void;
   onAcceptKeyChange?: (conversationId: string) => void;
   privacyProps?: Omit<PrivacySettingsProps, 'userId'>;
+  /** Places a call to a contact. Provided in connected mode only. */
+  onStartCall?: (peerUserId: string, video: boolean) => void;
+  callActive?: boolean;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -176,6 +179,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   onVerifyPeer,
   onAcceptKeyChange,
   privacyProps,
+  onStartCall,
+  callActive,
 }) => {
   const [activeCategory, setActiveCategory] = useState<ViewCategory>('chats');
   const [showInspector, setShowInspector] = useState(false);
@@ -440,6 +445,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onAcceptKeyChange={onAcceptKeyChange ? () => onAcceptKeyChange(activeConversation.id) : undefined}
                 onVerifyPeer={onVerifyPeer ? () => onVerifyPeer(activeConversation.id) : undefined}
                 onReportMessage={onReportMessage ? (m) => setReportingMessage(m) : undefined}
+                onStartCall={
+                  onStartCall && !callActive && activeConversation.type === 'direct' && activeConversation.recipientUser && !blockedDirect
+                    ? (video) => onStartCall(activeConversation.recipientUser!.id, video)
+                    : undefined
+                }
                 onSetNotify={onSetConversationNotify ? (level, ms) => onSetConversationNotify(activeConversation.id, level, ms) : undefined}
                 mentionCandidates={users.filter((u) => u.id !== currentUserId && (activeConversation.groupMeta?.memberIds?.includes(u.id) ?? false))}
                 typingNames={typingNames}

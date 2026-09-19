@@ -13,6 +13,10 @@ import { initPreferences, type Preferences } from '../lib/prefs/preferences';
 import { LiveChannels } from '../lib/realtime/liveChannels';
 import { handleIncoming, markConversationNotificationsRead } from '../lib/notifications/notifier';
 import { AppLockGate } from '../components/privacy/AppLockGate';
+import { CallManager, IDLE_CALL_STATE, type CallState } from '../lib/calls/CallManager';
+import { CallOverlay } from '../components/calls/CallOverlay';
+import { playBeep } from '../lib/notifications/notifier';
+import { toast } from '../lib/ui/toastStore';
 import { getPreferences } from '../lib/prefs/preferences';
 import { createClient } from '../lib/supabase/client';
 import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
@@ -37,6 +41,9 @@ export default function HomePage() {
   const cryptoRef = useRef<MessagingCrypto | null>(null);
   const initedRef = useRef(false);
   const liveRef = useRef<LiveChannels | null>(null);
+  const callsRef = useRef<CallManager | null>(null);
+  const ringRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [callState, setCallState] = useState<CallState>(IDLE_CALL_STATE);
 
   const configured = isSupabaseConfigured();
 
@@ -81,7 +88,6 @@ export default function HomePage() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'community_members' }, () => {
         void store.loadCommunities();
-        void store.loadBlocked();
         store.refreshConversations();
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
@@ -170,6 +176,35 @@ export default function HomePage() {
         live.start();
         void store.loadSavedMessages();
         void store.loadCommunities();
+        void store.loadBlocked();
+
+        callsRef.current?.stop();
+        const stopRinging = () => {
+          if (ringRef.current) clearInterval(ringRef.current);
+          ringRef.current = null;
+        };
+        const calls = new CallManager(supabase, crypto, user.id, {
+          getPeer: (peerId) => {
+            const s = store.getState();
+            if (s.blocked.includes(peerId)) return null;
+            const conv = s.conversations.find((c) => c.type === 'direct' && c.recipientUser?.id === peerId);
+            return conv ? { name: conv.title, conversationId: conv.id, verified: !!conv.recipientUser?.isVerified } : null;
+          },
+          logCall: (conversationId, callId, outcome, video, durationMs) => void store.sendCallLog(conversationId, callId, outcome, video, durationMs),
+          canRing: () => {
+            const choice = getPreferences().status.choice;
+            return choice !== 'dnd' && choice !== 'meeting';
+          },
+          startRinging: () => {
+            stopRinging();
+            playBeep();
+            ringRef.current = setInterval(playBeep, 2200);
+          },
+          stopRinging,
+        });
+        callsRef.current = calls;
+        calls.subscribe(() => setCallState(calls.getState()));
+        calls.start();
       } catch (liveErr) {
         console.warn('Live channels unavailable', liveErr);
       }
@@ -195,6 +230,8 @@ export default function HomePage() {
 
     return () => {
       liveRef.current?.stop();
+      callsRef.current?.stop();
+      if (ringRef.current) clearInterval(ringRef.current);
       if (realtimeChannelRef.current) {
         const supabase = createClient();
         supabase.removeChannel(realtimeChannelRef.current);
@@ -256,6 +293,14 @@ export default function HomePage() {
   useEffect(() => {
     markConversationNotificationsRead(state.activeConversationId);
   }, [state.activeConversationId]);
+
+  // Call problems (no microphone, blocked permission, connection lost) are shown as a message.
+  useEffect(() => {
+    if (callState.error && callState.phase === 'idle') {
+      toast(callState.error, { kind: 'error', ms: 8000 });
+      callsRef.current?.clearError();
+    }
+  }, [callState.error, callState.phase]);
 
   // Disappearing messages: drop expired ones from view and ask the server to delete them.
   const [, setClockTick] = useState(0);
@@ -403,6 +448,9 @@ export default function HomePage() {
     cryptoRef.current = null;
     liveRef.current?.stop();
     liveRef.current = null;
+    callsRef.current?.hangup();
+    callsRef.current?.stop();
+    callsRef.current = null;
     store.logout();
     setIsAuthenticated(false);
   };
@@ -562,6 +610,8 @@ export default function HomePage() {
           .filter((m): m is MessageData => !!m)}
         onToggleSaved={handleStarMessageToggle}
         onSetConversationNotify={(id, level, ms) => store.setConversationNotify(id, level, ms)}
+        onStartCall={state.mode === 'connected' ? (peerId, video) => void callsRef.current?.startCall(peerId, video) : undefined}
+        callActive={callState.phase !== 'idle'}
         currentUser={state.currentUser}
         blockedIds={state.blocked}
         onBlockUser={(id) => void store.blockUser(id)}
@@ -596,6 +646,15 @@ export default function HomePage() {
         onSetMemberRole={(groupId, userId, role) => store.setMemberRole(groupId, userId, role)}
         onUpdateGroupSettings={(groupId, patch) => store.updateGroupSettings(groupId, patch)}
         onLeaveGroup={(groupId) => store.leaveGroup(groupId)}
+      />
+
+      <CallOverlay
+        state={callState}
+        onAccept={() => void callsRef.current?.accept()}
+        onDecline={() => callsRef.current?.decline()}
+        onHangup={() => callsRef.current?.hangup()}
+        onToggleMute={() => callsRef.current?.toggleMute()}
+        onToggleCamera={() => callsRef.current?.toggleCamera()}
       />
 
       {configured && state.mode === 'connected' && <AppLockGate userId={state.currentUser.id} onSignOut={handleLogout} />}

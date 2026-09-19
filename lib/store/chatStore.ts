@@ -7,7 +7,7 @@ import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
 import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
 import { uploadEncryptedAttachment, downloadAndDecryptAttachment, MAX_ATTACHMENT_BYTES } from '../messaging/attachments';
-import type { MessageEnvelope } from '../messaging/envelope';
+import type { MessageEnvelope, CallOutcome } from '../messaging/envelope';
 import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } from '../messaging/envelopeDisplay';
 import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
 
@@ -1693,6 +1693,17 @@ export class ChatStore {
     this.saveStorageJson(`${this.verifyKeyPrefix()}_seen`, seen);
     this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, keyChanged: false } } : c));
     this.notify();
+  }
+
+  /** Writes a call entry ("Voice call, 4:12" / "Missed video call") into the chat. Called by the side that placed the call. */
+  public async sendCallLog(conversationId: string, callId: string, outcome: CallOutcome, video: boolean, durationMs?: number): Promise<void> {
+    const summary = this.conversationSummaries.get(conversationId);
+    if (this.state.mode !== 'connected' || !summary || !this.crypto) return;
+    try {
+      await sendEnvelope(this.crypto, summary, { v: 1, kind: 'call', callId, outcome, video, durationMs });
+    } catch {
+      // the call itself is unaffected if the log line fails
+    }
   }
 
   public clearError() {

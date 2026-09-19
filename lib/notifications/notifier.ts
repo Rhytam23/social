@@ -56,7 +56,7 @@ export function markConversationNotificationsRead(conversationId: string) {
 // ---- Delivery ----
 let audio: AudioContext | null = null;
 
-function beep() {
+export function playBeep() {
   try {
     audio = audio ?? new AudioContext();
     const osc = audio.createOscillator();
@@ -119,7 +119,7 @@ export function handleIncoming(event: IncomingEvent, env: NotifierEnv): void {
   if (!alert || isViewing) return;
 
   const body = prefs.notifications.preview ? `${message.senderName}: ${text}`.slice(0, 140) : 'New message';
-  if (prefs.notifications.sound) beep();
+  if (prefs.notifications.sound) playBeep();
 
   const canDesktop = typeof Notification !== 'undefined' && Notification.permission === 'granted';
   if (canDesktop && document.visibilityState === 'hidden') {
