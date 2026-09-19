@@ -29,8 +29,7 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, Helvetica, Arial, sans-serif !important;
   margin: 0 !important;
   padding: 0 !important;
-  overflow: hidden !important;
-  height: 100% !important;
+  min-height: 100%;
   width: 100% !important;
   -webkit-font-smoothing: antialiased;
 }
