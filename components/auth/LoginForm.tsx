@@ -55,17 +55,23 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   // Surface failures from the /auth/confirm redirect (?error=...).
   useEffect(() => {
-    const reason = new URLSearchParams(window.location.search).get('error');
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get('error');
+    // Provider/Supabase explanation passed by /auth/confirm; shown as plain text only.
+    const detail = params.get('detail')?.replace(/\s+/g, ' ').trim().slice(0, 160);
+    const withDetail = (message: string) => (detail ? `${message} (Reason: ${detail})` : message);
     if (reason === 'link_expired') {
       setErrorMsg('That confirmation link has expired. Sign in with your email and password to get a new one.');
     } else if (reason === 'confirmation_failed') {
       setErrorMsg(
-        "We couldn't complete email confirmation from that link. If you already used it, your email may be confirmed - try signing in."
+        withDetail(
+          "We couldn't complete email confirmation from that link. If you already used it, your email may be confirmed - try signing in."
+        )
       );
     } else if (reason === 'oauth_cancelled') {
       setErrorMsg('Google sign-in was cancelled. Please try again.');
     } else if (reason === 'oauth_failed') {
-      setErrorMsg("We couldn't complete Google sign-in. Please try again, or use your email and password.");
+      setErrorMsg(withDetail("We couldn't complete Google sign-in. Please try again, or use your email and password."));
     }
   }, []);
 

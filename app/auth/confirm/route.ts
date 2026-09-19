@@ -8,6 +8,17 @@ import { createServerClient } from '@/lib/supabase/server';
  * {{ .ConfirmationURL }} email template) and `?token_hash=&type=` (custom
  * {{ .TokenHash }} template). Failures redirect to /login?error=<reason>.
  */
+const MAX_DETAIL_LENGTH = 160;
+
+/** Redirects to /login with a reason code and, when known, the provider's own explanation. */
+function failureRedirect(origin: string, reason: string, detail?: string | null) {
+  const url = new URL('/login', origin);
+  url.searchParams.set('error', reason);
+  const cleaned = detail?.replace(/\s+/g, ' ').trim().slice(0, MAX_DETAIL_LENGTH);
+  if (cleaned) url.searchParams.set('detail', cleaned);
+  return NextResponse.redirect(url);
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
@@ -27,9 +38,11 @@ export async function GET(request: NextRequest) {
     let reason = failure;
     if (linkErrorCode === 'otp_expired') reason = 'link_expired';
     else if (isOAuth && linkError === 'access_denied') reason = 'oauth_cancelled';
-    return NextResponse.redirect(`${origin}/login?error=${reason}`);
+    const detail = reason === failure ? searchParams.get('error_description') || linkErrorCode || linkError : null;
+    return failureRedirect(origin, reason, detail);
   }
 
+  let detail: string | null = null;
   if (code || (token_hash && type)) {
     const supabase = await createServerClient();
     const { error } = code
@@ -38,7 +51,10 @@ export async function GET(request: NextRequest) {
     if (!error) {
       return NextResponse.redirect(`${origin}${next}`);
     }
+    detail = error.message;
+  } else {
+    detail = 'No sign-in code was returned';
   }
 
-  return NextResponse.redirect(`${origin}/login?error=${failure}`);
+  return failureRedirect(origin, failure, detail);
 }
