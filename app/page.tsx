@@ -8,6 +8,8 @@ import { LoginForm } from '../components/auth/LoginForm';
 import { LandingPage } from '../components/landing/LandingPage';
 import { OnboardingModal } from '../components/onboarding/OnboardingModal';
 import { UserItem, MessageData } from '../types/ui';
+import { loadOwnProfile, saveOwnProfile } from '../lib/profile/profileClient';
+import { initPreferences, type Preferences } from '../lib/prefs/preferences';
 import { createClient } from '../lib/supabase/client';
 import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
 import { MessagingCrypto } from '../lib/messaging/messagingCrypto';
@@ -15,14 +17,6 @@ import type { RealtimeMessageRow } from '../lib/store/chatStore';
 import { createKeyBackup, restoreKeyBackup } from '../crypto';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-interface ProfileRow {
-  id: string;
-  display_name?: string;
-  username?: string;
-  phone_number?: string;
-  avatar_url?: string | null;
-  is_admin?: boolean;
-}
 
 export default function HomePage() {
   const [state, store] = useChatStore();
@@ -79,6 +73,7 @@ export default function HomePage() {
     if (!configured) {
       if (isDemoModeAllowed()) {
         store.initDemoMode();
+        initPreferences('demo');
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
@@ -105,18 +100,18 @@ export default function HomePage() {
       setBootError(null);
       setIsAuthenticated(true);
 
-      const { data: profile } = (await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle()) as { data: ProfileRow | null };
+      const profile = await loadOwnProfile(supabase, user);
+      initPreferences(user.id, profile?.preferences, (prefs: Preferences) => {
+        void saveOwnProfile(supabase, user.id, { preferences: prefs as unknown as Record<string, unknown> }).catch(() => {});
+      });
 
       const displayName =
         profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
 
       if (typeof window !== 'undefined') {
-        const completed = localStorage.getItem(`private_chat_onboarding_completed_${user.id}`);
-        if (!completed && (!profile?.display_name || profile.display_name === 'User')) {
+        const completed =
+          profile?.onboarding_completed === true || localStorage.getItem(`private_chat_onboarding_completed_${user.id}`);
+        if (!completed && (!profile?.display_name || profile.display_name === 'User' || profile?.onboarding_completed === false)) {
           setOnboardingOpen(true);
         }
       }
@@ -130,7 +125,10 @@ export default function HomePage() {
         name: displayName,
         username: profile?.username || user.email?.split('@')[0],
         email: user.email,
-        phoneNumber: profile?.phone_number,
+        phoneNumber: profile?.phone_number ?? undefined,
+        bio: profile?.bio ?? undefined,
+        pronouns: profile?.pronouns ?? undefined,
+        timezone: profile?.timezone ?? undefined,
         role: profile?.is_admin ? 'admin' : 'member',
       });
 
@@ -436,6 +434,7 @@ export default function HomePage() {
         initialName={state.currentUser.name}
         onProfileUpdated={(name) => store.updateCurrentUserProfile({ name })}
         onStartFirstChat={() => setNewChatModalOpen(true)}
+        onExportKeyBackup={handleExportKeyBackup}
       />
 
       <NewConversationModal

@@ -24,23 +24,38 @@ export async function GET(request: NextRequest) {
     // email/phone_number remain searchable (below) but are never sent to the
     // client - a prior version leaked every user's email/phone to any
     // authenticated caller who searched for them.
-    let dbQuery = supabase
-      .from('profiles')
-      .select('id, username, display_name, avatar_url, created_at')
-      .neq('id', user.id)
-      .limit(100);
+    const build = (columns: string) => {
+      let q = supabase.from('profiles').select(columns).neq('id', user.id).limit(100);
+      if (sanitizedQuery.length > 0) {
+        q = q.or(`username.ilike.%${sanitizedQuery}%,display_name.ilike.%${sanitizedQuery}%`);
+      }
+      return q;
+    };
 
-    if (sanitizedQuery.length > 0) {
-      dbQuery = dbQuery.or(
-        `username.ilike.%${sanitizedQuery}%,display_name.ilike.%${sanitizedQuery}%,email.ilike.%${sanitizedQuery}%,phone_number.ilike.%${sanitizedQuery}%`
-      );
+    // bio/pronouns/timezone come from migration 011; fall back if it has not run yet.
+    let { data: profiles, error: searchError } = await build(
+      'id, username, display_name, avatar_url, created_at, bio, pronouns, timezone'
+    );
+    if (searchError) {
+      ({ data: profiles, error: searchError } = await build('id, username, display_name, avatar_url, created_at'));
     }
 
-    const { data: profiles, error: searchError } = await dbQuery;
+    if (searchError) {
+      return NextResponse.json({ error: searchError.message }, { status: 500 });
+    }
 
-  if (searchError) {
-    return NextResponse.json({ error: searchError.message }, { status: 500 });
-  }
+    // Email / phone: exact match only, resolved server-side. Partial matching would
+    // let anyone probe which addresses are registered.
+    const results = [...((profiles as unknown as Array<{ id: string }>) || [])];
+    if (sanitizedQuery.length >= 5) {
+      const untyped = supabase as unknown as {
+        rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown }>;
+      };
+      const { data: exact } = await untyped.rpc('find_profiles_by_contact', { p_query: query.trim() });
+      for (const p of (exact as Array<{ id: string }> | null) || []) {
+        if (!results.some((r) => r.id === p.id)) results.push(p);
+      }
+    }
 
-  return NextResponse.json(profiles || []);
+    return NextResponse.json(results);
 }

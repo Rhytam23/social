@@ -253,7 +253,7 @@ export class ChatStore {
   public async initializeForUser(
     supabase: SupabaseClient<Database>,
     crypto: MessagingCrypto,
-    profile: { id: string; name: string; username?: string; email?: string; phoneNumber?: string; role: 'admin' | 'member' }
+    profile: { id: string; name: string; username?: string; email?: string; phoneNumber?: string; bio?: string; pronouns?: string; timezone?: string; role: 'admin' | 'member' }
   ): Promise<void> {
     this.supabase = supabase;
     this.crypto = crypto;
@@ -270,6 +270,9 @@ export class ChatStore {
         username: profile.username,
         email: profile.email,
         phoneNumber: profile.phoneNumber,
+        bio: profile.bio,
+        pronouns: profile.pronouns,
+        timezone: profile.timezone,
         registrationId: Math.abs(hashCode(profile.id)) % 90000 + 10000,
         role: profile.role,
         deviceCount: 1,
@@ -353,11 +356,15 @@ export class ChatStore {
   private async loadAllUsersReal(): Promise<void> {
     const res = await fetch('/api/users');
     if (!res.ok) return;
-    const profiles = (await res.json()) as Array<{ id: string; username: string; display_name: string; avatar_url: string | null }>;
+    const profiles = (await res.json()) as Array<{ id: string; username: string; display_name: string; avatar_url: string | null; bio?: string | null; pronouns?: string | null; timezone?: string | null }>;
     const users: UserItem[] = profiles.map((p) => ({
       id: p.id,
       name: p.display_name,
       username: p.username,
+      avatarUrl: p.avatar_url ?? undefined,
+      bio: p.bio ?? undefined,
+      pronouns: p.pronouns ?? undefined,
+      timezone: p.timezone ?? undefined,
       registrationId: Math.abs(hashCode(p.id)) % 90000 + 10000,
       role: 'member',
       deviceCount: 1,

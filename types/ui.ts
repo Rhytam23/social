@@ -104,6 +104,9 @@ export interface UserItem {
   email?: string;
   phoneNumber?: string;
   avatarUrl?: string;
+  bio?: string;
+  pronouns?: string;
+  timezone?: string;
   registrationId: number;
   role: 'admin' | 'member';
   deviceCount: number;

@@ -257,3 +257,10 @@ body {
 
 /* Bottom safe-area for notched phones */
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* User preferences (Settings > Appearance) */
+html[data-font='sm'] { font-size: 15px; }
+html[data-font='lg'] { font-size: 17.5px; }
+html[data-density='compact'] .text-xs { line-height: 1.2; }
+html[data-density='compact'] [role='listbox'] > *,
+html[data-density='compact'] nav button { padding-top: 0.35rem; padding-bottom: 0.35rem; }

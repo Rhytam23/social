@@ -11,6 +11,8 @@ import {
   IconShield,
 } from '../ui/icons';
 import { createClient } from '../../lib/supabase/client';
+import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
+import { AppearanceSettings } from './AppearanceSettings';
 
 export type SettingsTab = 'profile' | 'account' | 'privacy' | 'appearance' | 'notifications' | 'about';
 
@@ -43,6 +45,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [displayName, setDisplayName] = useState(currentUser.name);
   const [username, setUsername] = useState(currentUser.username || '');
   const [phoneNumber, setPhoneNumber] = useState(currentUser.phoneNumber || '');
+  const [bio, setBio] = useState(currentUser.bio || '');
+  const [pronouns, setPronouns] = useState(currentUser.pronouns || '');
+  const [timezone, setTimezone] = useState(
+    currentUser.timezone || (typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : '')
+  );
+  const [usernameError, setUsernameError] = useState<string | null>(null);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [profileSuccess, setProfileSuccess] = useState<string | null>(null);
 
@@ -73,6 +81,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!displayName.trim()) return;
+    const uErr = username.trim() ? validateUsername(username) : null;
+    setUsernameError(uErr);
+    if (uErr) return;
 
     setIsSavingProfile(true);
     setProfileSuccess(null);
@@ -86,14 +97,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       if (isSupabaseConfigured) {
         const supabase = createClient();
-        await supabase
-          .from('profiles')
-          .update({
-            display_name: displayName.trim(),
-            username: username.trim() || undefined,
-            phone_number: phoneNumber.trim() || undefined,
-          })
-          .eq('id', currentUser.id);
+        const { extrasSaved } = await saveOwnProfile(supabase, currentUser.id, {
+          display_name: displayName.trim(),
+          username: username.trim() || undefined,
+          phone_number: phoneNumber.trim() || null,
+          bio: bio.trim() || null,
+          pronouns: pronouns.trim() || null,
+          timezone: timezone.trim() || null,
+        });
+        if (!extrasSaved) {
+          setErrorMessage('Name and username were saved, but bio, pronouns and time zone need the latest database update (migration 011).');
+        }
       }
 
       if (onUpdateProfile) {
@@ -101,6 +115,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           name: displayName.trim(),
           username: username.trim() || undefined,
           phoneNumber: phoneNumber.trim() || undefined,
+          bio: bio.trim() || undefined,
+          pronouns: pronouns.trim() || undefined,
+          timezone: timezone.trim() || undefined,
         });
       }
 
@@ -299,13 +316,62 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-slate-300 font-semibold text-xs">Username (@handle)</label>
+                <label htmlFor="pf-username" className="text-slate-300 font-semibold text-xs">Username (@handle)</label>
                 <input
+                  id="pf-username"
                   type="text"
                   placeholder="e.g. alex_m"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  aria-invalid={usernameError ? true : undefined}
+                  aria-describedby={usernameError ? 'pf-username-err' : undefined}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    setUsernameError(null);
+                  }}
                   className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all"
+                />
+                {usernameError && (
+                  <span id="pf-username-err" role="alert" className="text-[11px] text-rose-400">{usernameError}</span>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="pf-pronouns" className="text-slate-300 font-semibold text-xs">Pronouns (optional)</label>
+                <input
+                  id="pf-pronouns"
+                  type="text"
+                  maxLength={30}
+                  placeholder="e.g. they/them"
+                  value={pronouns}
+                  onChange={(e) => setPronouns(e.target.value)}
+                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="pf-tz" className="text-slate-300 font-semibold text-xs">Time zone</label>
+                <input
+                  id="pf-tz"
+                  type="text"
+                  placeholder="e.g. Asia/Kolkata"
+                  value={timezone}
+                  onChange={(e) => setTimezone(e.target.value)}
+                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <label htmlFor="pf-bio" className="text-slate-300 font-semibold text-xs">
+                  About you <span className="text-slate-500 font-normal">({bio.length}/280)</span>
+                </label>
+                <textarea
+                  id="pf-bio"
+                  rows={3}
+                  maxLength={280}
+                  placeholder="A short line others see on your profile card."
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  className="bg-slate-950/60 border border-slate-800 p-2.5 rounded-xl text-xs text-slate-100 focus:outline-none focus:border-slate-600 transition-all resize-none"
                 />
               </div>
 
@@ -500,14 +566,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       {/* TAB 4: APPEARANCE */}
-      {activeTab === 'appearance' && (
-        <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3 shadow-xs">
-          <span className="text-xs font-bold text-slate-200">Theme</span>
-          <p className="text-[11px] text-slate-400 leading-relaxed max-w-md">
-            Private Chat currently ships a single fixed dark theme. A light/system theme option is not implemented yet, so no non-functional toggle is shown here.
-          </p>
-        </div>
-      )}
+      {activeTab === 'appearance' && <AppearanceSettings />}
 
       {/* TAB 5: NOTIFICATIONS */}
       {activeTab === 'notifications' && (
