@@ -10,6 +10,7 @@ import { OnboardingModal } from '../components/onboarding/OnboardingModal';
 import { UserItem, MessageData } from '../types/ui';
 import { loadOwnProfile, saveOwnProfile } from '../lib/profile/profileClient';
 import { initPreferences, type Preferences } from '../lib/prefs/preferences';
+import { LiveChannels } from '../lib/realtime/liveChannels';
 import { createClient } from '../lib/supabase/client';
 import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
 import { MessagingCrypto } from '../lib/messaging/messagingCrypto';
@@ -31,6 +32,7 @@ export default function HomePage() {
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const cryptoRef = useRef<MessagingCrypto | null>(null);
   const initedRef = useRef(false);
+  const liveRef = useRef<LiveChannels | null>(null);
 
   const configured = isSupabaseConfigured();
 
@@ -64,6 +66,15 @@ export default function HomePage() {
           void store.receiveRealtimeMessageUpdate(payload.new as RealtimeMessageRow);
         }
       )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions' }, (payload) => {
+        store.applyReactionEvent('INSERT', payload.new as { message_id?: string; user_id?: string; reaction?: string });
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'message_reactions' }, (payload) => {
+        store.applyReactionEvent('DELETE', payload.old as { message_id?: string; user_id?: string; reaction?: string });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_receipts' }, (payload) => {
+        store.applyReceiptRow(payload.new as { message_id?: string; user_id?: string; delivered_at?: string | null; read_at?: string | null });
+      })
       .subscribe();
 
     realtimeChannelRef.current = channel;
@@ -135,6 +146,17 @@ export default function HomePage() {
       if (profile?.avatar_url) {
         store.updateCurrentUserProfile({ avatarUrl: profile.avatar_url });
       }
+
+      // Presence, typing and bookmarks are best effort: a failure here must not block the app.
+      try {
+        liveRef.current?.stop();
+        const live = new LiveChannels(supabase, user.id, store);
+        liveRef.current = live;
+        live.start();
+        void store.loadSavedMessages();
+      } catch (liveErr) {
+        console.warn('Live channels unavailable', liveErr);
+      }
     } catch (err) {
       // Only a failed auth check may send the user back to the landing page.
       // If we already know they're signed in, a later setup failure (profile
@@ -156,6 +178,7 @@ export default function HomePage() {
     void bootstrapSession();
 
     return () => {
+      liveRef.current?.stop();
       if (realtimeChannelRef.current) {
         const supabase = createClient();
         supabase.removeChannel(realtimeChannelRef.current);
@@ -173,6 +196,11 @@ export default function HomePage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, configured, state.mode, conversationIdsKey]);
+
+  // Typing indicators follow the conversation the user is looking at.
+  useEffect(() => {
+    liveRef.current?.watchConversation(state.mode === 'connected' && isAuthenticated ? state.activeConversationId || null : null);
+  }, [state.activeConversationId, state.mode, isAuthenticated]);
 
   const activeConversation =
     state.conversations.find((c) => c.id === state.activeConversationId) ||
@@ -223,7 +251,7 @@ export default function HomePage() {
   };
 
   const handleStarMessageToggle = (msgId: string) => {
-    store.starMessage(msgId);
+    void store.toggleSaved(msgId);
   };
 
   const handleToggleUserRole = (userId: string, currentRole: 'admin' | 'member') => {
@@ -277,6 +305,8 @@ export default function HomePage() {
       }
     }
     cryptoRef.current = null;
+    liveRef.current?.stop();
+    liveRef.current = null;
     store.logout();
     setIsAuthenticated(false);
   };
@@ -425,6 +455,16 @@ export default function HomePage() {
         onDeleteConversationLocally={(id) => store.deleteConversationLocally(id)}
         onLogout={handleLogout}
         isLoading={state.isLoading}
+        onStatusChanged={() => void liveRef.current?.publishSelf()}
+        typingNames={(state.typing[state.activeConversationId] || []).map((id) => store.nameOf(id))}
+        onTyping={() => liveRef.current?.sendTyping()}
+        isLoadingMessages={!!state.messagesLoading[state.activeConversationId]}
+        canLoadOlder={state.mode === 'connected' && store.hasMoreHistory(state.activeConversationId) && activeMessages.length >= 50}
+        onLoadOlder={() => void store.loadOlderMessages(state.activeConversationId)}
+        savedMessages={state.saved
+          .map((s) => state.messagesMap[s.conversationId]?.find((m) => m.id === s.messageId))
+          .filter((m): m is MessageData => !!m)}
+        onToggleSaved={handleStarMessageToggle}
       />
 
       <OnboardingModal

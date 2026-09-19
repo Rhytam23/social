@@ -9,6 +9,7 @@ import { SettingsView } from '../settings/SettingsView';
 import { AdminDashboard } from '../admin/AdminDashboard';
 import { CommandPalette, type PaletteAction } from '../search/CommandPalette';
 import { ShortcutsDialog } from '../ui/ShortcutsDialog';
+import { SavedMessagesView } from '../saved/SavedMessagesView';
 import { setTheme, readTheme } from '../../lib/ui/theme';
 import { toast } from '../../lib/ui/toastStore';
 import { UserProfileModal } from '../profile/UserProfileModal';
@@ -60,6 +61,14 @@ export interface AppShellProps {
   onDeleteConversationLocally?: (convId: string) => void;
   onLogout?: () => void;
   isLoading?: boolean;
+  onStatusChanged?: () => void;
+  typingNames?: string[];
+  onTyping?: () => void;
+  canLoadOlder?: boolean;
+  onLoadOlder?: () => void;
+  isLoadingMessages?: boolean;
+  savedMessages?: MessageData[];
+  onToggleSaved?: (messageId: string) => void;
 }
 
 export const AppShell: React.FC<AppShellProps> = ({
@@ -98,6 +107,14 @@ export const AppShell: React.FC<AppShellProps> = ({
   onDeleteConversationLocally,
   onLogout,
   isLoading,
+  onStatusChanged,
+  typingNames,
+  onTyping,
+  canLoadOlder,
+  onLoadOlder,
+  isLoadingMessages,
+  savedMessages = [],
+  onToggleSaved,
 }) => {
   const [activeCategory, setActiveCategory] = useState<ViewCategory>('chats');
   const [showInspector, setShowInspector] = useState(false);
@@ -215,6 +232,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             onNewMessage={onNewMessage}
             unreadTotal={unreadTotal}
             isLoading={isLoading}
+            onStatusChanged={onStatusChanged}
             onGlobalSearchTrigger={() => setSearchModalOpen(true)}
             onPinConversation={onPinConversation}
             onMuteConversation={onMuteConversation}
@@ -256,7 +274,12 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onDeleteMessage={onDeleteMessageLocal}
                 onForwardMessage={(msg) => setForwardingMessage(msg)}
                 onPinMessage={onPinMessageToggle}
-                onStarMessage={onStarMessageToggle}
+                onStarMessage={onToggleSaved ?? onStarMessageToggle}
+                typingNames={typingNames}
+                onTyping={onTyping}
+                canLoadOlder={canLoadOlder}
+                onLoadOlder={onLoadOlder}
+                isLoadingMessages={isLoadingMessages}
                 onDownloadAttachment={onDownloadAttachment}
                 onRetryFailedMessage={onRetryFailedMessage}
                 editingMessage={editingMessage}
@@ -285,6 +308,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                       conversation={activeConversation}
                       devices={devices}
                       members={users}
+                      messages={messages}
+                      onDownloadAttachment={onDownloadAttachment}
                     />
                   </div>
                 </div>
@@ -337,6 +362,19 @@ export const AppShell: React.FC<AppShellProps> = ({
                 <span>Create Group</span>
               </Button>
             </div>
+          )}
+
+          {activeCategory === 'saved' && (
+            <SavedMessagesView
+              saved={savedMessages}
+              conversations={conversations}
+              onOpenConversation={(id) => {
+                onSelectConversation(id);
+                setActiveCategory('chats');
+                setMobileChatView(true);
+              }}
+              onUnsave={(id) => onToggleSaved?.(id)}
+            />
           )}
 
           {activeCategory === 'people' && (

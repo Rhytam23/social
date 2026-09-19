@@ -1,8 +1,8 @@
-export type ViewCategory = 'chats' | 'groups' | 'people' | 'settings' | 'admin';
+export type ViewCategory = 'chats' | 'groups' | 'people' | 'saved' | 'settings' | 'admin';
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
-export type UserPresence = 'online' | 'away' | 'dnd' | 'offline';
+export type UserPresence = 'online' | 'away' | 'dnd' | 'meeting' | 'offline';
 
 export interface ReactionItem {
   emoji: string;

@@ -10,6 +10,7 @@ import {
   IconShield,
 } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
+import { StatusMenu } from './StatusMenu';
 import { CountBadge, ConversationListSkeleton } from '../ui/primitives';
 
 export interface NavDeckProps {
@@ -24,6 +25,7 @@ export interface NavDeckProps {
   onNewMessage: () => void;
   unreadTotal: number;
   isLoading?: boolean;
+  onStatusChanged?: () => void;
   onGlobalSearchTrigger?: () => void;
 
   // Conversation Actions
@@ -47,6 +49,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   onNewMessage,
   unreadTotal,
   isLoading,
+  onStatusChanged,
   onGlobalSearchTrigger,
   onPinConversation,
   onMuteConversation,
@@ -62,6 +65,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   const categories: { key: ViewCategory; label: string; badge?: number }[] = [
     { key: 'chats', label: 'Chats', badge: unreadTotal },
     { key: 'groups', label: 'Groups' },
+    { key: 'saved', label: 'Saved' },
     { key: 'people', label: 'People' },
     { key: 'settings', label: 'Security' },
     ...(userRole === 'admin' ? [{ key: 'admin' as ViewCategory, label: 'Admin' }] : []),
@@ -101,7 +105,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
       {/* 1. Left Sidebar Header (WhatsApp Web Usability) */}
       <div className="h-16 px-4 bg-slate-950/40 border-b border-[var(--border-subtle)] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <Avatar name={currentUserName} size="sm" />
+          <StatusMenu name={currentUserName} onChanged={onStatusChanged} />
           <div className="flex flex-col">
             <span className="text-xs font-bold text-slate-100 leading-tight">{currentUserName}</span>
             <span className="text-[10px] font-mono text-slate-400">#{currentUserRegistrationId}</span>

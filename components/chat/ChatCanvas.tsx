@@ -3,6 +3,8 @@ import { ConversationItem, MessageData, ReplyReference } from '../../types/ui';
 import { MessageItem } from '../messages/MessageItem';
 import { MessageComposer } from '../messages/MessageComposer';
 import { IconChevronDown, IconLock, IconPin, IconSearch, IconShield, IconX } from '../ui/icons';
+import { PRESENCE_LABEL } from '../ui/avatar';
+import { MessageListSkeleton, TypingDots } from '../ui/primitives';
 
 export interface ChatCanvasProps {
   conversation: ConversationItem;
@@ -24,6 +26,12 @@ export interface ChatCanvasProps {
   onSaveEditMessage?: (msgId: string, newContent: string) => void;
   onCancelEdit?: () => void;
   onBackToList?: () => void;
+  /** Names of people typing right now in this conversation. */
+  typingNames?: string[];
+  onTyping?: () => void;
+  isLoadingMessages?: boolean;
+  canLoadOlder?: boolean;
+  onLoadOlder?: () => void;
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -46,6 +54,11 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   onSaveEditMessage,
   onCancelEdit,
   onBackToList,
+  typingNames = [],
+  onTyping,
+  isLoadingMessages,
+  canLoadOlder,
+  onLoadOlder,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
@@ -96,7 +109,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
     : messages;
 
   return (
-    <main
+    <section
+      aria-label={`Conversation with ${conversation.title}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -135,14 +149,15 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
               )}
             </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-400">
-              <span>{conversation.type === 'group' ? 'Group Space' : 'Direct Conversation'}</span>
+              <span>
+                {conversation.type === 'group'
+                  ? `${conversation.groupMeta?.memberCount ?? ''} members`.trim()
+                  : PRESENCE_LABEL[conversation.recipientUser?.presence ?? 'offline']}
+              </span>
               <span>•</span>
               <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span>End-to-End Encrypted</span>
+                <IconLock className="w-3 h-3" />
+                <span>End-to-end encrypted</span>
               </div>
             </div>
           </div>
@@ -233,8 +248,19 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
             </span>
           </div>
 
+          {canLoadOlder && !inChatSearchQuery && (
+            <button
+              onClick={onLoadOlder}
+              className="self-center px-3 py-1.5 text-[11px] font-semibold rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)] transition-colors"
+            >
+              Load earlier messages
+            </button>
+          )}
+
           {/* Messages */}
-          {displayedMessages.length === 0 ? (
+          {isLoadingMessages && displayedMessages.length === 0 ? (
+            <MessageListSkeleton />
+          ) : displayedMessages.length === 0 ? (
             <div className="my-auto text-center text-xs text-slate-500 p-12">
               {inChatSearchQuery
                 ? `No messages in this chat match "${inChatSearchQuery}"`
@@ -273,6 +299,22 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
         </div>
       </div>
 
+      {/* Typing indicator (ephemeral, never stored) */}
+      <div className="h-5 px-6 max-w-4xl w-full mx-auto text-[11px] text-[var(--text-muted)] flex items-center gap-2" aria-live="polite">
+        {typingNames.length > 0 && (
+          <>
+            <TypingDots />
+            <span>
+              {typingNames.length === 1
+                ? `${typingNames[0]} is typing`
+                : typingNames.length === 2
+                ? `${typingNames[0]} and ${typingNames[1]} are typing`
+                : 'Several people are typing'}
+            </span>
+          </>
+        )}
+      </div>
+
       {/* Floating Scroll to Bottom Button */}
       {showScrollBottomBtn && (
         <button
@@ -293,8 +335,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           editingMessage={editingMessage}
           onSaveEditMessage={onSaveEditMessage}
           onCancelEdit={onCancelEdit}
+          onTyping={onTyping}
         />
       </div>
-    </main>
+    </section>
   );
 };

@@ -23,6 +23,7 @@ export const PRESENCE_LABEL: Record<UserPresence, string> = {
   online: 'Active',
   away: 'Away',
   dnd: 'Do not disturb',
+  meeting: 'In a meeting',
   offline: 'Offline',
 };
 

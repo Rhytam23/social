@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ConversationItem, DeviceItem, UserItem } from '../../types/ui';
+import { ConversationItem, DeviceItem, MessageData, UserItem } from '../../types/ui';
 import { IconCheck, IconLaptop, IconLock, IconMobile, IconShield } from '../ui/icons';
 
 export interface InspectorDeckProps {
@@ -9,6 +9,9 @@ export interface InspectorDeckProps {
   onRotateGroupKey?: () => void;
   onLeaveGroup?: () => void;
   onVerifyIdentityKey?: () => void;
+  /** Messages currently loaded for this conversation (used for the media, files and links tabs). */
+  messages?: MessageData[];
+  onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
 }
 
 export const InspectorDeck: React.FC<InspectorDeckProps> = ({
@@ -18,8 +21,16 @@ export const InspectorDeck: React.FC<InspectorDeckProps> = ({
   onRotateGroupKey,
   onLeaveGroup,
   onVerifyIdentityKey,
+  messages = [],
+  onDownloadAttachment,
 }) => {
   const [showSafetyNumber, setShowSafetyNumber] = useState(false);
+  const [sharedTab, setSharedTab] = useState<'media' | 'files' | 'links'>('media');
+
+  const attachments = messages.flatMap((m) => (m.attachments || []).map((a) => ({ a, m })));
+  const media = attachments.filter(({ a }) => a.mimeType.startsWith('image/') || a.mimeType.startsWith('video/'));
+  const files = attachments.filter(({ a }) => !a.mimeType.startsWith('image/') && !a.mimeType.startsWith('video/') && !a.isVoiceNote);
+  const links = messages.flatMap((m) => (m.content.match(/https?:\/\/[^\s<>]+/g) || []).map((url) => ({ url, m })));
 
   const getInitials = (name: string) => {
     return name
@@ -226,6 +237,50 @@ export const InspectorDeck: React.FC<InspectorDeckProps> = ({
             })
           )}
         </div>
+      </div>
+
+      {/* Media, files and links shared in this conversation (loaded on this device) */}
+      <div className="p-4 border-t border-[var(--border-subtle)] flex flex-col gap-3">
+        <div role="tablist" aria-label="Shared in this conversation" className="flex gap-1">
+          {([['media', 'Media', media.length], ['files', 'Files', files.length], ['links', 'Links', links.length]] as const).map(([key, label, n]) => (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={sharedTab === key}
+              onClick={() => setSharedTab(key)}
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${sharedTab === key ? 'bg-slate-800 text-slate-100' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              {label} ({n})
+            </button>
+          ))}
+        </div>
+        <ul className="flex flex-col gap-1.5 text-xs" role="tabpanel">
+          {sharedTab === 'links'
+            ? links.length === 0
+              ? <li className="text-slate-500">No links shared yet.</li>
+              : links.map(({ url, m }, i) => (
+                  <li key={`${m.id}-${i}`}>
+                    <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="text-emerald-400 hover:underline break-all">{url}</a>
+                    <span className="block text-[10px] text-slate-500">{m.senderName} · {m.timestamp}</span>
+                  </li>
+                ))
+            : (sharedTab === 'media' ? media : files).length === 0
+            ? <li className="text-slate-500">{sharedTab === 'media' ? 'No photos or videos shared yet.' : 'No files shared yet.'}</li>
+            : (sharedTab === 'media' ? media : files).map(({ a, m }) => (
+                <li key={a.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-slate-950/40 border border-slate-800">
+                  <span className="min-w-0">
+                    <span className="block truncate text-slate-200">{a.fileName}</span>
+                    <span className="block text-[10px] text-slate-500">{a.fileSize} · {m.senderName}</span>
+                  </span>
+                  {onDownloadAttachment && (
+                    <button onClick={() => onDownloadAttachment(m.id, a.id)} className="shrink-0 px-2 py-1 rounded-md text-[11px] font-semibold text-emerald-400 hover:bg-slate-800">
+                      {a.url ? 'Ready' : 'Decrypt'}
+                    </button>
+                  )}
+                </li>
+              ))}
+        </ul>
+        <p className="text-[10px] text-slate-500">Based on messages loaded on this device. Use &ldquo;Load earlier messages&rdquo; to include older ones.</p>
       </div>
     </aside>
   );

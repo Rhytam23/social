@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RichText } from './RichText';
 import { MessageData } from '../../types/ui';
 import {
   IconCheck,
@@ -150,9 +151,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
             {/* Text Content */}
             {message.content && (
-              <p className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-100">
-                {message.content}
-              </p>
+              <div className="font-sans text-sm leading-relaxed text-slate-100 break-words">
+                <RichText text={message.content} />
+              </div>
             )}
 
             {/* Encrypted Attachments */}

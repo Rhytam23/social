@@ -1,6 +1,7 @@
 import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { MessageData, ReplyReference } from '../../types/ui';
 import { IconFile, IconMic, IconPaperclip, IconSend, IconX } from '../ui/icons';
+import { wrapSelection } from '../../lib/messaging/richText';
 
 const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
@@ -11,6 +12,7 @@ export interface MessageComposerProps {
   editingMessage?: MessageData;
   onSaveEditMessage?: (msgId: string, newContent: string) => void;
   onCancelEdit?: () => void;
+  onTyping?: () => void;
   disabled?: boolean;
 }
 
@@ -21,6 +23,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   editingMessage,
   onSaveEditMessage,
   onCancelEdit,
+  onTyping,
   disabled = false,
 }) => {
   const [content, setContent] = useState('');
@@ -54,6 +57,16 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    // Ctrl/Cmd+B bold, +I italic, +E code, applied around the selection.
+    if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'e'].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+      const marker = { b: '**', i: '*', e: '`' }[e.key.toLowerCase() as 'b' | 'i' | 'e'];
+      const el = e.currentTarget;
+      const next = wrapSelection(content, el.selectionStart, el.selectionEnd, marker);
+      setContent(next.value);
+      requestAnimationFrame(() => el.setSelectionRange(next.start, next.end));
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -317,9 +330,13 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             <div className="flex-1 py-1">
               <textarea
                 value={content}
-                onChange={(e) => setContent(e.target.value)}
+                onChange={(e) => {
+                  setContent(e.target.value);
+                  if (e.target.value) onTyping?.();
+                }}
                 onKeyDown={handleKeyDown}
                 placeholder={editingMessage ? 'Edit message...' : 'Write an encrypted message...'}
+                aria-label="Message"
                 disabled={disabled}
                 rows={1}
                 className="w-full bg-transparent text-slate-100 placeholder:text-slate-500 text-sm focus:outline-none resize-none min-h-[24px] max-h-32 py-1 leading-relaxed font-sans"

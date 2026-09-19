@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ConversationItem, MessageData, UserItem, DeviceItem } from '../../types/ui';
+import { ConversationItem, MessageData, UserItem, DeviceItem, UserPresence } from '../../types/ui';
+import { getPreferences } from '../prefs/preferences';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
 import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
@@ -34,6 +35,10 @@ export interface ChatStoreState {
   messagesMap: Record<string, MessageData[]>;
   messagesLoading: Record<string, boolean>;
   devices: DeviceItem[];
+  /** userIds currently typing, per conversation (ephemeral, never stored) */
+  typing: Record<string, string[]>;
+  /** Bookmarked messages (ids only; text stays end-to-end encrypted) */
+  saved: Array<{ messageId: string; conversationId: string }>;
   error: string | null;
 }
 
@@ -122,6 +127,19 @@ function summaryToConversationItem(summary: ConversationSummary, existing?: Conv
   };
 }
 
+
+/** Derives the tick state of one of our messages from the recipients' receipts. */
+function receiptStatus(
+  receipts: Array<{ delivered_at: string | null; read_at: string | null }>,
+  recipientCount: number
+): MessageData['status'] {
+  if (!getPreferences().privacy.readReceipts) return receipts.length > 0 ? 'delivered' : 'sent';
+  const read = receipts.filter((r) => r.read_at).length;
+  if (read >= Math.max(recipientCount, 1)) return 'read';
+  if (receipts.length > 0) return 'delivered';
+  return 'sent';
+}
+
 function decryptedRowToMessage(row: DecryptedMessageRow, currentUserId: string, senderName: string): MessageData {
   const { content, attachments, kind } = row.deletedAt
     ? { content: '', attachments: undefined, kind: 'text' as const }
@@ -136,7 +154,7 @@ function decryptedRowToMessage(row: DecryptedMessageRow, currentUserId: string, 
     isSelf: row.senderId === currentUserId,
     content,
     timestamp: new Date(row.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    status: 'delivered',
+    status: row.senderId === currentUserId ? 'sent' : 'delivered',
     reactions: [],
     attachments,
     encryptionVersion: 2,
@@ -168,6 +186,8 @@ export class ChatStore {
       messagesMap: {},
       messagesLoading: {},
       devices: [],
+      typing: {},
+      saved: [],
       error: null,
     };
   }
@@ -351,6 +371,7 @@ export class ChatStore {
       })
     );
     this.notify();
+    void this.loadUnreadCounts();
   }
 
   private async loadAllUsersReal(): Promise<void> {
@@ -401,8 +422,12 @@ export class ChatStore {
     this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c));
     this.notify();
 
-    if (this.state.mode === 'connected' && !this.loadedConversations.has(conversationId)) {
-      void this.loadMessagesForConversation(conversationId);
+    if (this.state.mode === 'connected') {
+      if (!this.loadedConversations.has(conversationId)) {
+        void this.loadMessagesForConversation(conversationId);
+      } else {
+        void this.markConversationRead(conversationId);
+      }
     }
   }
 
@@ -424,6 +449,12 @@ export class ChatStore {
         .map((r) => decryptedRowToMessage(r, this.state.currentUser.id, senderName(r.senderId)));
       this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: messages };
       this.loadedConversations.add(conversationId);
+      if (rows.length > 0) this.oldestCursor.set(conversationId, rows[0].createdAt);
+      this.moreHistory.set(conversationId, rows.length >= 100);
+      this.state.messagesLoading = { ...this.state.messagesLoading, [conversationId]: false };
+      this.notify();
+      void this.loadReactionsAndReceipts(conversationId);
+      if (conversationId === this.state.activeConversationId) void this.markConversationRead(conversationId);
     } catch (err) {
       this.setState({ error: err instanceof Error ? err.message : 'Failed to load messages' });
     } finally {
@@ -531,6 +562,12 @@ export class ChatStore {
     );
     this.loadedConversations.add(row.conversation_id);
     this.notify();
+
+    if (!isSelf) {
+      const viewing = this.state.activeConversationId === row.conversation_id && (typeof document === 'undefined' || document.visibilityState === 'visible');
+      if (viewing) void this.markConversationRead(row.conversation_id);
+      else void this.writeReceipts([row.id], false);
+    }
   }
 
   public async sendMessage(content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number): Promise<void> {
@@ -937,6 +974,273 @@ export class ChatStore {
     this.notify();
   }
 
+
+  // ============================================================
+  // Live state: reactions, receipts, unread, history paging, presence,
+  // typing and saved messages. All of it goes through Supabase (RLS
+  // applies); nothing here stores message text on the server.
+  // ============================================================
+
+  private receiptsWritten: Set<string> = new Set();
+
+  private async unreadCountsFromServer(): Promise<Record<string, number>> {
+    if (!this.supabase) return {};
+    try {
+      const untyped = this.supabase as unknown as {
+        rpc: (fn: string) => Promise<{ data: Array<{ conversation_id: string; unread: number }> | null; error: unknown }>;
+      };
+      const { data, error } = await untyped.rpc('get_unread_counts');
+      if (error || !data) return {};
+      return Object.fromEntries(data.map((r) => [r.conversation_id, Number(r.unread)]));
+    } catch {
+      return {}; // migration 012 not applied yet
+    }
+  }
+
+  /** Replaces the in-memory unread counters with the server's (survives reloads and other tabs). */
+  private async loadUnreadCounts(): Promise<void> {
+    const counts = await this.unreadCountsFromServer();
+    if (Object.keys(counts).length === 0) return;
+    this.state.conversations = this.state.conversations.map((c) =>
+      c.id === this.state.activeConversationId ? c : { ...c, unreadCount: counts[c.id] ?? c.unreadCount }
+    );
+    this.notify();
+  }
+
+  /** Loads reactions and read receipts for the messages currently in memory for a conversation. */
+  public async loadReactionsAndReceipts(conversationId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.supabase) return;
+    const list = this.state.messagesMap[conversationId] || [];
+    const ids = list.filter((m) => !m.id.startsWith('local-')).map((m) => m.id);
+    if (ids.length === 0) return;
+    const me = this.state.currentUser.id;
+
+    try {
+      const { data: reactionRows } = await this.supabase.from('message_reactions').select('message_id, user_id, reaction').in('message_id', ids);
+      const byMessage = new Map<string, Map<string, { count: number; mine: boolean }>>();
+      for (const r of (reactionRows as Array<{ message_id: string; user_id: string; reaction: string }> | null) || []) {
+        const perEmoji = byMessage.get(r.message_id) ?? new Map();
+        const cur = perEmoji.get(r.reaction) ?? { count: 0, mine: false };
+        perEmoji.set(r.reaction, { count: cur.count + 1, mine: cur.mine || r.user_id === me });
+        byMessage.set(r.message_id, perEmoji);
+      }
+
+      const ownIds = list.filter((m) => m.isSelf && !m.id.startsWith('local-')).map((m) => m.id);
+      const receipts = new Map<string, Array<{ user_id: string; delivered_at: string | null; read_at: string | null }>>();
+      if (ownIds.length > 0) {
+        const { data: receiptRows } = await this.supabase.from('message_receipts').select('message_id, user_id, delivered_at, read_at').in('message_id', ownIds);
+        for (const r of (receiptRows as Array<{ message_id: string; user_id: string; delivered_at: string | null; read_at: string | null }> | null) || []) {
+          receipts.set(r.message_id, [...(receipts.get(r.message_id) ?? []), r]);
+        }
+      }
+
+      const summary = this.conversationSummaries.get(conversationId);
+      const others = (summary?.memberIds || []).filter((id) => id !== me);
+      this.state.messagesMap = {
+        ...this.state.messagesMap,
+        [conversationId]: (this.state.messagesMap[conversationId] || []).map((m) => {
+          const perEmoji = byMessage.get(m.id);
+          const patch: Partial<MessageData> = {
+            reactions: perEmoji ? [...perEmoji.entries()].map(([emoji, v]) => ({ emoji, count: v.count, userReacted: v.mine })) : m.reactions,
+          };
+          if (m.isSelf) patch.status = receiptStatus(receipts.get(m.id) || [], others.length || 1);
+          return { ...m, ...patch };
+        }),
+      };
+      this.notify();
+    } catch {
+      // best effort: reactions/receipts simply stay as loaded
+    }
+  }
+
+  /** Applies a Realtime change to message_reactions (someone else's reaction, or ours from another tab). */
+  public applyReactionEvent(kind: 'INSERT' | 'DELETE', row: { message_id?: string; user_id?: string; reaction?: string }): void {
+    if (!row.message_id || !row.reaction || !row.user_id) return;
+    if (row.user_id === this.state.currentUser.id) return; // our own change is applied optimistically
+    for (const [convId, list] of Object.entries(this.state.messagesMap)) {
+      if (!list.some((m) => m.id === row.message_id)) continue;
+      this.state.messagesMap = {
+        ...this.state.messagesMap,
+        [convId]: list.map((m) => {
+          if (m.id !== row.message_id) return m;
+          const existing = m.reactions.find((r) => r.emoji === row.reaction);
+          if (kind === 'INSERT') {
+            return {
+              ...m,
+              reactions: existing
+                ? m.reactions.map((r) => (r.emoji === row.reaction ? { ...r, count: r.count + 1 } : r))
+                : [...m.reactions, { emoji: row.reaction!, count: 1, userReacted: false }],
+            };
+          }
+          return {
+            ...m,
+            reactions: m.reactions
+              .map((r) => (r.emoji === row.reaction ? { ...r, count: Math.max(0, r.count - 1) } : r))
+              .filter((r) => r.count > 0),
+          };
+        }),
+      };
+      this.notify();
+      return;
+    }
+  }
+
+  /** Applies a Realtime change to message_receipts so ticks update live. */
+  public applyReceiptRow(row: { message_id?: string; user_id?: string; delivered_at?: string | null; read_at?: string | null }): void {
+    if (!row.message_id || !row.user_id || row.user_id === this.state.currentUser.id) return;
+    if (!getPreferences().privacy.readReceipts) return; // reciprocal: hide theirs if we hide ours
+    for (const [convId, list] of Object.entries(this.state.messagesMap)) {
+      const msg = list.find((m) => m.id === row.message_id);
+      if (!msg || !msg.isSelf) continue;
+      const others = (this.conversationSummaries.get(convId)?.memberIds || []).filter((id) => id !== this.state.currentUser.id).length || 1;
+      const seen = this.receiptSeen.get(row.message_id) ?? new Map<string, { delivered: boolean; read: boolean }>();
+      seen.set(row.user_id, { delivered: !!row.delivered_at || !!row.read_at, read: !!row.read_at });
+      this.receiptSeen.set(row.message_id, seen);
+      const rows = [...seen.values()].map((v) => ({ user_id: '', delivered_at: v.delivered ? 'x' : null, read_at: v.read ? 'x' : null }));
+      this.updateMessage(convId, msg.id, { status: receiptStatus(rows, others) });
+      return;
+    }
+  }
+
+  private receiptSeen: Map<string, Map<string, { delivered: boolean; read: boolean }>> = new Map();
+
+  private async writeReceipts(messageIds: string[], read: boolean): Promise<void> {
+    if (!this.supabase || !getPreferences().privacy.readReceipts) return;
+    const fresh = messageIds.filter((id) => !this.receiptsWritten.has(`${id}:${read ? 'r' : 'd'}`) && !id.startsWith('local-'));
+    if (fresh.length === 0) return;
+    const now = new Date().toISOString();
+    const me = this.state.currentUser.id;
+    try {
+      const { error } = await this.supabase.from('message_receipts').upsert(
+        fresh.slice(0, 100).map((id) => ({ message_id: id, user_id: me, delivered_at: now, ...(read ? { read_at: now } : {}) })) as never,
+        { onConflict: 'message_id,user_id' }
+      );
+      if (!error) fresh.slice(0, 100).forEach((id) => this.receiptsWritten.add(`${id}:${read ? 'r' : 'd'}`));
+    } catch {
+      // receipts are best effort
+    }
+  }
+
+  /** Marks a conversation read: clears the badge, saves last_read_at, and sends read receipts if enabled. */
+  public async markConversationRead(conversationId: string): Promise<void> {
+    if (!conversationId) return;
+    const conv = this.state.conversations.find((c) => c.id === conversationId);
+    if (conv && conv.unreadCount !== 0) {
+      this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c));
+      this.notify();
+    }
+    if (this.state.mode !== 'connected' || !this.supabase) return;
+    const me = this.state.currentUser.id;
+    try {
+      await this.supabase
+        .from('conversation_members')
+        .update({ last_read_at: new Date().toISOString() } as never)
+        .eq('conversation_id', conversationId)
+        .eq('user_id', me);
+    } catch {
+      // migration 012 not applied yet: unread stays local
+    }
+    const incoming = (this.state.messagesMap[conversationId] || []).filter((m) => !m.isSelf).map((m) => m.id);
+    void this.writeReceipts(incoming, true);
+  }
+
+  public hasMoreHistory(conversationId: string): boolean {
+    return this.moreHistory.get(conversationId) !== false;
+  }
+
+  private moreHistory: Map<string, boolean> = new Map();
+
+  /** Loads the next page of older messages for the conversation (cursor = oldest message we have). */
+  public async loadOlderMessages(conversationId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.supabase || !this.crypto) return;
+    const summary = this.conversationSummaries.get(conversationId);
+    const current = this.state.messagesMap[conversationId] || [];
+    if (!summary || current.length === 0) return;
+    const oldestRow = this.oldestCursor.get(conversationId);
+    if (!oldestRow) return;
+
+    try {
+      const rows = await fetchMessageHistory(this.crypto, summary, 50, oldestRow);
+      this.moreHistory.set(conversationId, rows.length >= 50);
+      if (rows.length > 0) this.oldestCursor.set(conversationId, rows[0].createdAt);
+      const senderName = (id: string) =>
+        id === this.state.currentUser.id ? this.state.currentUser.name : this.participantNames.get(id) || this.state.allUsers.find((u) => u.id === id)?.name || 'Member';
+      const older = rows
+        .filter((r) => r.deletedAt || !isHiddenEnvelope(r.envelope))
+        .map((r) => decryptedRowToMessage(r, this.state.currentUser.id, senderName(r.senderId)))
+        .filter((m) => !current.some((c) => c.id === m.id));
+      this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: [...older, ...current] };
+      this.notify();
+      void this.loadReactionsAndReceipts(conversationId);
+    } catch (err) {
+      this.setState({ error: err instanceof Error ? err.message : 'Failed to load earlier messages' });
+    }
+  }
+
+  private oldestCursor: Map<string, string> = new Map();
+
+  // --- Presence and typing (fed by lib/realtime/liveChannels.ts) ---
+
+  public setPresence(map: Record<string, UserPresence>): void {
+    const apply = (id: string, fallback?: UserPresence) => map[id] ?? fallback ?? 'offline';
+    this.state.allUsers = this.state.allUsers.map((u) => ({ ...u, presence: apply(u.id) }));
+    this.state.conversations = this.state.conversations.map((c) =>
+      c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, presence: apply(c.recipientUser.id) } } : c
+    );
+    this.notify();
+  }
+
+  public setTyping(conversationId: string, userIds: string[]): void {
+    const prev = this.state.typing[conversationId] || [];
+    if (prev.length === userIds.length && prev.every((id, i) => id === userIds[i])) return;
+    this.state.typing = { ...this.state.typing, [conversationId]: userIds };
+    this.notify();
+  }
+
+  public nameOf(userId: string): string {
+    return this.participantNames.get(userId) || this.state.allUsers.find((u) => u.id === userId)?.name || 'Someone';
+  }
+
+  // --- Saved (bookmarked) messages ---
+
+  public async loadSavedMessages(): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.supabase) return;
+    try {
+      const { data } = await this.supabase.from('saved_messages').select('message_id, conversation_id').order('created_at', { ascending: false });
+      const rows = (data as Array<{ message_id: string; conversation_id: string }> | null) || [];
+      this.setState({ saved: rows.map((r) => ({ messageId: r.message_id, conversationId: r.conversation_id })) });
+      const convs = [...new Set(rows.map((r) => r.conversation_id))];
+      await Promise.all(convs.filter((id) => !this.loadedConversations.has(id)).map((id) => this.loadMessagesForConversation(id)));
+    } catch {
+      // migration 012 not applied yet
+    }
+  }
+
+  public async toggleSaved(messageId: string): Promise<void> {
+    const msg = Object.values(this.state.messagesMap).flat().find((m) => m.id === messageId);
+    if (!msg) return;
+    const already = this.state.saved.some((s) => s.messageId === messageId);
+    const next = already
+      ? this.state.saved.filter((s) => s.messageId !== messageId)
+      : [{ messageId, conversationId: msg.conversationId }, ...this.state.saved];
+    const flag = (list: MessageData[]) => list.map((m) => (m.id === messageId ? { ...m, isStarred: !already } : m));
+    this.state.messagesMap = { ...this.state.messagesMap, [msg.conversationId]: flag(this.state.messagesMap[msg.conversationId] || []) };
+    this.setState({ saved: next });
+
+    if (this.state.mode !== 'connected' || !this.supabase) return;
+    try {
+      if (already) {
+        await this.supabase.from('saved_messages').delete().eq('message_id', messageId).eq('user_id', this.state.currentUser.id);
+      } else {
+        const { error } = await this.supabase.from('saved_messages').insert({ user_id: this.state.currentUser.id, message_id: messageId, conversation_id: msg.conversationId } as never);
+        if (error) throw new Error(error.message);
+      }
+    } catch (err) {
+      this.state.messagesMap = { ...this.state.messagesMap, [msg.conversationId]: (this.state.messagesMap[msg.conversationId] || []).map((m) => (m.id === messageId ? { ...m, isStarred: already } : m)) };
+      this.setState({ saved: this.state.saved.filter((s) => s.messageId !== messageId).concat(already ? [{ messageId, conversationId: msg.conversationId }] : []), error: err instanceof Error ? err.message : 'Could not update saved messages' });
+    }
+  }
+
   public clearError() {
     this.setState({ error: null });
   }
@@ -961,6 +1265,8 @@ export class ChatStore {
       messagesLoading: {},
       activeConversationId: '',
       devices: [],
+      typing: {},
+      saved: [],
       error: null,
     });
   }
@@ -1016,6 +1322,8 @@ export class ChatStore {
       messagesMap,
       messagesLoading: {},
       devices,
+      typing: {},
+      saved: [],
       error: null,
     };
     this.notify();

@@ -146,9 +146,11 @@ async function decryptRow(
 export async function fetchMessageHistory(
   crypto: MessagingCrypto,
   conversation: ConversationSummary,
-  limit = 100
+  limit = 100,
+  before?: string
 ): Promise<DecryptedMessageRow[]> {
   const params = new URLSearchParams({ conversationId: conversation.id, limit: String(limit) });
+  if (before) params.set('before', before);
   const res = await fetch(`/api/messages?${params.toString()}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));

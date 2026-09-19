@@ -146,16 +146,19 @@ export interface Database {
           user_id: string;
           joined_at: string;
           left_at: string | null;
+          last_read_at: string | null;
         };
         Insert: {
           conversation_id: string;
           user_id: string;
           joined_at?: string;
           left_at?: string | null;
+          last_read_at?: string | null;
         };
         Update: {
           conversation_id?: string;
           user_id?: string;
+          last_read_at?: string | null;
           joined_at?: string;
           left_at?: string | null;
         };
@@ -338,6 +341,27 @@ export interface Database {
           online?: boolean;
           last_seen?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      saved_messages: {
+        Row: {
+          user_id: string;
+          message_id: string;
+          conversation_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          message_id: string;
+          conversation_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          message_id?: string;
+          conversation_id?: string;
+          created_at?: string;
         };
         Relationships: [];
       };
