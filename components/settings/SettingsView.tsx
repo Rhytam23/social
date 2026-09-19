@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { DeviceItem, UserItem } from '../../types/ui';
 import {
   IconCheck,
+  IconChevronLeft,
+  IconChevronRight,
   IconLaptop,
   IconLock,
   IconMobile,
@@ -16,7 +18,7 @@ import { AppearanceSettings } from './AppearanceSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { PrivacySettings, type PrivacySettingsProps } from './PrivacySettings';
 
-export type SettingsTab = 'profile' | 'account' | 'privacy' | 'appearance' | 'notifications' | 'about';
+export type SettingsTab = 'profile' | 'account' | 'privacy' | 'security' | 'appearance' | 'notifications' | 'devices' | 'data' | 'about';
 
 export interface SettingsViewProps {
   currentUser: UserItem;
@@ -29,6 +31,8 @@ export interface SettingsViewProps {
   onRevokeDevice: (deviceId: string) => void;
   onLogout?: () => void;
   privacyProps?: Omit<PrivacySettingsProps, 'userId'>;
+  /** Leaves Settings and returns to the conversations. */
+  onClose?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -42,8 +46,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onRevokeDevice,
   onLogout,
   privacyProps,
+  onClose,
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
+  // Phones show the list of sections first, then one section at a time.
+  const [showDetail, setShowDetail] = useState(false);
 
   // Profile Form State
   const [displayName, setDisplayName] = useState(currentUser.name);
@@ -202,47 +209,82 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const tabs: { id: SettingsTab; label: string }[] = [
-    { id: 'profile', label: 'Profile' },
-    { id: 'account', label: 'Account' },
-    { id: 'privacy', label: 'Privacy & Security' },
-    { id: 'appearance', label: 'Appearance' },
-    { id: 'notifications', label: 'Notifications' },
-    { id: 'about', label: 'About' },
+  const sections: { id: SettingsTab; label: string; description: string }[] = [
+    { id: 'profile', label: 'Profile', description: 'Your name, username, photo and bio' },
+    { id: 'account', label: 'Account', description: 'Password and signing out' },
+    { id: 'privacy', label: 'Privacy', description: 'Who can see what, and blocked people' },
+    { id: 'security', label: 'Security', description: 'App lock, identity key and key backup' },
+    { id: 'appearance', label: 'Appearance', description: 'Theme, density and text size' },
+    { id: 'notifications', label: 'Notifications', description: 'Alerts, quiet hours and keywords' },
+    { id: 'devices', label: 'Devices', description: 'Devices and other sessions' },
+    { id: 'data', label: 'Data', description: 'Export your data' },
+    { id: 'about', label: 'About', description: 'Version and policies' },
   ];
+  const current = sections.find((t) => t.id === activeTab) ?? sections[0];
+
+  const openSection = (id: SettingsTab) => {
+    setActiveTab(id);
+    setShowDetail(true);
+    setErrorMessage(null);
+    setBackupMessage(null);
+    setProfileSuccess(null);
+  };
 
   return (
-    <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col h-full overflow-y-auto p-4 sm:p-8 font-sans max-w-4xl mx-auto w-full">
-      {/* Top Header */}
-      <div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-4 mb-6">
-        <h2 className="text-xl font-bold text-slate-100 tracking-tight">Settings</h2>
-        <p className="text-xs text-slate-400">
-          Manage your profile identity, security keys, devices, and messaging preferences.
-        </p>
-      </div>
+    <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col md:flex-row h-full overflow-hidden font-sans w-full">
+      {/* Section list: a sidebar on desktop, the first screen on phones */}
+      <nav
+        aria-label="Settings sections"
+        className={`${showDetail ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-64 shrink-0 md:border-r border-[var(--border-subtle)] bg-[var(--surface-1)] overflow-y-auto`}
+      >
+        <div className="h-16 px-3 flex items-center gap-1 border-b border-[var(--border-subtle)] shrink-0">
+          {onClose && (
+            <button type="button" onClick={onClose} aria-label="Back to chats" title="Back to chats" className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800">
+              <IconChevronLeft className="w-4 h-4" />
+            </button>
+          )}
+          <h2 className="text-base font-bold text-[var(--text-primary)] tracking-tight px-1">Settings</h2>
+        </div>
+        <ul className="p-2 flex flex-col gap-0.5">
+          {sections.map((t) => (
+            <li key={t.id}>
+              <button
+                type="button"
+                onClick={() => openSection(t.id)}
+                aria-current={activeTab === t.id ? 'page' : undefined}
+                className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                  activeTab === t.id ? 'md:bg-slate-800 text-slate-100' : 'text-slate-300 hover:bg-slate-800/50'
+                }`}
+              >
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold">{t.label}</span>
+                  <span className="block text-[11px] text-slate-400 truncate md:hidden">{t.description}</span>
+                </span>
+                <IconChevronRight className="w-4 h-4 text-slate-500 md:hidden shrink-0" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
 
-      {/* Tabs Filter Bar */}
-      <div className="flex items-center gap-1.5 p-1 bg-slate-950/40 border border-slate-800/80 rounded-2xl mb-6 overflow-x-auto">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => {
-              setActiveTab(t.id);
-              setErrorMessage(null);
-              setBackupMessage(null);
-              setProfileSuccess(null);
-            }}
-            className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all shrink-0 cursor-pointer ${
-              activeTab === t.id
-                ? 'bg-slate-800 text-slate-100 shadow-sm border border-slate-700/80'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      {/* Selected section */}
+      <section
+        aria-label={current.label}
+        className={`${showDetail ? 'flex' : 'hidden md:flex'} flex-1 min-w-0 flex-col h-full overflow-y-auto p-4 sm:p-8 [&>*]:shrink-0`}
+      >
+        <div className="w-full max-w-3xl mx-auto flex flex-col [&>*]:shrink-0">
+        <button
+          type="button"
+          onClick={() => setShowDetail(false)}
+          className="md:hidden self-start -ml-1 mb-3 flex items-center gap-1 text-xs font-semibold text-slate-300 hover:text-white"
+        >
+          <IconChevronLeft className="w-4 h-4" />
+          Settings
+        </button>
+        <div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-4 mb-6">
+          <h2 className="text-xl font-bold text-slate-100 tracking-tight">{current.label}</h2>
+          <p className="text-xs text-slate-400">{current.description}</p>
+        </div>
 
       {/* Status Alerts */}
       {profileSuccess && (
@@ -301,7 +343,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="pf-username" className="text-slate-300 font-semibold text-xs">Username (@handle)</label>
+                <label htmlFor="pf-username" className="text-slate-300 font-semibold text-xs">Username (how people find you)</label>
                 <input
                   id="pf-username"
                   type="text"
@@ -371,7 +413,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-slate-300 font-semibold text-xs">Phone Number (Discovery)</label>
+                <label className="text-slate-300 font-semibold text-xs">Phone number (private)</label>
                 <input
                   type="tel"
                   placeholder="+1 555-0199"
@@ -434,10 +476,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: PRIVACY & SECURITY */}
+      {/* PRIVACY */}
       {activeTab === 'privacy' && (
         <div className="flex flex-col gap-6">
-          {privacyProps && <PrivacySettings userId={currentUser.id} {...privacyProps} />}
+          {privacyProps ? (
+            <PrivacySettings part="privacy" userId={currentUser.id} {...privacyProps} />
+          ) : (
+            <p className="text-xs text-slate-400">Privacy controls are not available right now.</p>
+          )}
+        </div>
+      )}
+
+      {/* SECURITY */}
+      {activeTab === 'security' && (
+        <div className="flex flex-col gap-6">
+          {privacyProps && <PrivacySettings part="security" userId={currentUser.id} {...privacyProps} />}
 
           {/* Identity Fingerprint Card */}
           <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3 shadow-xs">
@@ -450,49 +503,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </p>
             <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl font-mono text-xs text-emerald-400 tracking-wider select-all break-all">
               {formatFingerprint(identityFingerprint)}
-            </div>
-          </div>
-
-          {/* Active Devices */}
-          <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-4 shadow-xs">
-            <h3 className="text-sm font-bold text-slate-100">Registered Devices</h3>
-            <div className="flex flex-col gap-2">
-              {devices.map((device) => (
-                <div
-                  key={device.id}
-                  className="flex items-center justify-between p-3.5 bg-slate-950/50 border border-slate-800/80 rounded-xl text-xs"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300">
-                      {device.deviceName.toLowerCase().includes('mobile') ? (
-                        <IconMobile className="w-4 h-4" />
-                      ) : (
-                        <IconLaptop className="w-4 h-4" />
-                      )}
-                    </div>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-slate-200">{device.deviceName}</span>
-                        {device.isCurrentDevice && (
-                          <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
-                            Current
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono">#{device.registrationId} • {device.lastActive}</span>
-                    </div>
-                  </div>
-
-                  {!device.isCurrentDevice && (
-                    <button
-                      onClick={() => onRevokeDevice(device.id)}
-                      className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
-                    >
-                      Revoke
-                    </button>
-                  )}
-                </div>
-              ))}
             </div>
           </div>
 
@@ -552,6 +562,67 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
+      {/* DEVICES */}
+      {activeTab === 'devices' && (
+        <div className="flex flex-col gap-6">
+          {/* Active Devices */}
+          <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-4 shadow-xs">
+            <h3 className="text-sm font-bold text-slate-100">Registered Devices</h3>
+            <div className="flex flex-col gap-2">
+              {devices.map((device) => (
+                <div
+                  key={device.id}
+                  className="flex items-center justify-between p-3.5 bg-slate-950/50 border border-slate-800/80 rounded-xl text-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-300">
+                      {device.deviceName.toLowerCase().includes('mobile') ? (
+                        <IconMobile className="w-4 h-4" />
+                      ) : (
+                        <IconLaptop className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-slate-200">{device.deviceName}</span>
+                        {device.isCurrentDevice && (
+                          <span className="px-1.5 py-0.2 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono">#{device.registrationId} • {device.lastActive}</span>
+                    </div>
+                  </div>
+
+                  {!device.isCurrentDevice && (
+                    <button
+                      onClick={() => onRevokeDevice(device.id)}
+                      className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
+                    >
+                      Revoke
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {privacyProps && <PrivacySettings part="devices" userId={currentUser.id} {...privacyProps} />}
+        </div>
+      )}
+
+      {/* DATA */}
+      {activeTab === 'data' && (
+        <div className="flex flex-col gap-6">
+          {privacyProps ? (
+            <PrivacySettings part="data" userId={currentUser.id} {...privacyProps} />
+          ) : (
+            <p className="text-xs text-slate-400">Data export is not available right now.</p>
+          )}
+        </div>
+      )}
+
       {/* TAB 4: APPEARANCE */}
       {activeTab === 'appearance' && <AppearanceSettings />}
 
@@ -582,6 +653,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
       )}
+        </div>
+      </section>
     </div>
   );
 };

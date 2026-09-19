@@ -1,3 +1,5 @@
+import { lookupUsernameRemote, profileRowToUser, type LookupOutcome, type ProfileRow } from '../people/lookup';
+import { parseUsernameQuery } from '../people/username';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ConversationItem, MessageData, UserItem, DeviceItem, UserPresence, CommunityItem, CommunityMemberItem } from '../../types/ui';
 import { getPreferences } from '../prefs/preferences';
@@ -68,10 +70,10 @@ const VIEW_PREFS_KEY_PREFIX = 'private_chat_v1_view_prefs_';
 // ============================================================
 
 const DEMO_USERS: UserItem[] = [
-  { id: 'usr-alice', name: 'Alice Vance', registrationId: 84920, role: 'admin', deviceCount: 2, joinedAt: 'Sep 1, 2026', identityFingerprint: '45A8-99F1-20B3-881C-00D9-FF41-92A3-77E5', presence: 'online' },
-  { id: 'usr-bob', name: 'Bob Miller', registrationId: 10482, role: 'member', deviceCount: 1, joinedAt: 'Sep 1, 2026', identityFingerprint: '992A-44B1-0081-F09C-1192-33E4-AA11-22BB', presence: 'online' },
-  { id: 'usr-carol', name: 'Carol Danvers', registrationId: 30291, role: 'member', deviceCount: 1, joinedAt: 'Sep 2, 2026', identityFingerprint: '77A1-88C2-11D0-99E1-44B2-55C3-CC33-44DD', presence: 'away' },
-  { id: 'usr-david', name: 'David Wright', registrationId: 90218, role: 'member', deviceCount: 3, joinedAt: 'Aug 28, 2026', identityFingerprint: '11B2-22C3-33D4-44E5-55F6-66A7-EE55-66FF', presence: 'offline' },
+  { id: 'usr-alice', username: 'alice_vance', name: 'Alice Vance', registrationId: 84920, role: 'admin', deviceCount: 2, joinedAt: 'Sep 1, 2026', identityFingerprint: '45A8-99F1-20B3-881C-00D9-FF41-92A3-77E5', presence: 'online' },
+  { id: 'usr-bob', username: 'bob_miller', name: 'Bob Miller', registrationId: 10482, role: 'member', deviceCount: 1, joinedAt: 'Sep 1, 2026', identityFingerprint: '992A-44B1-0081-F09C-1192-33E4-AA11-22BB', presence: 'online' },
+  { id: 'usr-carol', username: 'carol_danvers', name: 'Carol Danvers', registrationId: 30291, role: 'member', deviceCount: 1, joinedAt: 'Sep 2, 2026', identityFingerprint: '77A1-88C2-11D0-99E1-44B2-55C3-CC33-44DD', presence: 'away' },
+  { id: 'usr-david', username: 'david_wright', name: 'David Wright', registrationId: 90218, role: 'member', deviceCount: 3, joinedAt: 'Aug 28, 2026', identityFingerprint: '11B2-22C3-33D4-44E5-55F6-66A7-EE55-66FF', presence: 'offline' },
 ];
 
 const DEMO_CONVERSATIONS: ConversationItem[] = [
@@ -416,26 +418,38 @@ export class ChatStore {
     void this.loadUnreadCounts();
   }
 
+  /** People you already share a conversation with. New people are found with lookupUsername(). */
   private async loadAllUsersReal(): Promise<void> {
     const res = await fetch('/api/users');
     if (!res.ok) return;
-    const profiles = (await res.json()) as Array<{ id: string; username: string; display_name: string; avatar_url: string | null; bio?: string | null; pronouns?: string | null; timezone?: string | null }>;
-    const users: UserItem[] = profiles.map((p) => ({
-      id: p.id,
-      name: p.display_name,
-      username: p.username,
-      avatarUrl: p.avatar_url ?? undefined,
-      bio: p.bio ?? undefined,
-      pronouns: p.pronouns ?? undefined,
-      timezone: p.timezone ?? undefined,
-      registrationId: Math.abs(hashCode(p.id)) % 90000 + 10000,
-      role: 'member',
-      deviceCount: 1,
-      joinedAt: '',
-      identityFingerprint: '',
-      presence: 'offline',
-    }));
-    this.setState({ allUsers: users });
+    const profiles = (await res.json()) as ProfileRow[];
+    const known = profiles.map(profileRowToUser);
+    // Keep anyone found by username earlier in this session.
+    const foundEarlier = this.state.allUsers.filter((u) => !known.some((k) => k.id === u.id));
+    this.setState({ allUsers: [...known, ...foundEarlier] });
+  }
+
+  /** Finds one person by exact username (demo mode searches the sample users). */
+  public async lookupUsername(raw: string): Promise<LookupOutcome> {
+    const parsed = parseUsernameQuery(raw);
+    if (!parsed.ok) return { status: 'invalid', message: parsed.error };
+
+    if (this.state.mode === 'demo') {
+      const match = this.state.allUsers.find((u) => u.id !== this.state.currentUser.id && (u.username ?? '').toLowerCase() === parsed.value);
+      if (!match) return { status: 'none' };
+      return { status: 'found', user: match, blocked: this.state.blocked.includes(match.id) };
+    }
+
+    const outcome = await lookupUsernameRemote(raw);
+    if (outcome.status !== 'found') return outcome;
+    this.rememberUser(outcome.user);
+    return { ...outcome, blocked: outcome.blocked || this.state.blocked.includes(outcome.user.id) };
+  }
+
+  /** Keeps a person found by username so groups and chats can use them straight away. */
+  private rememberUser(user: UserItem): void {
+    if (this.state.allUsers.some((u) => u.id === user.id)) return;
+    this.setState({ allUsers: [...this.state.allUsers, user] });
   }
 
   private async loadDevicesReal(): Promise<void> {
@@ -1767,7 +1781,8 @@ export class ChatStore {
         if (savedData) {
           const parsed = JSON.parse(savedData);
           if (parsed.allUsers && parsed.conversations && parsed.messagesMap) {
-            allUsers = parsed.allUsers;
+            // Saved sample data from before usernames existed: fill them in from the defaults.
+            allUsers = (parsed.allUsers as UserItem[]).map((u) => ({ ...u, username: u.username ?? DEMO_USERS.find((d) => d.id === u.id)?.username }));
             conversations = parsed.conversations;
             messagesMap = parsed.messagesMap;
             devices = parsed.devices || DEMO_DEVICES;
@@ -1932,7 +1947,7 @@ export class ChatStore {
     const newConv: ConversationItem = {
       id: newId, title: groupName, type: 'group', unreadCount: 0,
       lastMessage: { snippet: `Group created with ${membersCount} members`, timestamp: 'Just now' },
-      groupMeta: { groupId: newId, memberCount: membersCount, senderKeyVersion: 1 },
+      groupMeta: { groupId: newId, memberCount: membersCount, senderKeyVersion: 1, memberIds: [this.state.currentUser.id, ...memberUserIds] },
     };
     this.state.conversations = [newConv, ...this.state.conversations];
     this.state.messagesMap = { ...this.state.messagesMap, [newId]: [{ id: `gmsg-${Date.now()}`, conversationId: newId, senderId: this.state.currentUser.id, senderName: this.state.currentUser.name, isSelf: true, content: `Created group "${groupName}".`, timestamp: nowTimestamp(), status: 'delivered', reactions: [], encryptionVersion: 0 }] };

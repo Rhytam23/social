@@ -51,8 +51,9 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 013 | `013_group_roles_threads.sql` | Group owner/admin/member roles, group description, admin-only posting, threads |
 | 014 | `014_communities.sql` | Communities, channels, invite links |
 | 015 | `015_privacy_controls.sql` | Disappearing messages, blocking, reports |
+| 016 | `016_username_only_discovery.sql` | Stops clients calling the email/phone lookup, so people are found by username only |
 
-Migrations 011 to 015 are safe to re-run. The app keeps working if some of them are missing: each feature that needs one says so instead of failing. Run them in order, once each.
+Migrations 011 to 016 are safe to re-run. The app keeps working if some of them are missing: each feature that needs one says so instead of failing. Run them in order, once each.
 
 `database/functions/atomic_invite_consumption.sql` belongs to the removed invite feature. New installs do not need it.
 

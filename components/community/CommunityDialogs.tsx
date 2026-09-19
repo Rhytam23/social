@@ -6,98 +6,9 @@ import { Avatar } from '../ui/avatar';
 import { Badge, Switch } from '../ui/primitives';
 import { ROLE_LABEL, isGroupManager, type GroupRole } from '../../lib/groups/roles';
 import { toast } from '../../lib/ui/toastStore';
-import { parseInviteCode } from '../../lib/community/invite';
 
 const inputClass =
   'w-full bg-[var(--surface-2)] border border-[var(--border-subtle)] p-2.5 rounded-xl text-xs text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/60';
-
-export const CreateOrJoinDialog: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  initialCode?: string;
-  onCreate: (name: string, description: string) => Promise<boolean>;
-  onJoin: (code: string) => Promise<boolean>;
-}> = ({ isOpen, onClose, initialCode, onCreate, onJoin }) => {
-  const [tab, setTab] = useState<'create' | 'join'>(initialCode ? 'join' : 'create');
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [code, setCode] = useState(initialCode ?? '');
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    if (initialCode) {
-      setCode(initialCode);
-      setTab('join');
-    }
-  }, [initialCode]);
-
-  const submit = async () => {
-    setBusy(true);
-    const ok = tab === 'create' ? await onCreate(name.trim(), description.trim()) : await onJoin(parseInviteCode(code));
-    setBusy(false);
-    if (ok) {
-      setName('');
-      setDescription('');
-      setCode('');
-      onClose();
-    }
-  };
-
-  const disabled = tab === 'create' ? name.trim().length < 2 : parseInviteCode(code).length < 6;
-
-  return (
-    <Dialog
-      isOpen={isOpen}
-      onClose={onClose}
-      title="Communities"
-      footerAction={
-        <Button variant="primary" size="sm" loading={busy} disabled={disabled} onClick={submit}>
-          {tab === 'create' ? 'Create community' : 'Join community'}
-        </Button>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <div role="tablist" className="flex gap-1 p-0.5 rounded-xl bg-[var(--surface-2)] w-fit">
-          {(['create', 'join'] as const).map((t) => (
-            <button
-              key={t}
-              role="tab"
-              aria-selected={tab === t}
-              onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-[10px] text-xs font-semibold ${tab === t ? 'bg-[var(--accent-primary)] text-[var(--accent-contrast)]' : 'text-[var(--text-secondary)]'}`}
-            >
-              {t === 'create' ? 'Create' : 'Join with invite'}
-            </button>
-          ))}
-        </div>
-
-        {tab === 'create' ? (
-          <>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="cm-name" className="text-xs font-semibold text-[var(--text-primary)]">Community name</label>
-              <input id="cm-name" data-autofocus className={inputClass} maxLength={60} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Design team" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="cm-desc" className="text-xs font-semibold text-[var(--text-primary)]">Description (optional)</label>
-              <textarea id="cm-desc" rows={2} className={`${inputClass} resize-none`} maxLength={300} value={description} onChange={(e) => setDescription(e.target.value)} />
-            </div>
-            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-              You become the owner and get a #general channel. Every channel is end-to-end encrypted, so admins and the server cannot read messages.
-            </p>
-          </>
-        ) : (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="cm-code" className="text-xs font-semibold text-[var(--text-primary)]">Invite link or code</label>
-            <input id="cm-code" data-autofocus className={inputClass} value={code} onChange={(e) => setCode(e.target.value)} placeholder="Paste the invite link or code" />
-            <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-              After you join, an admin&apos;s device shares each channel&apos;s encryption key with you. Messages appear once an admin has the app open.
-            </p>
-          </div>
-        )}
-      </div>
-    </Dialog>
-  );
-};
 
 export const CreateChannelDialog: React.FC<{
   isOpen: boolean;

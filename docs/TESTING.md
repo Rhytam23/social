@@ -98,7 +98,11 @@ Use a real Supabase project ([Setup](SETUP.md)) and two browser profiles (or one
 Nothing below has been run against a live project yet. Use two or three test accounts (A, B, C) in separate browser profiles.
 
 **Migration checks**
-- [ ] After `011`: as B, run `select email, phone_number from profiles` in the API or console: it must fail with a permission error. Sign-in, Settings and finding people by name still work; finding A by exact email works, partial email does not.
+- [ ] After `011`: as B, run `select email, phone_number from profiles` in the API or console: it must fail with a permission error. Sign-in and Settings still work. Finding A by exact `@username` works; searching A's name, email or phone number, or part of the username, finds nothing.
+- [ ] After `016`: `select find_profiles_by_contact('a@example.com')` as B fails with a permission error.
+- [ ] People: search a username that exists (any capitalisation, with or without `@`) and press Message; search a username that does not exist and see the no-results message; search an empty value, a name with a space and an email and see the validation message. Block A, search A again: the card says you blocked them and Message is disabled.
+- [ ] Groups `+` in the left rail: create a group with a member found by username; paste an invite link and join (needs 014); a wrong code shows an error. Chat (lock) shows only direct chats; Groups shows only groups.
+- [ ] Settings button (lower left): Profile is the first section; each of Profile, Account, Privacy, Security, Appearance, Notifications, Devices, Data, About opens; on a phone the list opens first and Back returns to it.
 - [ ] After `013` to `015`: existing groups show their creator as owner; a plain member cannot add people or change a role (try `update conversation_members set role = 'admin'` as that member: it must fail).
 
 **Chat**

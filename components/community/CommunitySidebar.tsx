@@ -1,7 +1,7 @@
 import React from 'react';
 import { CommunityItem, ConversationItem } from '../../types/ui';
 import { CountBadge } from '../ui/primitives';
-import { IconLock, IconPlus } from '../ui/icons';
+import { IconLock, IconPlus, IconSettings } from '../ui/icons';
 import { isGroupManager } from '../../lib/groups/roles';
 
 export interface CommunitySidebarProps {
@@ -11,10 +11,11 @@ export interface CommunitySidebarProps {
   onSelectChannel: (id: string) => void;
   onOpenSettings: () => void;
   onCreateChannel: () => void;
+  onOpenAppSettings?: () => void;
 }
 
 /** Channel list for the selected community. */
-export const CommunitySidebar: React.FC<CommunitySidebarProps> = ({ community, channels, activeConversationId, onSelectChannel, onOpenSettings, onCreateChannel }) => {
+export const CommunitySidebar: React.FC<CommunitySidebarProps> = ({ community, channels, activeConversationId, onSelectChannel, onOpenSettings, onCreateChannel, onOpenAppSettings }) => {
   const publicChannels = channels.filter((c) => !c.isPrivateChannel);
   const privateChannels = channels.filter((c) => c.isPrivateChannel);
 
@@ -73,6 +74,15 @@ export const CommunitySidebar: React.FC<CommunitySidebarProps> = ({ community, c
           </>
         )}
       </div>
+
+      {onOpenAppSettings && (
+        <div className="p-2 border-t border-[var(--border-subtle)] shrink-0">
+          <button onClick={onOpenAppSettings} className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]">
+            <IconSettings className="w-4 h-4" />
+            Settings
+          </button>
+        </div>
+      )}
     </nav>
   );
 };

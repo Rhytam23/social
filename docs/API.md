@@ -16,9 +16,14 @@ Returns the current session.
 - `200 { authenticated: true, user: { id, email, profile } }`. `profile` is `id, username, display_name, avatar_url, is_admin, created_at` or `null`.
 - Signed out: `401 { authenticated: false, user: null }`.
 
-### `GET /api/users?q=` (60/min)
-Search people. `q` is optional; `%` and `_` are stripped. Matches `username`, `display_name`, `email` and `phone_number`.
-- `200` array of `{ id, username, display_name, avatar_url, created_at }`, at most 100, excluding the caller. **Email and phone are searchable but never returned.**
+### `GET /api/users?username=` (60/min per IP, 30/min per user)
+Find one person by **exact username**. This is the only way to discover someone you have not talked to. The value is trimmed, a leading `@` is dropped and it is lower-cased; it must be 3 to 30 letters, numbers, dots or underscores. Display name, email, phone number and bio are never searched.
+- `200 { user: { id, username, display_name, avatar_url, created_at, bio?, pronouns?, timezone?, blocked } }` on a match, `200 { user: null }` when nobody has that username (you never get a partial match).
+- `blocked` is `true` when *you* blocked that person. Whether someone blocked *you* is not revealed.
+- `400 { error }` for an empty or invalid username (including email addresses and phone numbers). The caller is never returned.
+
+### `GET /api/users` (60/min)
+People you already share a conversation with (used to fill the contacts list). Platform admins get the full list for the admin dashboard. The old free-text `q` parameter no longer does anything. `200` array of `{ id, username, display_name, avatar_url, created_at, bio?, pronouns?, timezone? }`.
 
 ## Conversations and groups
 
@@ -77,7 +82,7 @@ Returns `{ iceServers, relayAvailable }` for a call. Signed-in users only. TURN 
 
 ## Database functions called from the browser
 
-Communities, disappearing messages and a few lookups are Postgres functions called with `supabase.rpc(...)`, each checking permissions itself: `create_community`, `create_channel`, `create_community_invite`, `join_community`, `leave_community`, `remove_community_member`, `set_community_role`, `set_disappearing`, `purge_expired_messages`, `get_unread_counts`, `get_my_contact`, `find_profiles_by_contact`. See [Database](DATABASE.md).
+Communities, disappearing messages and a few lookups are Postgres functions called with `supabase.rpc(...)`, each checking permissions itself: `create_community`, `create_channel`, `create_community_invite`, `join_community`, `leave_community`, `remove_community_member`, `set_community_role`, `set_disappearing`, `purge_expired_messages`, `get_unread_counts`, `get_my_contact`. (`find_profiles_by_contact` still exists but clients can no longer call it after `016`.) See [Database](DATABASE.md).
 
 ## Files
 
