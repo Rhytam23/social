@@ -20,7 +20,6 @@ export interface NavDeckProps {
   activeConversationId: string;
   onSelectConversation: (id: string) => void;
   onNewMessage: () => void;
-  onInviteMember: () => void;
   unreadTotal: number;
   onGlobalSearchTrigger?: () => void;
 
@@ -43,7 +42,6 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   activeConversationId,
   onSelectConversation,
   onNewMessage,
-  onInviteMember,
   unreadTotal,
   onGlobalSearchTrigger,
   onPinConversation,
@@ -116,14 +114,6 @@ export const NavDeck: React.FC<NavDeckProps> = ({
           >
             <IconPlus className="w-4 h-4" />
           </button>
-          {userRole === 'admin' && (
-            <button
-              onClick={onInviteMember}
-              className="py-1 px-2 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg text-[11px] font-semibold"
-            >
-              Invite
-            </button>
-          )}
         </div>
       </div>
 

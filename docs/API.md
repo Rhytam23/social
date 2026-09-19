@@ -68,13 +68,12 @@ Edit or delete your own message. Body: `{ messageId, ... }`
 `multipart/form-data` with `file` (already encrypted by the browser) and `conversationId`. Active members only. Maximum 25 MB. Stored in `encrypted_attachments` at `<conversationId>/<timestamp>_<safeName>` as `application/octet-stream`.
 - `201 { path, fileName, fileSize, uploadedAt }` · `413` too large · `403` not a member.
 
-## Admin and invites (legacy)
+## Admin
 
 ### `PATCH /api/admin/users` (20/min)
 Admin only (checked against `profiles.is_admin`). Body: `{ userId, isAdmin: boolean }`. You cannot remove your own admin access. Uses the **service-role** client. `200 { id, username, display_name, is_admin }`.
 
-### `GET /api/invites?token=` (30/min) and `POST /api/invites` (15/min)
-The legacy invitation feature. Registration no longer requires an invite. `GET` (public, uses the service role) validates a token; `POST` (admin only) creates one from `{ assignedEmail, expiresInDays? }`. They are kept for the admin dashboard and may be removed; see [Roadmap](ROADMAP.md).
+The old `/api/invites` routes were removed; registration no longer uses invitations.
 
 ## Authentication redirects
 

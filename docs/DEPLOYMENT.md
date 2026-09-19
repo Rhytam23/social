@@ -31,6 +31,16 @@ In Supabase → **Authentication → URL Configuration**:
 
 If you use Google sign-in, the Google client's redirect URI stays the Supabase callback URL; nothing on Google's side depends on your domain.
 
+### Vercel Deployment Protection
+
+Vercel can put a login wall in front of a deployment ("Vercel Authentication", part of *Deployment Protection*). It is on by default for preview deployments, and can be on for production depending on the plan and settings. Anyone who is not a member of your Vercel team then sees **"You Need Access. This Vercel deployment is protected"**, even after signing in to the app with Google. (This is what [issue #6](https://github.com/Rhytam23/social/issues/6) reported.)
+
+To let your users in:
+
+1. In Vercel go to **Project → Settings → Deployment Protection**. For **Production**, turn Vercel Authentication off (or use the option that protects only preview deployments).
+2. Share the **production domain** (Project → Settings → Domains). Per-deployment and branch URLs such as `<project>-<hash>-<team>.vercel.app` stay protected.
+3. Set Supabase's **Site URL** and **Redirect URLs** to that same public domain. After Google or email sign-in, Supabase sends people to the Site URL whenever the address they started from is not in the Redirect URLs list, so a protected address there sends every user to Vercel's wall.
+
 ## 3. Preview deployments
 
 Preview deployments use whatever variables are set for the Preview environment. If they point at your production Supabase project, every pull request preview reads and writes production data. Use a separate Supabase project for Preview if that matters.

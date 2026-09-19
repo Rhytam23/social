@@ -136,16 +136,6 @@ export class DeviceKeyStore {
       db.close();
     }
   }
-
-  static async clear(): Promise<void> {
-    if (typeof indexedDB === 'undefined') return;
-    const db = await openDb();
-    try {
-      await idbDelete(db, RECORD_KEY);
-    } finally {
-      db.close();
-    }
-  }
 }
 
 function openDb(): Promise<IDBDatabase> {
@@ -174,14 +164,5 @@ function idbGet(db: IDBDatabase, key: string): Promise<string | null> {
     const req = tx.objectStore(STORE_NAME).get(key);
     req.onsuccess = () => resolve((req.result as string) ?? null);
     req.onerror = () => reject(req.error || new Error('Failed to read key store'));
-  });
-}
-
-function idbDelete(db: IDBDatabase, key: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).delete(key);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error || new Error('Failed to clear key store'));
   });
 }

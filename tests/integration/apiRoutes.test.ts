@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { GET as getAuth } from '../../app/api/auth/route';
-import { GET as getInvites, POST as postInvites } from '../../app/api/invites/route';
 import { GET as getConversations, POST as postConversations } from '../../app/api/conversations/route';
 import { GET as getMessages, POST as postMessages } from '../../app/api/messages/route';
 import { GET as getGroups, POST as postGroups } from '../../app/api/groups/route';
@@ -34,23 +33,6 @@ describe('API Routes Security & Verification Suite', () => {
       expect(res.status).toBe(401);
       const json = await res.json();
       expect(json.authenticated).toBe(false);
-    });
-  });
-
-  describe('2. Invites API (/api/invites)', () => {
-    it('should reject unauthenticated invite generation with 401', async () => {
-      const req = createMockRequest('http://localhost:3000/api/invites', {
-        method: 'POST',
-        body: { assignedEmail: 'target@example.com' },
-      });
-      const res = await postInvites(req);
-      expect(res.status).toBe(401);
-    });
-
-    it('should reject invalid or missing token on GET with 400', async () => {
-      const req = createMockRequest('http://localhost:3000/api/invites?token=short');
-      const res = await getInvites(req);
-      expect(res.status).toBe(400);
     });
   });
 

@@ -131,7 +131,7 @@ types/        Shared TypeScript types, database types
 npx tsc --noEmit && npm run lint && npm test && npm run build
 ```
 
-76 automated tests cover the encryption layer, security and authorization rules, API route authentication, the message store and message display. They do **not** cover the UI in a real browser or anything that needs a live Supabase project (Realtime delivery, live row level security, email). [`docs/TESTING.md`](docs/TESTING.md) has a manual two-account checklist for those.
+64 automated tests cover the encryption layer, security and authorization rules, API route authentication, the message store and message display. They do **not** cover the UI in a real browser or anything that needs a live Supabase project (Realtime delivery, live row level security, email). [`docs/TESTING.md`](docs/TESTING.md) has a manual two-account checklist for those.
 
 ---
 

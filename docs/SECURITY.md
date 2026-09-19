@@ -19,7 +19,7 @@ What the app protects, what it deliberately does not, the rules contributors mus
 - **Zero plaintext storage.** `messages` has no content column. Everything about a message, including attachment metadata, is inside the encrypted envelope.
 - **Row level security on all ten tables**, with helper functions that fix their `search_path` ([Database](DATABASE.md#row-level-security-summary)).
 - **Admin is a database fact.** `profiles.is_admin` is the only source, checked server side (`lib/auth/roles.ts`, `middleware.ts`). A trigger stops signed-in users from setting it. The first account created becomes admin.
-- **Service-role key is server only** and used for a small number of routes (admin role changes, legacy invites). It is never imported by browser code.
+- **Service-role key is server only** and used only for admin role changes. It is never imported by browser code.
 - **Fail closed.** In production a missing or placeholder Supabase configuration returns HTTP 500. Demo mode exists only when `NODE_ENV` is not `production`.
 - **Signup requires a confirmed email** (with Supabase's Confirm email setting on) or a Google account.
 - **Open-redirect protection** on `/auth/confirm`: `next` must be a same-site path.
@@ -54,9 +54,8 @@ Ordered roughly by importance. These are tracked in the [Roadmap](ROADMAP.md).
 6. **No forward secrecy, no real multi-device support, key substitution risk**: see [E2EE limitations](E2EE.md#limitations).
 7. **Argon2id and key generation run on the main thread** and can briefly freeze the interface.
 8. **Security headers are not present on middleware redirects or the production misconfiguration 500**, because those responses are built separately.
-9. **The legacy invite feature** (`/api/invites`, `lib/invites/`, the admin invite panel) is still present but no longer gates signup. It is dead weight and a small extra attack surface.
-10. **No audit log** of admin actions.
-11. **No CI**: nothing forces the checks to run before a merge.
+9. **No audit log** of admin actions.
+10. **No CI**: nothing forces the checks to run before a merge.
 
 ## Reporting a problem
 

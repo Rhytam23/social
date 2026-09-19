@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useSyncExternalStore } from 'react';
+import { useSyncExternalStore } from 'react';
 import { getChatStore, ChatStore, ChatStoreState } from '../lib/store/chatStore';
 
 export function useChatStore(): [ChatStoreState, ChatStore] {

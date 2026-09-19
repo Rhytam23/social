@@ -3,7 +3,6 @@ import { ChatStore } from '../../lib/store/chatStore';
 import { checkRateLimit } from '../../lib/rate-limit/rateLimiter';
 import { encryptAttachment, decryptAttachment } from '../../crypto/attachments/attachmentEncryptor';
 import { isUserAdmin } from '../../lib/auth/roles';
-import { generateSecureToken, hashToken } from '../../lib/utils/crypto';
 import { DeviceKeyStore } from '../../crypto/storage/keyStorage';
 import { generateDeviceKeys } from '../../crypto/identity/deviceKeys';
 import { createKeyBackup, restoreKeyBackup } from '../../crypto/backup/keyBackup';
@@ -64,24 +63,6 @@ describe('Adversarial & Security Hardening Test Suite', () => {
     it('should verify isUserAdmin returns false for invalid or non-existent user IDs', async () => {
       expect(await isUserAdmin('')).toBe(false);
       expect(await isUserAdmin('non-existent-uuid-1234')).toBe(false);
-    });
-  });
-
-  describe('3. Platform Invite Token Security', () => {
-    it('should generate cryptographically random invite tokens with high entropy', () => {
-      const token1 = generateSecureToken();
-      const token2 = generateSecureToken();
-      expect(token1).not.toBe(token2);
-      expect(token1.length).toBeGreaterThanOrEqual(32);
-    });
-
-    it('should hash tokens deterministically using SHA-256 for secure DB storage', () => {
-      const token = 'SECURE-INVITE-TOKEN-V1-TEST';
-      const hash1 = hashToken(token);
-      const hash2 = hashToken(token);
-      expect(hash1).toBe(hash2);
-      expect(hash1).toMatch(/^[a-f0-9]{64}$/); // Standard SHA-256 hex string
-      expect(hash1).not.toBe(token); // Never plaintext in DB
     });
   });
 

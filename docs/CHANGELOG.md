@@ -4,6 +4,8 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+- **Dead code removed.** Deleted the obsolete invitation feature (the `/api/invites` routes, `lib/invites`, the admin "Invitation Tokens" panel, the sidebar "Invite" button and the invite dialog, invite state in the store, and their tests). Signup has not needed invites since `007`, so the panel created tokens that nothing accepted. `/invite` now redirects to `/signup` and `/admin/invites` no longer exists. Also removed unused components (`Header`, `Badge`, `Textarea`), the unused `types/index.ts` barrel, unused crypto and store helpers, a duplicate `createClient` export and the unused `tsx` dev dependency. The database still has the unused `invites` table and `consume_invite()` function.
+- **Vercel Deployment Protection** documented ([Deployment](DEPLOYMENT.md#vercel-deployment-protection), issue #6).
 - **Documentation rewritten.** Replaced the 37 mostly out-of-date documents with a smaller set written from the code. Removed two documents for features the project never had (scraping, advertising).
 
 ## 2026-09-19

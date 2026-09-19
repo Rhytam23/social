@@ -5,7 +5,7 @@
 > **Changed since this report:**
 > - Registration is **no longer invite-only** (migration `007`, replaced by `009`). Everything below about invite-gated signup describes the state at the time.
 > - Sign-in now also offers **Google**, and email signup requires confirmation.
-> - Migrations `007`, `008` and `009` exist, and there are now 76 automated tests (this report says 68).
+> - Migrations `007`, `008` and `009` exist, and there are now 64 automated tests (this report says 68; the invite tests were removed with the invite feature).
 > - Google sign-in was confirmed working against a real Supabase project by the project owner. **Everything else listed as unverified in section 4 is still unverified** by automated means; use the [manual checklist](TESTING.md#manual-checklist).
 > - The old numbered documentation files this report mentions were replaced; see [docs/README](README.md).
 

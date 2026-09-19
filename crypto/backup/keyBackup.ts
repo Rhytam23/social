@@ -16,7 +16,7 @@ export interface KeyBackupPayload {
   ciphertextB64: string;
 }
 
-export async function deriveBackupKey(passphrase: string, saltBytes: Uint8Array): Promise<CryptoKey> {
+async function deriveBackupKey(passphrase: string, saltBytes: Uint8Array): Promise<CryptoKey> {
   const hashHex = await argon2id({
     password: passphrase,
     salt: saltBytes,

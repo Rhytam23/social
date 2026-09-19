@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import type { Database } from '@/types/database';
 import { getSupabaseUrl, getSupabaseAnonKey } from './env';
 
-export async function createClient() {
+export async function createServerClient() {
   let cookieStore: { getAll: () => { name: string; value: string }[]; set?: (name: string, value: string, options: CookieOptions) => void };
   try {
     cookieStore = await cookies();
@@ -37,5 +37,3 @@ export async function createClient() {
     }
   );
 }
-
-export const createServerClient = createClient;

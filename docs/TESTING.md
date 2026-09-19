@@ -13,15 +13,14 @@ Stop `npm run dev` before `npm run build` on Windows; a running dev server can m
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). 76 tests in 7 files:
+Vitest runs in a Node environment (no browser, no jsdom). 64 tests in 6 files:
 
 | File | Tests | What it covers |
 |---|---|---|
 | `tests/crypto/e2ee.test.ts` | 14 | Key generation and persistence, 1:1 encryption in both directions (including reading your own sent message), wrong-recipient key rejection, tampered ciphertext and nonce, private keys never in exported bundles, per-device keys, group encryption with key rotation on member removal, attachment encryption, key backup and restore with wrong passphrases, stable order-independent safety numbers |
-| `tests/security/adversarial.test.ts` | 11 | Non-members cannot read or post in other people's chats or edit their messages, role escalation rejected, `isUserAdmin` false for bad ids, invite token entropy and hashing, attachment encryption and tamper detection, rate limiter throttling, script/HTML payloads stored as plain text, key backup brute force |
+| `tests/security/adversarial.test.ts` | 11 | Non-members cannot read or post in other people's chats or edit their messages, role escalation rejected, `isUserAdmin` false for bad ids, attachment encryption and tamper detection, rate limiter throttling, script/HTML payloads stored as plain text, key backup brute force |
 | `tests/security/authorization.test.ts` | 16 | Static analysis of the SQL migrations (`001`, `003`, `004`): group roles gone, `is_admin()` reads only `profiles.is_admin`, escalation blocked, no `USING (true)` in the `003` policies, device and presence visibility scoped, no plaintext or private-key columns, storage isolation |
-| `tests/security/invite.test.ts` | 8 | Legacy invite tokens: entropy, hashing, constant-time compare, redemption function restricted to the service role |
-| `tests/integration/apiRoutes.test.ts` | 11 | Every data route returns `401` when signed out; the invite check rejects bad tokens |
+| `tests/integration/apiRoutes.test.ts` | 9 | Every data route returns `401` when signed out |
 | `tests/chat/chatStore.test.ts` | 8 | The message store in demo mode: defaults, optimistic send, reactions, edit, delete, creating direct and group conversations without duplicates, switching persona |
 | `tests/chat/envelopeDisplay.test.ts` | 8 | How message payloads become text and previews, including unknown future kinds and hidden poll votes |
 
