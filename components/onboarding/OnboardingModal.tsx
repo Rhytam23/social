@@ -6,6 +6,8 @@ import { Button } from '../ui/button';
 import { IconLock, IconShield, IconUsers } from '../ui/icons';
 import { createClient } from '../../lib/supabase/client';
 import { isSupabaseConfigured } from '../../lib/supabase/env';
+import { saveOwnProfile } from '../../lib/profile/profileClient';
+import { updatePreferences } from '../../lib/prefs/preferences';
 
 export interface OnboardingModalProps {
   isOpen: boolean;
@@ -14,7 +16,13 @@ export interface OnboardingModalProps {
   initialName: string;
   onProfileUpdated: (newName: string) => void;
   onStartFirstChat: () => void;
+  /** Creates the encrypted key backup file (Argon2id + AES-256-GCM) with the given passphrase. */
+  onExportKeyBackup?: (passphrase: string) => Promise<void>;
 }
+
+const STEP_TITLES = ['Welcome to Private Chat', 'Protect your keys', 'Notifications', 'Ready to message'] as const;
+const inputClass =
+  'w-full bg-[var(--surface-2)] border border-[var(--border-subtle)] p-2.5 rounded-xl text-[var(--text-primary)] text-xs focus:outline-none focus:border-emerald-500/60 transition-all';
 
 export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   isOpen,
@@ -23,20 +31,27 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   initialName,
   onProfileUpdated,
   onStartFirstChat,
+  onExportKeyBackup,
 }) => {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [displayName, setDisplayName] = useState(initialName || 'New User');
-  const [avatarColor, setAvatarColor] = useState('emerald');
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [passphrase, setPassphrase] = useState('');
+  const [backupDone, setBackupDone] = useState(false);
+  const [notifChoice, setNotifChoice] = useState<'all' | 'mentions'>('all');
+  const [notifStatus, setNotifStatus] = useState<string | null>(null);
 
-  const colors = [
-    { name: 'emerald', bg: 'bg-emerald-600', text: 'text-emerald-300', border: 'border-emerald-500' },
-    { name: 'indigo', bg: 'bg-indigo-600', text: 'text-indigo-300', border: 'border-indigo-500' },
-    { name: 'amber', bg: 'bg-amber-600', text: 'text-amber-300', border: 'border-amber-500' },
-    { name: 'rose', bg: 'bg-rose-600', text: 'text-rose-300', border: 'border-rose-500' },
-    { name: 'cyan', bg: 'bg-cyan-600', text: 'text-cyan-300', border: 'border-cyan-500' },
-  ];
+  const markCompleted = () => {
+    try {
+      localStorage.setItem(`private_chat_onboarding_completed_${userId}`, 'true');
+    } catch {
+      // ignore: the server copy below is the source of truth
+    }
+    if (isSupabaseConfigured()) {
+      void saveOwnProfile(createClient(), userId, { onboarding_completed: true }).catch(() => {});
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (!displayName.trim()) return;
@@ -44,12 +59,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     setSaveError(null);
     try {
       if (isSupabaseConfigured()) {
-        const supabase = createClient();
-        const { error } = await supabase
-          .from('profiles')
-          .update({ display_name: displayName.trim() })
-          .eq('id', userId);
-        if (error) throw error;
+        await saveOwnProfile(createClient(), userId, { display_name: displayName.trim() });
       }
       onProfileUpdated(displayName.trim());
       setStep(2);
@@ -60,143 +70,162 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     }
   };
 
-  const handleComplete = () => {
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(`private_chat_onboarding_completed_${userId}`, 'true');
-      } catch {
-        // ignore
-      }
+  const handleBackup = async () => {
+    if (!onExportKeyBackup) return;
+    if (passphrase.length < 8) {
+      setSaveError('Use a passphrase of at least 8 characters.');
+      return;
     }
-    onClose();
-    onStartFirstChat();
+    setIsSaving(true);
+    setSaveError(null);
+    try {
+      await onExportKeyBackup(passphrase);
+      setBackupDone(true);
+      setPassphrase('');
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Could not create the backup.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  return (
-    <Dialog
-      isOpen={isOpen}
-      onClose={onClose}
-      title={
-        step === 1
-          ? 'Welcome to Private Chat'
-          : step === 2
-          ? 'End-to-End Encryption'
-          : 'Ready to Message'
+  const handleNotifications = async () => {
+    updatePreferences((d) => ({ ...d, notifications: { ...d.notifications, level: notifChoice } }));
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      try {
+        const result = await Notification.requestPermission();
+        setNotifStatus(result === 'granted' ? 'Desktop notifications are on.' : 'You can turn them on later in Settings.');
+      } catch {
+        setNotifStatus('You can turn them on later in Settings.');
       }
-      footerAction={
-        step === 1 ? (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={handleSaveProfile}
-            disabled={!displayName.trim() || isSaving}
-          >
-            {isSaving ? 'Saving...' : 'Continue'}
+    }
+    setStep(4);
+  };
+
+  const finish = (startChat: boolean) => {
+    markCompleted();
+    onClose();
+    if (startChat) onStartFirstChat();
+  };
+
+  const footer =
+    step === 1 ? (
+      <Button variant="primary" size="sm" onClick={handleSaveProfile} loading={isSaving} disabled={!displayName.trim()}>
+        Continue
+      </Button>
+    ) : step === 2 ? (
+      <div className="flex gap-2">
+        {!backupDone && (
+          <Button variant="tertiary" size="sm" onClick={() => setStep(3)}>
+            Skip for now
           </Button>
-        ) : step === 2 ? (
-          <Button variant="primary" size="sm" onClick={() => setStep(3)}>
-            Got It
+        )}
+        {onExportKeyBackup && !backupDone ? (
+          <Button variant="primary" size="sm" onClick={handleBackup} loading={isSaving} disabled={passphrase.length < 8}>
+            Create backup
           </Button>
         ) : (
-          <Button variant="primary" size="sm" onClick={handleComplete}>
-            Start First Chat
+          <Button variant="primary" size="sm" onClick={() => setStep(3)}>
+            Continue
           </Button>
-        )
-      }
-    >
-      <div className="flex flex-col gap-4 font-sans text-xs text-slate-300">
-        {/* Step Indicator */}
-        <div className="flex items-center gap-1.5 pb-2 border-b border-slate-800">
-          <span className={`h-1.5 flex-1 rounded-full ${step >= 1 ? 'bg-emerald-500' : 'bg-slate-800'}`} />
-          <span className={`h-1.5 flex-1 rounded-full ${step >= 2 ? 'bg-emerald-500' : 'bg-slate-800'}`} />
-          <span className={`h-1.5 flex-1 rounded-full ${step >= 3 ? 'bg-emerald-500' : 'bg-slate-800'}`} />
+        )}
+      </div>
+    ) : step === 3 ? (
+      <Button variant="primary" size="sm" onClick={handleNotifications}>
+        Continue
+      </Button>
+    ) : (
+      <Button variant="primary" size="sm" onClick={() => finish(true)}>
+        Start first chat
+      </Button>
+    );
+
+  return (
+    <Dialog isOpen={isOpen} onClose={() => finish(false)} title={STEP_TITLES[step - 1]} footerAction={footer} hideCancel>
+      <div className="flex flex-col gap-4 font-sans text-xs text-[var(--text-secondary)]">
+        <div className="flex items-center gap-1.5 pb-2 border-b border-[var(--border-subtle)]" role="progressbar" aria-valuemin={1} aria-valuemax={4} aria-valuenow={step} aria-label={`Step ${step} of 4`}>
+          {[1, 2, 3, 4].map((n) => (
+            <span key={n} className={`h-1.5 flex-1 rounded-full transition-colors ${step >= n ? 'bg-emerald-500' : 'bg-[var(--surface-hover)]'}`} />
+          ))}
         </div>
 
-        {/* Step 1: Profile Setup */}
+        {saveError && (
+          <div role="alert" className="p-3 bg-[var(--danger-subtle)] border border-[var(--danger-neutral)]/30 text-[var(--danger-neutral)] rounded-xl text-[11px]">
+            {saveError}
+          </div>
+        )}
+
         {step === 1 && (
-          <div className="flex flex-col gap-4 py-1">
-            <p className="text-slate-400 leading-relaxed">
-              Let&apos;s personalize how other verified contacts see you in conversations.
-            </p>
+          <div className="flex flex-col gap-3 py-1">
+            <p className="leading-relaxed">Choose the name other people see. You can add a photo, bio and pronouns later in Settings.</p>
+            <label htmlFor="ob-name" className="text-[11px] font-semibold text-[var(--text-primary)]">Your display name</label>
+            <input id="ob-name" data-autofocus type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="e.g. Sarah Jenkins" className={inputClass} />
+          </div>
+        )}
 
-            <div className="flex items-center gap-4 p-3 bg-slate-950/60 border border-slate-800 rounded-2xl">
-              <div
-                className={`w-12 h-12 rounded-2xl ${
-                  colors.find((c) => c.name === avatarColor)?.bg || 'bg-emerald-600'
-                } text-white font-bold flex items-center justify-center text-sm shadow-md shrink-0`}
-              >
-                {displayName.slice(0, 2).toUpperCase() || 'U'}
+        {step === 2 && (
+          <div className="flex flex-col gap-3 py-1">
+            <div className="p-3.5 bg-[var(--accent-subtle)] border border-emerald-500/30 rounded-2xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <IconShield className="w-4 h-4" />
               </div>
-              <div className="flex flex-col gap-1.5 flex-1">
-                <span className="text-[11px] font-semibold text-slate-300">Avatar Accent</span>
-                <div className="flex items-center gap-2">
-                  {colors.map((c) => (
-                    <button
-                      key={c.name}
-                      type="button"
-                      onClick={() => setAvatarColor(c.name)}
-                      className={`w-5 h-5 rounded-full ${c.bg} border-2 ${
-                        avatarColor === c.name ? 'border-white scale-110' : 'border-transparent opacity-70'
-                      } transition-all`}
-                    />
-                  ))}
-                </div>
-              </div>
+              <p className="leading-relaxed text-[var(--text-primary)]">
+                Your messages are encrypted with keys that live only on this device. <strong>If you lose this device or clear your browser data, nobody, including us, can recover them.</strong>
+              </p>
             </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold text-slate-300">Your Display Name</label>
-              <input
-                type="text"
-                value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="e.g. Sarah Jenkins"
-                className="w-full bg-slate-950/80 border border-slate-800 p-2.5 rounded-xl text-slate-100 text-xs focus:outline-none focus:border-emerald-500/60 transition-all"
-              />
-            </div>
-
-            {saveError && (
-              <div className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl text-[11px]">
-                {saveError}
-              </div>
+            {backupDone ? (
+              <p role="status" className="p-3 rounded-xl bg-[var(--accent-subtle)] text-[var(--accent-text)] font-medium">
+                Backup created. Keep the file and your passphrase somewhere safe.
+              </p>
+            ) : (
+              <>
+                <p className="leading-relaxed">Make an encrypted backup now. It is protected by a passphrase you choose (Argon2id + AES-256-GCM).</p>
+                <label htmlFor="ob-pass" className="text-[11px] font-semibold text-[var(--text-primary)]">Backup passphrase (8+ characters)</label>
+                <input id="ob-pass" type="password" autoComplete="new-password" value={passphrase} onChange={(e) => setPassphrase(e.target.value)} className={inputClass} />
+                <p className="flex items-center gap-2 text-[11px] text-[var(--text-muted)]">
+                  <IconLock className="w-3.5 h-3.5 shrink-0" />
+                  You can skip this and do it later under Settings, Privacy &amp; Security.
+                </p>
+              </>
             )}
           </div>
         )}
 
-        {/* Step 2: Privacy / Cryptographic Explanation */}
-        {step === 2 && (
+        {step === 3 && (
           <div className="flex flex-col gap-3 py-1">
-            <div className="p-3.5 bg-emerald-950/30 border border-emerald-500/30 rounded-2xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
-                <IconShield className="w-4 h-4" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <span className="font-bold text-emerald-300">End-to-End Encryption Active</span>
-                <p className="text-slate-300 leading-relaxed">
-                  Every direct message, voice note, and group communication is encrypted client-side with keys stored only on your current device. The server only ever sees ciphertext.
-                </p>
-              </div>
+            <p className="leading-relaxed">How much should we interrupt you? Message text is only shown on this device, never sent through a notification server.</p>
+            <div role="radiogroup" aria-label="Notification level" className="flex flex-col gap-2">
+              {([
+                ['all', 'Every message', 'Best for close friends and small groups.'],
+                ['mentions', 'Mentions and replies only', 'Quieter. Busy groups only alert you when you are addressed.'],
+              ] as const).map(([value, title, desc]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={notifChoice === value}
+                  onClick={() => setNotifChoice(value)}
+                  className={`text-left p-3 rounded-xl border transition-colors ${
+                    notifChoice === value ? 'border-emerald-500/60 bg-[var(--accent-subtle)]' : 'border-[var(--border-subtle)] hover:bg-[var(--surface-2)]'
+                  }`}
+                >
+                  <span className="block font-semibold text-[var(--text-primary)]">{title}</span>
+                  <span className="block text-[11px] text-[var(--text-muted)]">{desc}</span>
+                </button>
+              ))}
             </div>
-
-            <div className="p-3 bg-slate-950/50 border border-slate-800 rounded-xl flex items-center gap-3">
-              <IconLock className="w-4 h-4 text-slate-400 shrink-0" />
-              <p className="text-slate-400 leading-relaxed text-[11px]">
-                You can export an encrypted passphrase backup of your key store at any time under Settings.
-              </p>
-            </div>
+            <p className="text-[11px] text-[var(--text-muted)]">Continuing will ask your browser for permission to show desktop notifications.</p>
           </div>
         )}
 
-        {/* Step 3: Quick Start */}
-        {step === 3 && (
+        {step === 4 && (
           <div className="flex flex-col gap-3 py-2 text-center items-center">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-1">
+            <div className="w-12 h-12 rounded-2xl bg-[var(--accent-subtle)] border border-emerald-500/30 text-[var(--accent-text)] flex items-center justify-center mb-1">
               <IconUsers className="w-6 h-6" />
             </div>
-            <h4 className="text-sm font-bold text-white">Your encrypted workspace is ready</h4>
-            <p className="text-slate-400 max-w-xs text-[11px] leading-relaxed">
-              Search for registered members by display name, username, email, or phone number to begin messaging.
-            </p>
+            <h4 className="text-sm font-bold text-[var(--text-primary)]">Your encrypted workspace is ready</h4>
+            {notifStatus && <p role="status" className="text-[11px]">{notifStatus}</p>}
+            <p className="max-w-xs text-[11px] leading-relaxed">Find people by name, username, or an exact email or phone number, then say hello. Press Ctrl+K anytime to jump anywhere.</p>
           </div>
         )}
       </div>

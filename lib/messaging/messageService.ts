@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from './messagingCrypto';
 import type { MessageEnvelope } from './envelope';
+import { isGroupRole, type GroupRole } from '../groups/roles';
 
 export interface ConversationSummary {
   id: string;
@@ -10,6 +11,15 @@ export interface ConversationSummary {
   updatedAt: string;
   memberCount: number;
   memberIds: string[];
+  /** Group only (needs migration 013). */
+  roles?: Record<string, GroupRole>;
+  description?: string | null;
+  onlyAdminsPost?: boolean;
+  disappearAfter?: number | null;
+  /** Set when this conversation is a community channel (needs migration 014). */
+  communityId?: string;
+  topic?: string | null;
+  isPrivateChannel?: boolean;
   otherParticipant?: { id: string; username: string; displayName: string; avatarUrl: string | null };
 }
 
@@ -21,6 +31,8 @@ export interface DecryptedMessageRow {
   editedAt: string | null;
   deletedAt: string | null;
   replyToMessageId: string | null;
+  threadRootId?: string | null;
+  expiresAt?: string | null;
   envelope: MessageEnvelope | null;
   decryptError?: string;
 }
@@ -47,26 +59,62 @@ export async function fetchConversations(
   const conversationIds = (memberRows || []).map((r) => r.conversation_id);
   if (conversationIds.length === 0) return [];
 
-  const { data: conversations, error: convErr } = await supabase
-    .from('conversations')
-    .select('id, type, name, updated_at')
-    .in('id', conversationIds)
-    .order('updated_at', { ascending: false });
+  // description / only_admins_post / role come from migration 013; fall back if it is not applied yet.
+  type ConvRow = {
+    id: string;
+    type: string;
+    name: string | null;
+    updated_at: string;
+    description?: string | null;
+    only_admins_post?: boolean;
+    community_id?: string | null;
+    topic?: string | null;
+    is_private?: boolean;
+    disappear_after?: number | null;
+  };
+  // Newest column set first; each older migration level is a fallback.
+  const columnSets = [
+    'id, type, name, updated_at, description, only_admins_post, community_id, topic, is_private, disappear_after',
+    'id, type, name, updated_at, description, only_admins_post, community_id, topic, is_private',
+    'id, type, name, updated_at, description, only_admins_post',
+    'id, type, name, updated_at',
+  ];
+  let conversations: ConvRow[] = [];
+  let lastError = '';
+  for (const columns of columnSets) {
+    const res = await supabase.from('conversations').select(columns).in('id', conversationIds).order('updated_at', { ascending: false });
+    if (!res.error) {
+      conversations = (res.data as unknown as ConvRow[]) || [];
+      lastError = '';
+      break;
+    }
+    lastError = res.error.message;
+  }
+  if (lastError) throw new Error(lastError);
 
-  if (convErr) throw new Error(convErr.message);
-
-  const { data: allMembers, error: allMembersErr } = await supabase
+  type MemberRow = { conversation_id: string; user_id: string; role?: string; profiles: ProfileRow | null };
+  let allMembers: MemberRow[] | null = null;
+  const withRoles = await supabase
     .from('conversation_members')
-    .select('conversation_id, user_id, profiles(id, username, display_name, avatar_url)')
+    .select('conversation_id, user_id, role, profiles(id, username, display_name, avatar_url)')
     .in('conversation_id', conversationIds)
     .is('left_at', null);
+  if (withRoles.error) {
+    const plainMembers = await supabase
+      .from('conversation_members')
+      .select('conversation_id, user_id, profiles(id, username, display_name, avatar_url)')
+      .in('conversation_id', conversationIds)
+      .is('left_at', null);
+    if (plainMembers.error) throw new Error(plainMembers.error.message);
+    allMembers = plainMembers.data as unknown as MemberRow[];
+  } else {
+    allMembers = withRoles.data as unknown as MemberRow[];
+  }
 
-  if (allMembersErr) throw new Error(allMembersErr.message);
-
-  const membersByConversation = new Map<string, Array<{ userId: string; profile: ProfileRow | null }>>();
-  for (const row of (allMembers || []) as Array<{ conversation_id: string; user_id: string; profiles: ProfileRow | null }>) {
+  const membersByConversation = new Map<string, Array<{ userId: string; role?: GroupRole; profile: ProfileRow | null }>>();
+  for (const row of allMembers || []) {
     const list = membersByConversation.get(row.conversation_id) || [];
-    list.push({ userId: row.user_id, profile: row.profiles });
+    list.push({ userId: row.user_id, role: isGroupRole(row.role) ? row.role : undefined, profile: row.profiles });
     membersByConversation.set(row.conversation_id, list);
   }
 
@@ -74,12 +122,29 @@ export async function fetchConversations(
     const members = membersByConversation.get(conv.id) || [];
     const summary: ConversationSummary = {
       id: conv.id,
-      type: conv.type as 'private' | 'group',
+      // A community channel behaves like a group for encryption and membership.
+      type: conv.type === 'private' ? 'private' : 'group',
       name: conv.name,
       updatedAt: conv.updated_at,
       memberCount: members.length,
       memberIds: members.map((m) => m.userId),
     };
+
+    summary.disappearAfter = conv.disappear_after ?? null;
+
+    if (conv.community_id) {
+      summary.communityId = conv.community_id;
+      summary.topic = conv.topic ?? null;
+      summary.isPrivateChannel = !!conv.is_private;
+    }
+
+    if (conv.type !== 'private') {
+      if (members.some((m) => m.role)) {
+        summary.roles = Object.fromEntries(members.map((m) => [m.userId, m.role ?? 'member'])) as Record<string, GroupRole>;
+      }
+      summary.description = conv.description ?? null;
+      summary.onlyAdminsPost = conv.only_admins_post ?? false;
+    }
 
     if (conv.type === 'private') {
       const other = members.find((m) => m.userId !== myUserId);
@@ -100,7 +165,7 @@ export async function fetchConversations(
 async function decryptRow(
   crypto: MessagingCrypto,
   conversation: ConversationSummary,
-  row: { id: string; conversation_id: string; sender_id: string; ciphertext: string; nonce: string; encryption_version: number; created_at: string; edited_at: string | null; deleted_at: string | null; reply_to_message_id: string | null }
+  row: { id: string; conversation_id: string; sender_id: string; ciphertext: string; nonce: string; encryption_version: number; created_at: string; edited_at: string | null; deleted_at: string | null; reply_to_message_id: string | null; thread_root_id?: string | null; expires_at?: string | null }
 ): Promise<DecryptedMessageRow> {
   const base = {
     id: row.id,
@@ -110,6 +175,8 @@ async function decryptRow(
     editedAt: row.edited_at,
     deletedAt: row.deleted_at,
     replyToMessageId: row.reply_to_message_id,
+    threadRootId: row.thread_root_id ?? null,
+    expiresAt: row.expires_at ?? null,
   };
 
   if (row.deleted_at) {
@@ -146,9 +213,11 @@ async function decryptRow(
 export async function fetchMessageHistory(
   crypto: MessagingCrypto,
   conversation: ConversationSummary,
-  limit = 100
+  limit = 100,
+  before?: string
 ): Promise<DecryptedMessageRow[]> {
   const params = new URLSearchParams({ conversationId: conversation.id, limit: String(limit) });
+  if (before) params.set('before', before);
   const res = await fetch(`/api/messages?${params.toString()}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
@@ -163,6 +232,8 @@ export async function fetchMessageHistory(
     nonce: string;
     encryption_version: number;
     reply_to_message_id: string | null;
+    thread_root_id?: string | null;
+    expires_at?: string | null;
     created_at: string;
     edited_at: string | null;
     deleted_at: string | null;
@@ -186,7 +257,8 @@ export async function sendEnvelope(
   crypto: MessagingCrypto,
   conversation: ConversationSummary,
   envelope: MessageEnvelope,
-  replyToMessageId?: string
+  replyToMessageId?: string,
+  threadRootId?: string
 ): Promise<SendResult> {
   let ciphertext: string;
   let nonce: string;
@@ -216,6 +288,7 @@ export async function sendEnvelope(
       nonce,
       encryptionVersion,
       replyToMessageId: replyToMessageId || null,
+      threadRootId: threadRootId || null,
     }),
   });
 

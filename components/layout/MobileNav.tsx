@@ -1,67 +1,61 @@
 import React from 'react';
 import { ViewCategory } from '../../types/ui';
-import { IconLock, IconShield, IconUser, IconUsers } from '../ui/icons';
+import { IconLock, IconSearch, IconShield, IconUsers } from '../ui/icons';
+import { CountBadge } from '../ui/primitives';
 
 export interface MobileNavProps {
   activeCategory: ViewCategory;
   onSelectCategory: (cat: ViewCategory) => void;
   unreadTotal: number;
   userRole: 'admin' | 'member';
+  onOpenSearch?: () => void;
 }
 
-export const MobileNav: React.FC<MobileNavProps> = ({
-  activeCategory,
-  onSelectCategory,
-  unreadTotal,
-}) => {
+export const MobileNav: React.FC<MobileNavProps> = ({ activeCategory, onSelectCategory, unreadTotal, onOpenSearch }) => {
   const navItems: { key: ViewCategory; label: string; icon: React.ReactNode; badge?: number }[] = [
-    {
-      key: 'chats',
-      label: 'Chats',
-      icon: <IconLock className="w-5 h-5" />,
-      badge: unreadTotal,
-    },
-    {
-      key: 'groups',
-      label: 'Groups',
-      icon: <IconUsers className="w-5 h-5" />,
-    },
-    {
-      key: 'people',
-      label: 'People',
-      icon: <IconUser className="w-5 h-5" />,
-    },
-    {
-      key: 'settings',
-      label: 'Security',
-      icon: <IconShield className="w-5 h-5" />,
-    },
+    { key: 'chats', label: 'Chats', icon: <IconLock className="w-5 h-5" />, badge: unreadTotal },
+    { key: 'groups', label: 'Groups', icon: <IconUsers className="w-5 h-5" /> },
+    { key: 'people', label: 'People', icon: <IconUsers className="w-5 h-5" /> },
+    { key: 'settings', label: 'You', icon: <IconShield className="w-5 h-5" /> },
   ];
 
+  const itemClass = (isActive: boolean) =>
+    `flex flex-col items-center justify-center gap-1 flex-1 py-1 transition-colors relative ${
+      isActive ? 'text-[var(--accent-text)] font-bold' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+    }`;
+
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#0f172a]/95 backdrop-blur-md border-t border-slate-800 flex items-center justify-around z-30 font-sans px-2">
+    <nav
+      aria-label="Primary"
+      className="md:hidden fixed bottom-0 left-0 right-0 min-h-16 bg-[var(--surface-1)]/95 backdrop-blur-md border-t border-[var(--border-subtle)] flex items-center justify-around z-30 font-sans px-2 safe-bottom"
+    >
       {navItems.map((item) => {
         const isActive = activeCategory === item.key;
         return (
           <button
             key={item.key}
             onClick={() => onSelectCategory(item.key)}
-            className={`flex flex-col items-center justify-center gap-1 flex-1 py-1 transition-colors relative ${
-              isActive ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            aria-current={isActive ? 'page' : undefined}
+            className={itemClass(isActive)}
           >
-            <div className="relative">
+            <span className="relative">
               {item.icon}
-              {item.badge && item.badge > 0 ? (
-                <span className="absolute -top-1 -right-2 w-4 h-4 rounded-full bg-emerald-500 text-[9px] font-bold text-slate-950 flex items-center justify-center">
-                  {item.badge}
+              {item.badge ? (
+                <span className="absolute -top-1.5 -right-3">
+                  <CountBadge count={item.badge} />
                 </span>
               ) : null}
-            </div>
+            </span>
             <span className="text-[10px] tracking-tight">{item.label}</span>
           </button>
         );
       })}
-    </div>
+      {onOpenSearch && (
+        <button onClick={onOpenSearch} className={itemClass(false)} aria-label="Search">
+          <IconSearch className="w-5 h-5" />
+          <span className="text-[10px] tracking-tight">Search</span>
+        </button>
+      )}
+    </nav>
   );
 };

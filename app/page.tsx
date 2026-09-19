@@ -8,6 +8,16 @@ import { LoginForm } from '../components/auth/LoginForm';
 import { LandingPage } from '../components/landing/LandingPage';
 import { OnboardingModal } from '../components/onboarding/OnboardingModal';
 import { UserItem, MessageData } from '../types/ui';
+import { loadOwnProfile, saveOwnProfile } from '../lib/profile/profileClient';
+import { initPreferences, type Preferences } from '../lib/prefs/preferences';
+import { LiveChannels } from '../lib/realtime/liveChannels';
+import { handleIncoming, markConversationNotificationsRead } from '../lib/notifications/notifier';
+import { AppLockGate } from '../components/privacy/AppLockGate';
+import { CallManager, IDLE_CALL_STATE, type CallState } from '../lib/calls/CallManager';
+import { CallOverlay } from '../components/calls/CallOverlay';
+import { playBeep } from '../lib/notifications/notifier';
+import { toast } from '../lib/ui/toastStore';
+import { getPreferences } from '../lib/prefs/preferences';
 import { createClient } from '../lib/supabase/client';
 import { isSupabaseConfigured, isDemoModeAllowed } from '../lib/supabase/env';
 import { MessagingCrypto } from '../lib/messaging/messagingCrypto';
@@ -15,14 +25,6 @@ import type { RealtimeMessageRow } from '../lib/store/chatStore';
 import { createKeyBackup, restoreKeyBackup } from '../crypto';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
-interface ProfileRow {
-  id: string;
-  display_name?: string;
-  username?: string;
-  phone_number?: string;
-  avatar_url?: string | null;
-  is_admin?: boolean;
-}
 
 export default function HomePage() {
   const [state, store] = useChatStore();
@@ -34,9 +36,14 @@ export default function HomePage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | undefined>(undefined);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const cryptoRef = useRef<MessagingCrypto | null>(null);
   const initedRef = useRef(false);
+  const liveRef = useRef<LiveChannels | null>(null);
+  const callsRef = useRef<CallManager | null>(null);
+  const ringRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [callState, setCallState] = useState<CallState>(IDLE_CALL_STATE);
 
   const configured = isSupabaseConfigured();
 
@@ -70,6 +77,25 @@ export default function HomePage() {
           void store.receiveRealtimeMessageUpdate(payload.new as RealtimeMessageRow);
         }
       )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions' }, (payload) => {
+        store.applyReactionEvent('INSERT', payload.new as { message_id?: string; user_id?: string; reaction?: string });
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'message_reactions' }, (payload) => {
+        store.applyReactionEvent('DELETE', payload.old as { message_id?: string; user_id?: string; reaction?: string });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_members' }, () => {
+        store.refreshConversations();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'community_members' }, () => {
+        void store.loadCommunities();
+        store.refreshConversations();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'conversations' }, () => {
+        store.refreshConversations();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'message_receipts' }, (payload) => {
+        store.applyReceiptRow(payload.new as { message_id?: string; user_id?: string; delivered_at?: string | null; read_at?: string | null });
+      })
       .subscribe();
 
     realtimeChannelRef.current = channel;
@@ -79,6 +105,7 @@ export default function HomePage() {
     if (!configured) {
       if (isDemoModeAllowed()) {
         store.initDemoMode();
+        initPreferences('demo');
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
@@ -105,18 +132,18 @@ export default function HomePage() {
       setBootError(null);
       setIsAuthenticated(true);
 
-      const { data: profile } = (await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle()) as { data: ProfileRow | null };
+      const profile = await loadOwnProfile(supabase, user);
+      initPreferences(user.id, profile?.preferences, (prefs: Preferences) => {
+        void saveOwnProfile(supabase, user.id, { preferences: prefs as unknown as Record<string, unknown> }).catch(() => {});
+      });
 
       const displayName =
         profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
 
       if (typeof window !== 'undefined') {
-        const completed = localStorage.getItem(`private_chat_onboarding_completed_${user.id}`);
-        if (!completed && (!profile?.display_name || profile.display_name === 'User')) {
+        const completed =
+          profile?.onboarding_completed === true || localStorage.getItem(`private_chat_onboarding_completed_${user.id}`);
+        if (!completed && (!profile?.display_name || profile.display_name === 'User' || profile?.onboarding_completed === false)) {
           setOnboardingOpen(true);
         }
       }
@@ -130,12 +157,56 @@ export default function HomePage() {
         name: displayName,
         username: profile?.username || user.email?.split('@')[0],
         email: user.email,
-        phoneNumber: profile?.phone_number,
+        phoneNumber: profile?.phone_number ?? undefined,
+        bio: profile?.bio ?? undefined,
+        pronouns: profile?.pronouns ?? undefined,
+        timezone: profile?.timezone ?? undefined,
         role: profile?.is_admin ? 'admin' : 'member',
       });
 
       if (profile?.avatar_url) {
         store.updateCurrentUserProfile({ avatarUrl: profile.avatar_url });
+      }
+
+      // Presence, typing and bookmarks are best effort: a failure here must not block the app.
+      try {
+        liveRef.current?.stop();
+        const live = new LiveChannels(supabase, user.id, store);
+        liveRef.current = live;
+        live.start();
+        void store.loadSavedMessages();
+        void store.loadCommunities();
+        void store.loadBlocked();
+
+        callsRef.current?.stop();
+        const stopRinging = () => {
+          if (ringRef.current) clearInterval(ringRef.current);
+          ringRef.current = null;
+        };
+        const calls = new CallManager(supabase, crypto, user.id, {
+          getPeer: (peerId) => {
+            const s = store.getState();
+            if (s.blocked.includes(peerId)) return null;
+            const conv = s.conversations.find((c) => c.type === 'direct' && c.recipientUser?.id === peerId);
+            return conv ? { name: conv.title, conversationId: conv.id, verified: !!conv.recipientUser?.isVerified } : null;
+          },
+          logCall: (conversationId, callId, outcome, video, durationMs) => void store.sendCallLog(conversationId, callId, outcome, video, durationMs),
+          canRing: () => {
+            const choice = getPreferences().status.choice;
+            return choice !== 'dnd' && choice !== 'meeting';
+          },
+          startRinging: () => {
+            stopRinging();
+            playBeep();
+            ringRef.current = setInterval(playBeep, 2200);
+          },
+          stopRinging,
+        });
+        callsRef.current = calls;
+        calls.subscribe(() => setCallState(calls.getState()));
+        calls.start();
+      } catch (liveErr) {
+        console.warn('Live channels unavailable', liveErr);
       }
     } catch (err) {
       // Only a failed auth check may send the user back to the landing page.
@@ -158,6 +229,9 @@ export default function HomePage() {
     void bootstrapSession();
 
     return () => {
+      liveRef.current?.stop();
+      callsRef.current?.stop();
+      if (ringRef.current) clearInterval(ringRef.current);
       if (realtimeChannelRef.current) {
         const supabase = createClient();
         supabase.removeChannel(realtimeChannelRef.current);
@@ -176,16 +250,109 @@ export default function HomePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, configured, state.mode, conversationIdsKey]);
 
+  // An invite link (?join=CODE) is remembered across the sign-in redirect, then offered once signed in.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('join');
+      if (code) {
+        sessionStorage.setItem('pc_pending_join', code);
+        params.delete('join');
+        const qs = params.toString();
+        window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
+      }
+    } catch {
+      // storage unavailable: the link simply has to be opened again after signing in
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || state.mode !== 'connected') return;
+    try {
+      const pending = sessionStorage.getItem('pc_pending_join');
+      if (pending) {
+        sessionStorage.removeItem('pc_pending_join');
+        setInviteCode(pending);
+      }
+    } catch {
+      // ignore
+    }
+  }, [isAuthenticated, state.mode]);
+
+  // Alerts for incoming messages (toast, desktop notification, sound), decided on this device.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    return store.onIncoming((event) =>
+      handleIncoming(event, {
+        me: { id: state.currentUser.id, name: state.currentUser.name, username: state.currentUser.username },
+        openConversation: (id) => store.selectConversation(id),
+      })
+    );
+  }, [isAuthenticated, store, state.currentUser.id, state.currentUser.name, state.currentUser.username]);
+
+  useEffect(() => {
+    markConversationNotificationsRead(state.activeConversationId);
+  }, [state.activeConversationId]);
+
+  // Call problems (no microphone, blocked permission, connection lost) are shown as a message.
+  useEffect(() => {
+    if (callState.error && callState.phase === 'idle') {
+      toast(callState.error, { kind: 'error', ms: 8000 });
+      callsRef.current?.clearError();
+    }
+  }, [callState.error, callState.phase]);
+
+  // Disappearing messages: drop expired ones from view and ask the server to delete them.
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const t = setInterval(() => {
+      setClockTick((n) => n + 1);
+      void store.purgeExpired();
+    }, 30_000);
+    return () => clearInterval(t);
+  }, [isAuthenticated, store]);
+
+  // Unread count in the browser tab title.
+  const totalUnread = state.conversations.reduce((sum, c) => (c.isMuted ? sum : sum + c.unreadCount), 0);
+  useEffect(() => {
+    document.title = totalUnread > 0 ? `(${totalUnread > 99 ? '99+' : totalUnread}) Private Chat` : 'Private Chat';
+  }, [totalUnread]);
+
+  // Typing indicators follow the conversation the user is looking at.
+  useEffect(() => {
+    liveRef.current?.watchConversation(state.mode === 'connected' && isAuthenticated ? state.activeConversationId || null : null);
+  }, [state.activeConversationId, state.mode, isAuthenticated]);
+
   const activeConversation =
     state.conversations.find((c) => c.id === state.activeConversationId) ||
     state.conversations[0];
 
-  const activeMessages = activeConversation
-    ? state.messagesMap[activeConversation.id] || []
-    : [];
+  const activeMessages = (activeConversation ? state.messagesMap[activeConversation.id] || [] : []).filter(
+    (m) => !m.expiresAt || Date.parse(m.expiresAt) > Date.now()
+  );
 
-  const handleSendMessage = (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number) => {
-    void store.sendMessage(content, replyToId, attachmentFile, voiceDurationMs);
+  const handleExportData = () => {
+    const me = state.currentUser;
+    const data = {
+      exportedAt: new Date().toISOString(),
+      note: 'Messages are end-to-end encrypted and are not included in this export.',
+      profile: { name: me.name, username: me.username, email: me.email, phone: me.phoneNumber, bio: me.bio, pronouns: me.pronouns, timezone: me.timezone },
+      preferences: getPreferences(),
+      blockedUserIds: state.blocked,
+      communities: state.communities.map((c) => ({ name: c.name, role: c.role })),
+      devices: state.devices.map((d) => ({ name: d.deviceName, lastActive: d.lastActive })),
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'private-chat-export.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSendMessage = (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number, threadRootId?: string) => {
+    void store.sendMessage(content, replyToId, attachmentFile, voiceDurationMs, threadRootId);
   };
 
   const handleDownloadAttachment = (msgId: string, attachmentId: string) => {
@@ -225,7 +392,7 @@ export default function HomePage() {
   };
 
   const handleStarMessageToggle = (msgId: string) => {
-    store.starMessage(msgId);
+    void store.toggleSaved(msgId);
   };
 
   const handleToggleUserRole = (userId: string, currentRole: 'admin' | 'member') => {
@@ -279,6 +446,11 @@ export default function HomePage() {
       }
     }
     cryptoRef.current = null;
+    liveRef.current?.stop();
+    liveRef.current = null;
+    callsRef.current?.hangup();
+    callsRef.current?.stop();
+    callsRef.current = null;
     store.logout();
     setIsAuthenticated(false);
   };
@@ -300,7 +472,7 @@ export default function HomePage() {
   // silently granting access.
   if (configured === false && !isDemoModeAllowed() && isAuthenticated === false) {
     return (
-      <div className="h-screen w-screen bg-[#070b14] flex flex-col items-center justify-center font-sans text-center p-6">
+      <div className="h-screen w-screen bg-[var(--canvas-bg)] flex flex-col items-center justify-center font-sans text-center p-6">
         <h1 className="text-sm font-bold text-rose-400 mb-2">Server misconfiguration</h1>
         <p className="text-xs text-slate-400 max-w-sm">
           NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY are not set. This deployment cannot authenticate users.
@@ -311,7 +483,7 @@ export default function HomePage() {
 
   if (isAuthenticated && bootError) {
     return (
-      <div className="h-screen w-screen bg-[#070b14] flex flex-col items-center justify-center font-sans text-center p-6 gap-3">
+      <div className="h-screen w-screen bg-[var(--canvas-bg)] flex flex-col items-center justify-center font-sans text-center p-6 gap-3">
         <h1 className="text-sm font-bold text-rose-400">You&apos;re signed in, but setup didn&apos;t finish</h1>
         <p className="text-xs text-slate-400 max-w-sm break-words">{bootError}</p>
         <button
@@ -332,7 +504,7 @@ export default function HomePage() {
   if (configured && !isAuthenticated) {
     if (authModalTab) {
       return (
-        <div className="relative min-h-screen bg-[#070b14]">
+        <div data-theme="dark" className="relative min-h-screen bg-[var(--canvas-bg)]">
           <div className="absolute top-4 left-4 z-50">
             <button
               onClick={() => setAuthModalTab(null)}
@@ -426,7 +598,66 @@ export default function HomePage() {
         onClearHistoryConversation={(id) => store.clearHistoryConversation(id)}
         onDeleteConversationLocally={(id) => store.deleteConversationLocally(id)}
         onLogout={handleLogout}
+        isLoading={state.isLoading}
+        onStatusChanged={() => void liveRef.current?.publishSelf()}
+        typingNames={(state.typing[state.activeConversationId] || []).map((id) => store.nameOf(id))}
+        onTyping={() => liveRef.current?.sendTyping()}
+        isLoadingMessages={!!state.messagesLoading[state.activeConversationId]}
+        canLoadOlder={state.mode === 'connected' && store.hasMoreHistory(state.activeConversationId) && activeMessages.length >= 50}
+        onLoadOlder={() => void store.loadOlderMessages(state.activeConversationId)}
+        savedMessages={state.saved
+          .map((s) => state.messagesMap[s.conversationId]?.find((m) => m.id === s.messageId))
+          .filter((m): m is MessageData => !!m)}
+        onToggleSaved={handleStarMessageToggle}
+        onSetConversationNotify={(id, level, ms) => store.setConversationNotify(id, level, ms)}
+        onStartCall={state.mode === 'connected' ? (peerId, video) => void callsRef.current?.startCall(peerId, video) : undefined}
+        callActive={callState.phase !== 'idle'}
+        currentUser={state.currentUser}
+        blockedIds={state.blocked}
+        onBlockUser={(id) => void store.blockUser(id)}
+        onUnblockUser={(id) => void store.unblockUser(id)}
+        onReportMessage={state.mode === 'connected' ? (id, reason, includeText) => store.reportMessage(id, reason, includeText) : undefined}
+        onSetDisappearing={state.mode === 'connected' ? (id, seconds) => void store.setDisappearing(id, seconds) : undefined}
+        onVerifyPeer={(id) => store.verifyConversationPeer(id)}
+        onAcceptKeyChange={(id) => store.acceptKeyChange(id)}
+        privacyProps={{
+          blockedUsers: state.blocked.map((id) => {
+            const u = state.allUsers.find((x) => x.id === id);
+            return { id, name: u?.name ?? 'Unknown user', avatarUrl: u?.avatarUrl };
+          }),
+          canBlock: state.mode === 'connected',
+          onUnblock: (id) => void store.unblockUser(id),
+          onSignOutOtherSessions: async () => {
+            await createClient().auth.signOut({ scope: 'others' });
+          },
+          onExportData: handleExportData,
+        }}
+        communities={state.mode === 'connected' ? state.communities : undefined}
+        communityMembers={state.communityMembers}
+        initialInviteCode={inviteCode}
+        onLoadCommunityMembers={(id) => store.loadCommunityMembers(id)}
+        onCreateCommunity={(name, description) => store.createCommunity(name, description)}
+        onJoinCommunity={(code) => store.joinCommunity(code)}
+        onCreateChannel={(communityId, name, isPrivate, memberIds) => store.createChannel(communityId, name, isPrivate, memberIds)}
+        onCreateInvite={(id) => store.createInvite(id)}
+        onSetCommunityRole={(id, userId, role) => store.setCommunityRole(id, userId, role)}
+        onRemoveCommunityMember={(id, userId) => store.removeCommunityMember(id, userId)}
+        onLeaveCommunity={(id) => store.leaveCommunity(id)}
+        onSetMemberRole={(groupId, userId, role) => store.setMemberRole(groupId, userId, role)}
+        onUpdateGroupSettings={(groupId, patch) => store.updateGroupSettings(groupId, patch)}
+        onLeaveGroup={(groupId) => store.leaveGroup(groupId)}
       />
+
+      <CallOverlay
+        state={callState}
+        onAccept={() => void callsRef.current?.accept()}
+        onDecline={() => callsRef.current?.decline()}
+        onHangup={() => callsRef.current?.hangup()}
+        onToggleMute={() => callsRef.current?.toggleMute()}
+        onToggleCamera={() => callsRef.current?.toggleCamera()}
+      />
+
+      {configured && state.mode === 'connected' && <AppLockGate userId={state.currentUser.id} onSignOut={handleLogout} />}
 
       <OnboardingModal
         isOpen={onboardingOpen}
@@ -435,6 +666,7 @@ export default function HomePage() {
         initialName={state.currentUser.name}
         onProfileUpdated={(name) => store.updateCurrentUserProfile({ name })}
         onStartFirstChat={() => setNewChatModalOpen(true)}
+        onExportKeyBackup={handleExportKeyBackup}
       />
 
       <NewConversationModal

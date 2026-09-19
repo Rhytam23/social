@@ -44,6 +44,14 @@ Add a member. Body: `{ groupId, userId }`. Caller must be an active member of th
 ### `DELETE /api/groups/members?groupId=&userId=` (30/min)
 Remove a member (a hard delete of the membership row). The route has no membership check of its own: row level security limits it to removing yourself (leaving), or anyone if you are a platform admin. The client then rotates the group key. `200 { success: true }`.
 
+### `PATCH /api/groups` (30/min)
+Body `{ groupId, name?, description?, onlyAdminsPost? }`. Group admins only. Names are 1 to 80 characters, descriptions up to 500.
+
+### `PATCH /api/groups/members` (30/min)
+Body `{ groupId, userId, role }` where role is `owner`, `admin` or `member`. Owner only; promoting someone to `owner` makes the caller an admin. Needs migration `013`.
+
+`POST /api/groups/members` now requires the caller to be a group admin or owner, and `DELETE` lets you remove yourself, or remove someone ranked below you. When the owner leaves, ownership passes to the longest-serving admin (or member) first.
+
 ## Messages
 
 ### `GET /api/messages?conversationId=&limit=&before=` (120/min)
@@ -61,6 +69,15 @@ Edit or delete your own message. Body: `{ messageId, ... }`
 - Delete: add `deleted: true` (sets `deleted_at`).
 - Edit: send `ciphertext`, `nonce`, `encryptionVersion` (sets `edited_at`); both `ciphertext` and `nonce` are required.
 - `200` updated row · `404` not found or not yours.
+
+## Calls
+
+### `GET /api/turn` (30/min)
+Returns `{ iceServers, relayAvailable }` for a call. Signed-in users only. TURN credentials, when configured, are short-lived and the response is never cached.
+
+## Database functions called from the browser
+
+Communities, disappearing messages and a few lookups are Postgres functions called with `supabase.rpc(...)`, each checking permissions itself: `create_community`, `create_channel`, `create_community_invite`, `join_community`, `leave_community`, `remove_community_member`, `set_community_role`, `set_disappearing`, `purge_expired_messages`, `get_unread_counts`, `get_my_contact`, `find_profiles_by_contact`. See [Database](DATABASE.md).
 
 ## Files
 

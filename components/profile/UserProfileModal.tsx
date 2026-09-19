@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserItem, ConversationItem } from '../../types/ui';
-import { IconCheck, IconShield, IconUsers, IconX } from '../ui/icons';
+import { IconShield, IconUsers, IconX } from '../ui/icons';
+import { Avatar } from '../ui/avatar';
 
 export interface UserProfileModalProps {
   user: UserItem | null;
@@ -8,6 +9,9 @@ export interface UserProfileModalProps {
   onClose: () => void;
   onStartChat: (user: UserItem) => void;
   sharedGroups?: ConversationItem[];
+  isBlocked?: boolean;
+  onBlock?: (user: UserItem) => void;
+  onUnblock?: (user: UserItem) => void;
 }
 
 export const UserProfileModal: React.FC<UserProfileModalProps> = ({
@@ -16,17 +20,20 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   onClose,
   onStartChat,
   sharedGroups = [],
+  isBlocked,
+  onBlock,
+  onUnblock,
 }) => {
   if (!isOpen || !user) return null;
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  };
+  let localTime = '';
+  if (user.timezone) {
+    try {
+      localTime = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', timeZone: user.timezone }).format(new Date());
+    } catch {
+      localTime = '';
+    }
+  }
 
   const formatFingerprint = (fp: string) => {
     return fp.match(/.{1,4}/g)?.join(' ') || fp;
@@ -34,7 +41,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-sm bg-[#0f172a] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="w-full max-w-sm bg-[var(--surface-1)] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header Banner */}
         <div className="h-20 bg-gradient-to-r from-slate-900 to-slate-800 relative flex items-start justify-end p-3">
           <button
@@ -48,12 +55,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
         {/* Profile Avatar Overlay */}
         <div className="px-6 pb-6 pt-0 flex flex-col gap-4 relative">
           <div className="-mt-10 flex justify-between items-end">
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-slate-800 border-4 border-[#0f172a] flex items-center justify-center text-xl font-bold text-white shadow-xl">
-                {getInitials(user.name)}
-              </div>
-              <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-emerald-500 ring-4 ring-[#0f172a]" />
-            </div>
+            <Avatar name={user.name} src={user.avatarUrl} size="xl" presence={user.presence ?? 'offline'} className="ring-4 ring-[var(--surface-1)] rounded-full" />
 
             <button
               onClick={() => {
@@ -76,10 +78,25 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 </span>
               )}
             </div>
-            <span className="text-xs text-slate-400 font-mono">
-              Registration ID: #{user.registrationId}
+            <span className="text-xs text-slate-400">
+              {user.username ? `@${user.username}` : ''}
+              {user.username && user.pronouns ? ' · ' : ''}
+              {user.pronouns ?? ''}
             </span>
+            <span className="text-[11px] text-slate-500 font-mono">Registration ID: #{user.registrationId}</span>
+            {user.bio && <p className="text-xs text-slate-300 leading-relaxed mt-1 break-words">{user.bio}</p>}
+            {localTime && <span className="text-[11px] text-slate-400 mt-1">Local time {localTime}</span>}
           </div>
+
+          {(onBlock || onUnblock) && (
+            <div className="flex gap-2">
+              {isBlocked ? (
+                <button onClick={() => onUnblock?.(user)} className="py-1.5 px-3 text-xs font-semibold rounded-xl border border-slate-700 text-slate-200 hover:bg-slate-800">Unblock</button>
+              ) : (
+                <button onClick={() => onBlock?.(user)} className="py-1.5 px-3 text-xs font-semibold rounded-xl border border-rose-500/30 text-rose-400 hover:bg-rose-500/10">Block</button>
+              )}
+            </div>
+          )}
 
           {/* Security & Verification Card */}
           <div className="p-3.5 bg-slate-950/50 border border-slate-800 rounded-2xl flex flex-col gap-2 text-xs">
@@ -88,10 +105,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
                 <IconShield className="w-3.5 h-3.5 text-emerald-400" />
                 Identity Key Verification
               </span>
-              <span className="text-emerald-400 font-semibold flex items-center gap-1 text-[11px]">
-                <IconCheck className="w-3 h-3" />
-                Verified
-              </span>
+              <span className="text-slate-400 font-medium text-[11px]">Compare in person or on a call</span>
             </div>
             <p className="font-mono text-[11px] text-slate-300 bg-slate-900 p-2.5 rounded-xl border border-slate-800 tracking-wider text-center select-all">
               {formatFingerprint(user.identityFingerprint)}

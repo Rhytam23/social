@@ -1,10 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { ConversationItem, MessageData, UserItem, DeviceItem } from '../../types/ui';
+import { ConversationItem, MessageData, UserItem, DeviceItem, UserPresence, CommunityItem, CommunityMemberItem } from '../../types/ui';
+import { getPreferences } from '../prefs/preferences';
+import { isGroupRole } from '../groups/roles';
+import { extractMentionIds } from '../notifications/rules';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
 import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
 import { uploadEncryptedAttachment, downloadAndDecryptAttachment, MAX_ATTACHMENT_BYTES } from '../messaging/attachments';
-import type { MessageEnvelope } from '../messaging/envelope';
+import type { MessageEnvelope, CallOutcome } from '../messaging/envelope';
 import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } from '../messaging/envelopeDisplay';
 import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
 
@@ -20,6 +23,8 @@ export interface RealtimeMessageRow {
   encryption_version: number;
   created_at: string;
   reply_to_message_id: string | null;
+  thread_root_id?: string | null;
+  expires_at?: string | null;
   edited_at?: string | null;
   deleted_at?: string | null;
 }
@@ -34,10 +39,20 @@ export interface ChatStoreState {
   messagesMap: Record<string, MessageData[]>;
   messagesLoading: Record<string, boolean>;
   devices: DeviceItem[];
+  /** userIds currently typing, per conversation (ephemeral, never stored) */
+  typing: Record<string, string[]>;
+  /** Bookmarked messages (ids only; text stays end-to-end encrypted) */
+  saved: Array<{ messageId: string; conversationId: string }>;
+  communities: CommunityItem[];
+  communityMembers: Record<string, CommunityMemberItem[]>;
+  /** User ids you have blocked. */
+  blocked: string[];
   error: string | null;
 }
 
 type Listener = () => void;
+
+type ViewPref = { pinned?: boolean; muted?: boolean; archived?: boolean; notify?: 'all' | 'mentions' | 'none'; mutedUntil?: number };
 
 const STORAGE_KEY = 'private_chat_v1_demo_store';
 const CURRENT_USER_KEY = 'private_chat_v1_demo_current_user_id';
@@ -103,6 +118,10 @@ function summaryToConversationItem(summary: ConversationSummary, existing?: Conv
     isPinned: existing?.isPinned,
     isMuted: existing?.isMuted,
     isArchived: existing?.isArchived,
+    disappearAfter: summary.disappearAfter ?? undefined,
+    communityId: summary.communityId,
+    topic: summary.topic ?? undefined,
+    isPrivateChannel: summary.isPrivateChannel,
     lastMessage: existing?.lastMessage || { snippet: 'No messages yet', timestamp: '' },
     recipientUser:
       summary.type === 'private' && summary.otherParticipant
@@ -117,9 +136,30 @@ function summaryToConversationItem(summary: ConversationSummary, existing?: Conv
         : undefined,
     groupMeta:
       summary.type === 'group'
-        ? { groupId: summary.id, memberCount: summary.memberCount, senderKeyVersion: 1, memberIds: summary.memberIds }
+        ? {
+            groupId: summary.id,
+            memberCount: summary.memberCount,
+            senderKeyVersion: 1,
+            memberIds: summary.memberIds,
+            roles: summary.roles,
+            description: summary.description ?? undefined,
+            onlyAdminsPost: summary.onlyAdminsPost,
+          }
         : undefined,
   };
+}
+
+
+/** Derives the tick state of one of our messages from the recipients' receipts. */
+function receiptStatus(
+  receipts: Array<{ delivered_at: string | null; read_at: string | null }>,
+  recipientCount: number
+): MessageData['status'] {
+  if (!getPreferences().privacy.readReceipts) return receipts.length > 0 ? 'delivered' : 'sent';
+  const read = receipts.filter((r) => r.read_at).length;
+  if (read >= Math.max(recipientCount, 1)) return 'read';
+  if (receipts.length > 0) return 'delivered';
+  return 'sent';
 }
 
 function decryptedRowToMessage(row: DecryptedMessageRow, currentUserId: string, senderName: string): MessageData {
@@ -130,13 +170,15 @@ function decryptedRowToMessage(row: DecryptedMessageRow, currentUserId: string, 
   return {
     id: row.id,
     kind,
+    threadRootId: row.threadRootId ?? undefined,
+    expiresAt: row.expiresAt ?? undefined,
     conversationId: row.conversationId,
     senderId: row.senderId,
     senderName,
     isSelf: row.senderId === currentUserId,
     content,
     timestamp: new Date(row.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    status: 'delivered',
+    status: row.senderId === currentUserId ? 'sent' : 'delivered',
     reactions: [],
     attachments,
     encryptionVersion: 2,
@@ -168,6 +210,11 @@ export class ChatStore {
       messagesMap: {},
       messagesLoading: {},
       devices: [],
+      typing: {},
+      saved: [],
+      communities: [],
+      communityMembers: {},
+      blocked: [],
       error: null,
     };
   }
@@ -220,7 +267,7 @@ export class ChatStore {
     return `${VIEW_PREFS_KEY_PREFIX}${this.state.currentUser.id}`;
   }
 
-  private loadViewPrefs(): Record<string, { pinned?: boolean; muted?: boolean; archived?: boolean }> {
+  private loadViewPrefs(): Record<string, ViewPref> {
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(this.viewPrefsKey());
@@ -230,7 +277,7 @@ export class ChatStore {
     }
   }
 
-  private saveViewPrefs(prefs: Record<string, { pinned?: boolean; muted?: boolean; archived?: boolean }>) {
+  private saveViewPrefs(prefs: Record<string, ViewPref>) {
     if (typeof window === 'undefined') return;
     try {
       localStorage.setItem(this.viewPrefsKey(), JSON.stringify(prefs));
@@ -242,7 +289,18 @@ export class ChatStore {
   private applyViewPrefs(conversations: ConversationItem[]): ConversationItem[] {
     const prefs = this.loadViewPrefs();
     return conversations
-      .map((c) => ({ ...c, isPinned: !!prefs[c.id]?.pinned, isMuted: !!prefs[c.id]?.muted, isArchived: !!prefs[c.id]?.archived }))
+      .map((c) => {
+        const p = prefs[c.id];
+        const timed = !!p?.mutedUntil && p.mutedUntil > Date.now();
+        return {
+          ...c,
+          isPinned: !!p?.pinned,
+          isMuted: !!p?.muted || timed || p?.notify === 'none',
+          notifyLevel: p?.notify,
+          mutedUntil: timed ? p?.mutedUntil : undefined,
+          isArchived: !!p?.archived,
+        };
+      })
       .filter((c) => !c.isArchived);
   }
 
@@ -253,7 +311,7 @@ export class ChatStore {
   public async initializeForUser(
     supabase: SupabaseClient<Database>,
     crypto: MessagingCrypto,
-    profile: { id: string; name: string; username?: string; email?: string; phoneNumber?: string; role: 'admin' | 'member' }
+    profile: { id: string; name: string; username?: string; email?: string; phoneNumber?: string; bio?: string; pronouns?: string; timezone?: string; role: 'admin' | 'member' }
   ): Promise<void> {
     this.supabase = supabase;
     this.crypto = crypto;
@@ -270,6 +328,9 @@ export class ChatStore {
         username: profile.username,
         email: profile.email,
         phoneNumber: profile.phoneNumber,
+        bio: profile.bio,
+        pronouns: profile.pronouns,
+        timezone: profile.timezone,
         registrationId: Math.abs(hashCode(profile.id)) % 90000 + 10000,
         role: profile.role,
         deviceCount: 1,
@@ -296,6 +357,9 @@ export class ChatStore {
       if (s.otherParticipant) this.participantNames.set(s.otherParticipant.id, s.otherParticipant.displayName);
     }
 
+    for (const s of summaries) {
+      if (s.type === 'group' && !this.lastMemberIds.has(s.id)) this.lastMemberIds.set(s.id, s.memberIds);
+    }
     const existingById = new Map(this.state.conversations.map((c) => [c.id, c]));
     const items = this.applyViewPrefs(summaries.map((s) => summaryToConversationItem(s, existingById.get(s.id))));
 
@@ -316,8 +380,9 @@ export class ChatStore {
               const peer = await this.crypto!.getPeerDevice(s.otherParticipant!.id);
               if (!peer) return;
               const safetyNumber = await computeSafetyNumber(this.crypto!.myPublicKeyB64(), peer.publicKeyB64);
+              const trust = this.applyKeyTrust(s.otherParticipant!.id, safetyNumber);
               this.state.conversations = this.state.conversations.map((c) =>
-                c.id === s.id && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, identityFingerprint: safetyNumber } } : c
+                c.id === s.id && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, identityFingerprint: safetyNumber, isVerified: trust.isVerified, keyChanged: trust.keyChanged } } : c
               );
             } catch {
               // Peer hasn't set up a device yet - leave the fingerprint blank.
@@ -348,16 +413,21 @@ export class ChatStore {
       })
     );
     this.notify();
+    void this.loadUnreadCounts();
   }
 
   private async loadAllUsersReal(): Promise<void> {
     const res = await fetch('/api/users');
     if (!res.ok) return;
-    const profiles = (await res.json()) as Array<{ id: string; username: string; display_name: string; avatar_url: string | null }>;
+    const profiles = (await res.json()) as Array<{ id: string; username: string; display_name: string; avatar_url: string | null; bio?: string | null; pronouns?: string | null; timezone?: string | null }>;
     const users: UserItem[] = profiles.map((p) => ({
       id: p.id,
       name: p.display_name,
       username: p.username,
+      avatarUrl: p.avatar_url ?? undefined,
+      bio: p.bio ?? undefined,
+      pronouns: p.pronouns ?? undefined,
+      timezone: p.timezone ?? undefined,
       registrationId: Math.abs(hashCode(p.id)) % 90000 + 10000,
       role: 'member',
       deviceCount: 1,
@@ -394,8 +464,12 @@ export class ChatStore {
     this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c));
     this.notify();
 
-    if (this.state.mode === 'connected' && !this.loadedConversations.has(conversationId)) {
-      void this.loadMessagesForConversation(conversationId);
+    if (this.state.mode === 'connected') {
+      if (!this.loadedConversations.has(conversationId)) {
+        void this.loadMessagesForConversation(conversationId);
+      } else {
+        void this.markConversationRead(conversationId);
+      }
     }
   }
 
@@ -417,6 +491,12 @@ export class ChatStore {
         .map((r) => decryptedRowToMessage(r, this.state.currentUser.id, senderName(r.senderId)));
       this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: messages };
       this.loadedConversations.add(conversationId);
+      if (rows.length > 0) this.oldestCursor.set(conversationId, rows[0].createdAt);
+      this.moreHistory.set(conversationId, rows.length >= 100);
+      this.state.messagesLoading = { ...this.state.messagesLoading, [conversationId]: false };
+      this.notify();
+      void this.loadReactionsAndReceipts(conversationId);
+      if (conversationId === this.state.activeConversationId) void this.markConversationRead(conversationId);
     } catch (err) {
       this.setState({ error: err instanceof Error ? err.message : 'Failed to load messages' });
     } finally {
@@ -434,6 +514,8 @@ export class ChatStore {
       editedAt: row.edited_at ?? null,
       deletedAt: row.deleted_at ?? null,
       replyToMessageId: row.reply_to_message_id,
+      threadRootId: row.thread_root_id ?? null,
+      expiresAt: row.expires_at ?? null,
     };
     try {
       if (!this.crypto) throw new Error('Encryption session not ready');
@@ -524,10 +606,18 @@ export class ChatStore {
     );
     this.loadedConversations.add(row.conversation_id);
     this.notify();
+
+    if (!isSelf) {
+      const viewing = this.state.activeConversationId === row.conversation_id && (typeof document === 'undefined' || document.visibilityState === 'visible');
+      const conv = this.state.conversations.find((c) => c.id === row.conversation_id);
+      if (conv) this.incomingListeners.forEach((l) => l({ message, conversation: conv, isViewing: viewing }));
+      if (viewing) void this.markConversationRead(row.conversation_id);
+      else void this.writeReceipts([row.id], false);
+    }
   }
 
-  public async sendMessage(content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number): Promise<void> {
-    if (this.state.mode === 'demo') return this.sendMessageDemo(content, replyToId, attachmentFile);
+  public async sendMessage(content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number, threadRootId?: string): Promise<void> {
+    if (this.state.mode === 'demo') return this.sendMessageDemo(content, replyToId, attachmentFile, threadRootId);
 
     const conversationId = this.state.activeConversationId;
     const summary = this.conversationSummaries.get(conversationId);
@@ -542,6 +632,7 @@ export class ChatStore {
       senderId: this.state.currentUser.id,
       senderName: this.state.currentUser.name,
       isSelf: true,
+      threadRootId,
       content: isVoice ? '' : content,
       timestamp: nowTimestamp(),
       status: 'sending',
@@ -579,10 +670,11 @@ export class ChatStore {
           ? { v: 1, kind: 'voice', attachment: attachmentEnvelope, durationMs: voiceDurationMs || 0 }
           : { v: 1, kind: 'attachment', text: content || undefined, attachment: attachmentEnvelope };
       } else {
-        envelope = { v: 1, kind: 'text', text: content };
+        const mentionIds = extractMentionIds(content, this.state.allUsers.filter((u) => summary.memberIds.includes(u.id)));
+        envelope = mentionIds.length > 0 ? { v: 1, kind: 'text', text: content, mentions: mentionIds } : { v: 1, kind: 'text', text: content };
       }
 
-      const { row } = await sendEnvelope(this.crypto, summary, envelope, replyToId);
+      const { row } = await sendEnvelope(this.crypto, summary, envelope, replyToId, threadRootId);
 
       const { content: finalContent, snippet: finalSnippet, kind: finalKind, attachments } = envelopeToDisplay(envelope);
       this.state.messagesMap = {
@@ -820,6 +912,7 @@ export class ChatStore {
     const nextVersion = ((await this.crypto?.ensureGroupKey(groupId))?.version || 0) + 1;
     await this.distributeNewGroupKey(groupId, (members || []).map((m) => m.user_id), nextVersion);
     await this.loadConversationsReal();
+    void this.sendSystemNote(groupId, `${this.state.currentUser.name} added ${this.nameOf(userId)}`);
   }
 
   public async removeGroupMember(groupId: string, userId: string): Promise<void> {
@@ -838,6 +931,7 @@ export class ChatStore {
     // receives this envelope and can't decrypt anything sent after this point.
     await this.distributeNewGroupKey(groupId, (members || []).map((m) => m.user_id), nextVersion);
     await this.loadConversationsReal();
+    void this.sendSystemNote(groupId, `${this.state.currentUser.name} removed ${this.nameOf(userId)}`);
   }
 
   public async toggleUserRole(userId: string, currentRole: 'admin' | 'member'): Promise<void> {
@@ -876,6 +970,27 @@ export class ChatStore {
   public pinConversation(convId: string) {
     this.toggleViewPref(convId, 'pinned');
   }
+  /** Sets how loudly a conversation alerts: all, mentions only, or none; optionally for a limited time. */
+  public setConversationNotify(convId: string, level: 'all' | 'mentions' | 'none' | 'default', muteMs?: number) {
+    const prefs = this.loadViewPrefs();
+    const next: ViewPref = { ...(prefs[convId] || {}) };
+    next.notify = level === 'default' ? undefined : level;
+    next.mutedUntil = muteMs ? Date.now() + muteMs : undefined;
+    if (level === 'default') next.muted = false;
+    prefs[convId] = next;
+    this.saveViewPrefs(prefs);
+    this.state.conversations = this.applyViewPrefs(this.state.conversations);
+    this.notify();
+  }
+
+  private incomingListeners: Set<(e: { message: MessageData; conversation: ConversationItem; isViewing: boolean }) => void> = new Set();
+
+  /** Subscribes to messages from other people as they arrive (used for notifications). */
+  public onIncoming(listener: (e: { message: MessageData; conversation: ConversationItem; isViewing: boolean }) => void): () => void {
+    this.incomingListeners.add(listener);
+    return () => this.incomingListeners.delete(listener);
+  }
+
   public muteConversation(convId: string) {
     this.toggleViewPref(convId, 'muted');
   }
@@ -930,6 +1045,667 @@ export class ChatStore {
     this.notify();
   }
 
+
+  // ============================================================
+  // Live state: reactions, receipts, unread, history paging, presence,
+  // typing and saved messages. All of it goes through Supabase (RLS
+  // applies); nothing here stores message text on the server.
+  // ============================================================
+
+  private receiptsWritten: Set<string> = new Set();
+
+  private async unreadCountsFromServer(): Promise<Record<string, number>> {
+    if (!this.supabase) return {};
+    try {
+      const untyped = this.supabase as unknown as {
+        rpc: (fn: string) => Promise<{ data: Array<{ conversation_id: string; unread: number }> | null; error: unknown }>;
+      };
+      const { data, error } = await untyped.rpc('get_unread_counts');
+      if (error || !data) return {};
+      return Object.fromEntries(data.map((r) => [r.conversation_id, Number(r.unread)]));
+    } catch {
+      return {}; // migration 012 not applied yet
+    }
+  }
+
+  /** Replaces the in-memory unread counters with the server's (survives reloads and other tabs). */
+  private async loadUnreadCounts(): Promise<void> {
+    const counts = await this.unreadCountsFromServer();
+    if (Object.keys(counts).length === 0) return;
+    this.state.conversations = this.state.conversations.map((c) =>
+      c.id === this.state.activeConversationId ? c : { ...c, unreadCount: counts[c.id] ?? c.unreadCount }
+    );
+    this.notify();
+  }
+
+  /** Loads reactions and read receipts for the messages currently in memory for a conversation. */
+  public async loadReactionsAndReceipts(conversationId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.supabase) return;
+    const list = this.state.messagesMap[conversationId] || [];
+    const ids = list.filter((m) => !m.id.startsWith('local-')).map((m) => m.id);
+    if (ids.length === 0) return;
+    const me = this.state.currentUser.id;
+
+    try {
+      const { data: reactionRows } = await this.supabase.from('message_reactions').select('message_id, user_id, reaction').in('message_id', ids);
+      const byMessage = new Map<string, Map<string, { count: number; mine: boolean }>>();
+      for (const r of (reactionRows as Array<{ message_id: string; user_id: string; reaction: string }> | null) || []) {
+        const perEmoji = byMessage.get(r.message_id) ?? new Map();
+        const cur = perEmoji.get(r.reaction) ?? { count: 0, mine: false };
+        perEmoji.set(r.reaction, { count: cur.count + 1, mine: cur.mine || r.user_id === me });
+        byMessage.set(r.message_id, perEmoji);
+      }
+
+      const ownIds = list.filter((m) => m.isSelf && !m.id.startsWith('local-')).map((m) => m.id);
+      const receipts = new Map<string, Array<{ user_id: string; delivered_at: string | null; read_at: string | null }>>();
+      if (ownIds.length > 0) {
+        const { data: receiptRows } = await this.supabase.from('message_receipts').select('message_id, user_id, delivered_at, read_at').in('message_id', ownIds);
+        for (const r of (receiptRows as Array<{ message_id: string; user_id: string; delivered_at: string | null; read_at: string | null }> | null) || []) {
+          receipts.set(r.message_id, [...(receipts.get(r.message_id) ?? []), r]);
+        }
+      }
+
+      const summary = this.conversationSummaries.get(conversationId);
+      const others = (summary?.memberIds || []).filter((id) => id !== me);
+      this.state.messagesMap = {
+        ...this.state.messagesMap,
+        [conversationId]: (this.state.messagesMap[conversationId] || []).map((m) => {
+          const perEmoji = byMessage.get(m.id);
+          const patch: Partial<MessageData> = {
+            reactions: perEmoji ? [...perEmoji.entries()].map(([emoji, v]) => ({ emoji, count: v.count, userReacted: v.mine })) : m.reactions,
+          };
+          if (m.isSelf) patch.status = receiptStatus(receipts.get(m.id) || [], others.length || 1);
+          return { ...m, ...patch };
+        }),
+      };
+      this.notify();
+    } catch {
+      // best effort: reactions/receipts simply stay as loaded
+    }
+  }
+
+  /** Applies a Realtime change to message_reactions (someone else's reaction, or ours from another tab). */
+  public applyReactionEvent(kind: 'INSERT' | 'DELETE', row: { message_id?: string; user_id?: string; reaction?: string }): void {
+    if (!row.message_id || !row.reaction || !row.user_id) return;
+    if (row.user_id === this.state.currentUser.id) return; // our own change is applied optimistically
+    for (const [convId, list] of Object.entries(this.state.messagesMap)) {
+      if (!list.some((m) => m.id === row.message_id)) continue;
+      this.state.messagesMap = {
+        ...this.state.messagesMap,
+        [convId]: list.map((m) => {
+          if (m.id !== row.message_id) return m;
+          const existing = m.reactions.find((r) => r.emoji === row.reaction);
+          if (kind === 'INSERT') {
+            return {
+              ...m,
+              reactions: existing
+                ? m.reactions.map((r) => (r.emoji === row.reaction ? { ...r, count: r.count + 1 } : r))
+                : [...m.reactions, { emoji: row.reaction!, count: 1, userReacted: false }],
+            };
+          }
+          return {
+            ...m,
+            reactions: m.reactions
+              .map((r) => (r.emoji === row.reaction ? { ...r, count: Math.max(0, r.count - 1) } : r))
+              .filter((r) => r.count > 0),
+          };
+        }),
+      };
+      this.notify();
+      return;
+    }
+  }
+
+  /** Applies a Realtime change to message_receipts so ticks update live. */
+  public applyReceiptRow(row: { message_id?: string; user_id?: string; delivered_at?: string | null; read_at?: string | null }): void {
+    if (!row.message_id || !row.user_id || row.user_id === this.state.currentUser.id) return;
+    if (!getPreferences().privacy.readReceipts) return; // reciprocal: hide theirs if we hide ours
+    for (const [convId, list] of Object.entries(this.state.messagesMap)) {
+      const msg = list.find((m) => m.id === row.message_id);
+      if (!msg || !msg.isSelf) continue;
+      const others = (this.conversationSummaries.get(convId)?.memberIds || []).filter((id) => id !== this.state.currentUser.id).length || 1;
+      const seen = this.receiptSeen.get(row.message_id) ?? new Map<string, { delivered: boolean; read: boolean }>();
+      seen.set(row.user_id, { delivered: !!row.delivered_at || !!row.read_at, read: !!row.read_at });
+      this.receiptSeen.set(row.message_id, seen);
+      const rows = [...seen.values()].map((v) => ({ user_id: '', delivered_at: v.delivered ? 'x' : null, read_at: v.read ? 'x' : null }));
+      this.updateMessage(convId, msg.id, { status: receiptStatus(rows, others) });
+      return;
+    }
+  }
+
+  private receiptSeen: Map<string, Map<string, { delivered: boolean; read: boolean }>> = new Map();
+
+  private async writeReceipts(messageIds: string[], read: boolean): Promise<void> {
+    if (!this.supabase || !getPreferences().privacy.readReceipts) return;
+    const fresh = messageIds.filter((id) => !this.receiptsWritten.has(`${id}:${read ? 'r' : 'd'}`) && !id.startsWith('local-'));
+    if (fresh.length === 0) return;
+    const now = new Date().toISOString();
+    const me = this.state.currentUser.id;
+    try {
+      const { error } = await this.supabase.from('message_receipts').upsert(
+        fresh.slice(0, 100).map((id) => ({ message_id: id, user_id: me, delivered_at: now, ...(read ? { read_at: now } : {}) })) as never,
+        { onConflict: 'message_id,user_id' }
+      );
+      if (!error) fresh.slice(0, 100).forEach((id) => this.receiptsWritten.add(`${id}:${read ? 'r' : 'd'}`));
+    } catch {
+      // receipts are best effort
+    }
+  }
+
+  /** Marks a conversation read: clears the badge, saves last_read_at, and sends read receipts if enabled. */
+  public async markConversationRead(conversationId: string): Promise<void> {
+    if (!conversationId) return;
+    const conv = this.state.conversations.find((c) => c.id === conversationId);
+    if (conv && conv.unreadCount !== 0) {
+      this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c));
+      this.notify();
+    }
+    if (this.state.mode !== 'connected' || !this.supabase) return;
+    const me = this.state.currentUser.id;
+    try {
+      await this.supabase
+        .from('conversation_members')
+        .update({ last_read_at: new Date().toISOString() } as never)
+        .eq('conversation_id', conversationId)
+        .eq('user_id', me);
+    } catch {
+      // migration 012 not applied yet: unread stays local
+    }
+    const incoming = (this.state.messagesMap[conversationId] || []).filter((m) => !m.isSelf).map((m) => m.id);
+    void this.writeReceipts(incoming, true);
+  }
+
+  public hasMoreHistory(conversationId: string): boolean {
+    return this.moreHistory.get(conversationId) !== false;
+  }
+
+  private moreHistory: Map<string, boolean> = new Map();
+
+  /** Loads the next page of older messages for the conversation (cursor = oldest message we have). */
+  public async loadOlderMessages(conversationId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.supabase || !this.crypto) return;
+    const summary = this.conversationSummaries.get(conversationId);
+    const current = this.state.messagesMap[conversationId] || [];
+    if (!summary || current.length === 0) return;
+    const oldestRow = this.oldestCursor.get(conversationId);
+    if (!oldestRow) return;
+
+    try {
+      const rows = await fetchMessageHistory(this.crypto, summary, 50, oldestRow);
+      this.moreHistory.set(conversationId, rows.length >= 50);
+      if (rows.length > 0) this.oldestCursor.set(conversationId, rows[0].createdAt);
+      const senderName = (id: string) =>
+        id === this.state.currentUser.id ? this.state.currentUser.name : this.participantNames.get(id) || this.state.allUsers.find((u) => u.id === id)?.name || 'Member';
+      const older = rows
+        .filter((r) => r.deletedAt || !isHiddenEnvelope(r.envelope))
+        .map((r) => decryptedRowToMessage(r, this.state.currentUser.id, senderName(r.senderId)))
+        .filter((m) => !current.some((c) => c.id === m.id));
+      this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: [...older, ...current] };
+      this.notify();
+      void this.loadReactionsAndReceipts(conversationId);
+    } catch (err) {
+      this.setState({ error: err instanceof Error ? err.message : 'Failed to load earlier messages' });
+    }
+  }
+
+  private oldestCursor: Map<string, string> = new Map();
+
+  // --- Presence and typing (fed by lib/realtime/liveChannels.ts) ---
+
+  public setPresence(map: Record<string, UserPresence>): void {
+    const apply = (id: string, fallback?: UserPresence) => map[id] ?? fallback ?? 'offline';
+    this.state.allUsers = this.state.allUsers.map((u) => ({ ...u, presence: apply(u.id) }));
+    this.state.conversations = this.state.conversations.map((c) =>
+      c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, presence: apply(c.recipientUser.id) } } : c
+    );
+    this.notify();
+  }
+
+  public setTyping(conversationId: string, userIds: string[]): void {
+    const prev = this.state.typing[conversationId] || [];
+    if (prev.length === userIds.length && prev.every((id, i) => id === userIds[i])) return;
+    this.state.typing = { ...this.state.typing, [conversationId]: userIds };
+    this.notify();
+  }
+
+  public nameOf(userId: string): string {
+    return this.participantNames.get(userId) || this.state.allUsers.find((u) => u.id === userId)?.name || 'Someone';
+  }
+
+  // --- Saved (bookmarked) messages ---
+
+  public async loadSavedMessages(): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.supabase) return;
+    try {
+      const { data } = await this.supabase.from('saved_messages').select('message_id, conversation_id').order('created_at', { ascending: false });
+      const rows = (data as Array<{ message_id: string; conversation_id: string }> | null) || [];
+      this.setState({ saved: rows.map((r) => ({ messageId: r.message_id, conversationId: r.conversation_id })) });
+      const convs = [...new Set(rows.map((r) => r.conversation_id))];
+      await Promise.all(convs.filter((id) => !this.loadedConversations.has(id)).map((id) => this.loadMessagesForConversation(id)));
+    } catch {
+      // migration 012 not applied yet
+    }
+  }
+
+  public async toggleSaved(messageId: string): Promise<void> {
+    const msg = Object.values(this.state.messagesMap).flat().find((m) => m.id === messageId);
+    if (!msg) return;
+    const already = this.state.saved.some((s) => s.messageId === messageId);
+    const next = already
+      ? this.state.saved.filter((s) => s.messageId !== messageId)
+      : [{ messageId, conversationId: msg.conversationId }, ...this.state.saved];
+    const flag = (list: MessageData[]) => list.map((m) => (m.id === messageId ? { ...m, isStarred: !already } : m));
+    this.state.messagesMap = { ...this.state.messagesMap, [msg.conversationId]: flag(this.state.messagesMap[msg.conversationId] || []) };
+    this.setState({ saved: next });
+
+    if (this.state.mode !== 'connected' || !this.supabase) return;
+    try {
+      if (already) {
+        await this.supabase.from('saved_messages').delete().eq('message_id', messageId).eq('user_id', this.state.currentUser.id);
+      } else {
+        const { error } = await this.supabase.from('saved_messages').insert({ user_id: this.state.currentUser.id, message_id: messageId, conversation_id: msg.conversationId } as never);
+        if (error) throw new Error(error.message);
+      }
+    } catch (err) {
+      this.state.messagesMap = { ...this.state.messagesMap, [msg.conversationId]: (this.state.messagesMap[msg.conversationId] || []).map((m) => (m.id === messageId ? { ...m, isStarred: already } : m)) };
+      this.setState({ saved: this.state.saved.filter((s) => s.messageId !== messageId).concat(already ? [{ messageId, conversationId: msg.conversationId }] : []), error: err instanceof Error ? err.message : 'Could not update saved messages' });
+    }
+  }
+
+
+  // --- Group management: roles, settings, leaving, system notes ---
+
+  private lastMemberIds: Map<string, string[]> = new Map();
+  private refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Posts a small system line ("Ana added Sam") into a conversation. Best effort. */
+  private async sendSystemNote(conversationId: string, text: string): Promise<void> {
+    const summary = this.conversationSummaries.get(conversationId);
+    if (!summary || !this.crypto) return;
+    try {
+      await sendEnvelope(this.crypto, summary, { v: 1, kind: 'system', text });
+    } catch {
+      // The change itself succeeded; the note is cosmetic.
+    }
+  }
+
+  /**
+   * Called (debounced) when Realtime reports a membership or group-settings change.
+   * If someone left or was removed and we are the lowest-id manager still in the group,
+   * we rotate the group key so the departed member cannot read anything new.
+   */
+  public refreshConversations(): void {
+    if (this.state.mode !== 'connected') return;
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    this.refreshTimer = setTimeout(() => void this.doRefreshConversations(), 600);
+  }
+
+  private async doRefreshConversations(): Promise<void> {
+    const before = new Map(this.lastMemberIds);
+    await this.loadConversationsReal();
+    const me = this.state.currentUser.id;
+    for (const summary of this.conversationSummaries.values()) {
+      if (summary.type !== 'group') continue;
+      const prev = before.get(summary.id);
+      this.lastMemberIds.set(summary.id, summary.memberIds);
+      if (!prev || !summary.roles) continue;
+      const someoneLeft = prev.some((id) => !summary.memberIds.includes(id));
+      // Group adds rotate immediately in addGroupMember; channel joins happen inside a database function, so a manager does it here.
+      const someoneJoined = !!summary.communityId && summary.memberIds.some((id) => !prev.includes(id));
+      if (!someoneLeft && !someoneJoined) continue;
+      const managers = summary.memberIds.filter((id) => summary.roles![id] === 'owner' || summary.roles![id] === 'admin').sort();
+      if (managers[0] !== me) continue; // exactly one manager rotates, to avoid racing key versions
+      try {
+        const nextVersion = ((await this.crypto?.ensureGroupKey(summary.id))?.version || 0) + 1;
+        await this.distributeNewGroupKey(summary.id, summary.memberIds, nextVersion);
+      } catch (err) {
+        this.setState({ error: err instanceof Error ? err.message : 'Could not rotate the group key after a member left' });
+      }
+    }
+  }
+
+  public async setMemberRole(groupId: string, userId: string, role: 'owner' | 'admin' | 'member'): Promise<void> {
+    if (this.state.mode !== 'connected') return;
+    const res = await fetch('/api/groups/members', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, userId, role }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to change role' });
+      return;
+    }
+    await this.loadConversationsReal();
+    const name = this.nameOf(userId);
+    const verb = role === 'owner' ? 'is now the owner' : role === 'admin' ? 'is now an admin' : 'is no longer an admin';
+    void this.sendSystemNote(groupId, `${name} ${verb}`);
+  }
+
+  public async updateGroupSettings(groupId: string, patch: { name?: string; description?: string; onlyAdminsPost?: boolean }): Promise<boolean> {
+    if (this.state.mode !== 'connected') return false;
+    const res = await fetch('/api/groups', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupId, ...patch }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to update the group' });
+      return false;
+    }
+    await this.loadConversationsReal();
+    if (patch.name) void this.sendSystemNote(groupId, `${this.state.currentUser.name} renamed the group to "${patch.name}"`);
+    if (patch.onlyAdminsPost !== undefined) {
+      void this.sendSystemNote(groupId, patch.onlyAdminsPost ? 'Only admins can send messages now' : 'Everyone can send messages now');
+    }
+    return true;
+  }
+
+  public async leaveGroup(groupId: string): Promise<void> {
+    if (this.state.mode !== 'connected') return;
+    // Say goodbye first: after leaving we can no longer post here.
+    await this.sendSystemNote(groupId, `${this.state.currentUser.name} left`);
+    const params = new URLSearchParams({ groupId, userId: this.state.currentUser.id });
+    const res = await fetch(`/api/groups/members?${params.toString()}`, { method: 'DELETE' });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      this.setState({ error: body.error || 'Failed to leave the group' });
+      return;
+    }
+    this.state.conversations = this.state.conversations.filter((c) => c.id !== groupId);
+    if (this.state.activeConversationId === groupId) this.state.activeConversationId = this.state.conversations[0]?.id || '';
+    this.notify();
+  }
+
+
+  // ============================================================
+  // Communities and channels (needs migration 014). Every write is a
+  // database function that checks permissions; keys are shared here on
+  // the client, so the server never holds a channel key.
+  // ============================================================
+
+  /** Supabase client without generated types for the community tables and functions. */
+  private get raw(): SupabaseClient | null {
+    return this.supabase as unknown as SupabaseClient | null;
+  }
+
+  public async loadCommunities(): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    try {
+      const { data, error } = await this.raw
+        .from('community_members')
+        .select('role, communities(id, name, description, owner_id)')
+        .eq('user_id', this.state.currentUser.id);
+      if (error) return; // migration 014 not applied yet
+      const rows = (data as unknown as Array<{ role: string; communities: { id: string; name: string; description: string | null; owner_id: string | null } | null }>) || [];
+      const items: CommunityItem[] = rows
+        .filter((r) => r.communities)
+        .map((r) => ({
+          id: r.communities!.id,
+          name: r.communities!.name,
+          description: r.communities!.description ?? undefined,
+          ownerId: r.communities!.owner_id ?? undefined,
+          role: isGroupRole(r.role) ? r.role : 'member',
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      this.setState({ communities: items });
+    } catch {
+      // communities are optional until the migration is applied
+    }
+  }
+
+  public async loadCommunityMembers(communityId: string): Promise<void> {
+    if (!this.raw) return;
+    const { data, error } = await this.raw
+      .from('community_members')
+      .select('user_id, role, joined_at, profiles(display_name, username, avatar_url)')
+      .eq('community_id', communityId);
+    if (error) return;
+    const rows = (data as unknown as Array<{ user_id: string; role: string; joined_at: string; profiles: { display_name: string; username: string; avatar_url: string | null } | null }>) || [];
+    const members: CommunityMemberItem[] = rows.map((r) => ({
+      userId: r.user_id,
+      name: r.profiles?.display_name || 'Member',
+      username: r.profiles?.username,
+      avatarUrl: r.profiles?.avatar_url ?? undefined,
+      role: isGroupRole(r.role) ? r.role : 'member',
+      joinedAt: r.joined_at,
+    }));
+    this.setState({ communityMembers: { ...this.state.communityMembers, [communityId]: members } });
+  }
+
+  /** Creates the key for a brand new channel and shares it with the people who are in it. */
+  private async provisionChannelKey(channelId: string): Promise<void> {
+    if (!this.supabase) return;
+    const { data } = await this.supabase.from('conversation_members').select('user_id').eq('conversation_id', channelId).is('left_at', null);
+    await this.distributeNewGroupKey(channelId, (data || []).map((m) => m.user_id), 1);
+  }
+
+  /** Runs a community database function and turns a failure into a visible error instead of a silent no-op. */
+  private async rpc<T>(fn: string, args: Record<string, unknown>): Promise<T | null> {
+    if (!this.raw) return null;
+    const { data, error } = await this.raw.rpc(fn, args);
+    if (error) {
+      const needsMigration = /function .* does not exist|schema cache|Could not find the function/i.test(error.message);
+      this.setState({ error: needsMigration ? 'Communities need the latest database update (migration 014).' : error.message });
+      return null;
+    }
+    return data as T;
+  }
+
+  public async createCommunity(name: string, description: string): Promise<{ communityId: string; channelId: string } | null> {
+    if (this.state.mode !== 'connected') return null;
+    const rows = await this.rpc<Array<{ out_community_id: string; out_channel_id: string }>>('create_community', { p_name: name, p_description: description });
+    const first = rows?.[0];
+    if (!first) return null;
+    await this.provisionChannelKey(first.out_channel_id);
+    await this.loadCommunities();
+    await this.loadConversationsReal();
+    return { communityId: first.out_community_id, channelId: first.out_channel_id };
+  }
+
+  public async createChannel(communityId: string, name: string, isPrivate: boolean, memberIds: string[]): Promise<string | null> {
+    if (this.state.mode !== 'connected') return null;
+    const channelId = await this.rpc<string>('create_channel', { p_community: communityId, p_name: name, p_private: isPrivate, p_member_ids: memberIds });
+    if (!channelId) return null;
+    await this.provisionChannelKey(channelId);
+    await this.loadConversationsReal();
+    return channelId;
+  }
+
+  public async createInvite(communityId: string): Promise<string | null> {
+    return this.rpc<string>('create_community_invite', { p_community: communityId, p_hours: 168, p_max_uses: 50 });
+  }
+
+  public async joinCommunity(code: string): Promise<string | null> {
+    if (this.state.mode !== 'connected') return null;
+    const id = await this.rpc<string>('join_community', { p_code: code });
+    if (!id) return null;
+    await this.loadCommunities();
+    await this.loadConversationsReal();
+    return id;
+  }
+
+  public async leaveCommunity(communityId: string): Promise<boolean> {
+    if (this.state.mode !== 'connected') return false;
+    const ok = await this.rpc<null>('leave_community', { p_community: communityId });
+    if (ok === null && this.state.error) return false;
+    await this.loadCommunities();
+    await this.loadConversationsReal();
+    return true;
+  }
+
+  public async removeCommunityMember(communityId: string, userId: string): Promise<void> {
+    await this.rpc<null>('remove_community_member', { p_community: communityId, p_user: userId });
+    await this.loadCommunityMembers(communityId);
+    this.refreshConversations();
+  }
+
+  public async setCommunityRole(communityId: string, userId: string, role: 'owner' | 'admin' | 'member'): Promise<void> {
+    await this.rpc<null>('set_community_role', { p_community: communityId, p_user: userId, p_role: role });
+    await this.loadCommunities();
+    await this.loadCommunityMembers(communityId);
+    this.refreshConversations();
+  }
+
+
+  // ============================================================
+  // Privacy: blocking, reports, disappearing messages, key verification
+  // ============================================================
+
+  private storageJson<T>(key: string, fallback: T): T {
+    if (typeof window === 'undefined') return fallback;
+    try {
+      const raw = localStorage.getItem(key);
+      return raw ? (JSON.parse(raw) as T) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  private saveStorageJson(key: string, value: unknown) {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // storage full or blocked: verification state simply will not persist
+    }
+  }
+
+  public async loadBlocked(): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    const { data, error } = await this.raw.from('blocks').select('blocked_id');
+    if (error) return; // migration 015 not applied yet
+    this.setState({ blocked: ((data as Array<{ blocked_id: string }> | null) || []).map((r) => r.blocked_id) });
+  }
+
+  public async blockUser(userId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    const { error } = await this.raw.from('blocks').insert({ blocker_id: this.state.currentUser.id, blocked_id: userId } as never);
+    if (error) {
+      this.setState({ error: /blocks/.test(error.message) ? 'Blocking needs the latest database update (migration 015).' : error.message });
+      return;
+    }
+    this.setState({ blocked: [...new Set([...this.state.blocked, userId])] });
+  }
+
+  public async unblockUser(userId: string): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    const { error } = await this.raw.from('blocks').delete().eq('blocker_id', this.state.currentUser.id).eq('blocked_id', userId);
+    if (error) {
+      this.setState({ error: error.message });
+      return;
+    }
+    this.setState({ blocked: this.state.blocked.filter((id) => id !== userId) });
+  }
+
+  /** Sends a report to platform admins. The message text is included only if the reporter chose to share it. */
+  public async reportMessage(messageId: string, reason: string, includeText: boolean): Promise<boolean> {
+    if (this.state.mode !== 'connected' || !this.raw) return false;
+    const msg = Object.values(this.state.messagesMap).flat().find((m) => m.id === messageId);
+    if (!msg) return false;
+    const { error } = await this.raw.from('reports').insert({
+      reporter_id: this.state.currentUser.id,
+      reported_user_id: msg.senderId,
+      conversation_id: msg.conversationId,
+      message_id: msg.id,
+      reason: reason.trim().slice(0, 500),
+      excerpt: includeText ? msg.content.slice(0, 2000) : null,
+    } as never);
+    if (error) {
+      this.setState({ error: /reports/.test(error.message) ? 'Reporting needs the latest database update (migration 015).' : error.message });
+      return false;
+    }
+    return true;
+  }
+
+  /** Sets (or clears, with null) the disappearing-message timer for a conversation. */
+  public async setDisappearing(conversationId: string, seconds: number | null): Promise<void> {
+    if (this.state.mode !== 'connected') return;
+    const ok = await this.rpc<null>('set_disappearing', { p_conversation: conversationId, p_seconds: seconds });
+    if (ok === null && this.state.error) return;
+    this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, disappearAfter: seconds ?? undefined } : c));
+    this.notify();
+    const label = seconds === null ? 'off' : seconds >= 604800 ? `${Math.round(seconds / 86400)} days` : seconds >= 86400 ? `${Math.round(seconds / 86400)} day${seconds >= 172800 ? 's' : ''}` : `${Math.round(seconds / 3600)} hours`;
+    void this.sendSystemNote(conversationId, seconds === null ? `${this.state.currentUser.name} turned off disappearing messages` : `${this.state.currentUser.name} set new messages to disappear after ${label}`);
+    await this.loadConversationsReal();
+  }
+
+  /** Deletes expired rows on the server and drops them from memory. Safe to call often. */
+  public async purgeExpired(): Promise<void> {
+    const now = Date.now();
+    let changed = false;
+    const next: Record<string, MessageData[]> = {};
+    for (const [convId, list] of Object.entries(this.state.messagesMap)) {
+      const kept = list.filter((m) => !m.expiresAt || Date.parse(m.expiresAt) > now);
+      if (kept.length !== list.length) changed = true;
+      next[convId] = kept;
+    }
+    if (changed) {
+      this.state.messagesMap = next;
+      this.notify();
+    }
+    if (this.state.mode === 'connected' && this.raw) {
+      try {
+        await this.raw.rpc('purge_expired_messages');
+      } catch {
+        // migration 015 not applied yet
+      }
+    }
+  }
+
+  private verifyKeyPrefix(): string {
+    return `pc_keys_${this.state.currentUser.id}`;
+  }
+
+  /** Records the contact's security code the first time we see it; flags later changes; applies "verified". */
+  private applyKeyTrust(peerId: string, fingerprint: string): { isVerified: boolean; keyChanged: boolean } {
+    const seen = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_seen`, {});
+    const verified = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_verified`, {});
+    if (!seen[peerId]) {
+      seen[peerId] = fingerprint;
+      this.saveStorageJson(`${this.verifyKeyPrefix()}_seen`, seen);
+    }
+    return { isVerified: verified[peerId] === fingerprint, keyChanged: seen[peerId] !== fingerprint };
+  }
+
+  /** "I compared the safety number with them": remembers the current code as verified. */
+  public verifyConversationPeer(conversationId: string): void {
+    const conv = this.state.conversations.find((c) => c.id === conversationId);
+    if (!conv?.recipientUser) return;
+    const { id, identityFingerprint } = conv.recipientUser;
+    const verified = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_verified`, {});
+    const seen = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_seen`, {});
+    verified[id] = identityFingerprint;
+    seen[id] = identityFingerprint;
+    this.saveStorageJson(`${this.verifyKeyPrefix()}_verified`, verified);
+    this.saveStorageJson(`${this.verifyKeyPrefix()}_seen`, seen);
+    this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, isVerified: true, keyChanged: false } } : c));
+    this.notify();
+  }
+
+  /** Accepts a changed security code without verifying it (the banner goes away, "verified" stays off). */
+  public acceptKeyChange(conversationId: string): void {
+    const conv = this.state.conversations.find((c) => c.id === conversationId);
+    if (!conv?.recipientUser) return;
+    const seen = this.storageJson<Record<string, string>>(`${this.verifyKeyPrefix()}_seen`, {});
+    seen[conv.recipientUser.id] = conv.recipientUser.identityFingerprint;
+    this.saveStorageJson(`${this.verifyKeyPrefix()}_seen`, seen);
+    this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId && c.recipientUser ? { ...c, recipientUser: { ...c.recipientUser, keyChanged: false } } : c));
+    this.notify();
+  }
+
+  /** Writes a call entry ("Voice call, 4:12" / "Missed video call") into the chat. Called by the side that placed the call. */
+  public async sendCallLog(conversationId: string, callId: string, outcome: CallOutcome, video: boolean, durationMs?: number): Promise<void> {
+    const summary = this.conversationSummaries.get(conversationId);
+    if (this.state.mode !== 'connected' || !summary || !this.crypto) return;
+    try {
+      await sendEnvelope(this.crypto, summary, { v: 1, kind: 'call', callId, outcome, video, durationMs });
+    } catch {
+      // the call itself is unaffected if the log line fails
+    }
+  }
+
   public clearError() {
     this.setState({ error: null });
   }
@@ -954,6 +1730,11 @@ export class ChatStore {
       messagesLoading: {},
       activeConversationId: '',
       devices: [],
+      typing: {},
+      saved: [],
+      communities: [],
+      communityMembers: {},
+      blocked: [],
       error: null,
     });
   }
@@ -1009,6 +1790,11 @@ export class ChatStore {
       messagesMap,
       messagesLoading: {},
       devices,
+      typing: {},
+      saved: [],
+      communities: [],
+      communityMembers: {},
+      blocked: [],
       error: null,
     };
     this.notify();
@@ -1041,7 +1827,7 @@ export class ChatStore {
     }
   }
 
-  private sendMessageDemo(content: string, replyToId?: string, attachmentFile?: File) {
+  private sendMessageDemo(content: string, replyToId?: string, attachmentFile?: File, threadRootId?: string) {
     const activeConvId = this.state.activeConversationId;
     if (!activeConvId) return;
     const currentMsgs = this.state.messagesMap[activeConvId] || [];
@@ -1053,6 +1839,7 @@ export class ChatStore {
       senderId: this.state.currentUser.id,
       senderName: this.state.currentUser.name,
       isSelf: true,
+      threadRootId,
       content,
       timestamp: nowTimestamp(),
       status: 'delivered',

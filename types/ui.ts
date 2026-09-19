@@ -1,8 +1,10 @@
-export type ViewCategory = 'chats' | 'groups' | 'people' | 'settings' | 'admin';
+import type { GroupRole } from '../lib/groups/roles';
+
+export type ViewCategory = 'chats' | 'groups' | 'people' | 'saved' | 'settings' | 'admin';
 
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
-export type UserPresence = 'online' | 'away' | 'dnd' | 'offline';
+export type UserPresence = 'online' | 'away' | 'dnd' | 'meeting' | 'offline';
 
 export interface ReactionItem {
   emoji: string;
@@ -39,6 +41,10 @@ export type MessageKind = 'text' | 'attachment' | 'voice' | 'system' | 'poll' | 
 export interface MessageData {
   id: string;
   kind?: MessageKind;
+  /** Set on replies that live in a thread under another message. */
+  threadRootId?: string;
+  /** ISO time after which the message disappears (disappearing messages). */
+  expiresAt?: string;
   conversationId: string;
   senderId: string;
   senderName: string;
@@ -73,9 +79,19 @@ export interface ConversationItem {
   unreadCount: number;
   isPinned?: boolean;
   isMuted?: boolean;
+  /** Per-conversation notification override ('default' follows Settings). */
+  notifyLevel?: 'all' | 'mentions' | 'none';
+  /** Epoch ms; the conversation is silent until then. */
+  mutedUntil?: number;
   isArchived?: boolean;
   draftText?: string;
   pinnedMessageId?: string;
+  /** Set on channels that belong to a community. */
+  communityId?: string;
+  topic?: string;
+  isPrivateChannel?: boolean;
+  /** Seconds after which new messages disappear; undefined means off. */
+  disappearAfter?: number;
   lastMessage?: {
     snippet: string;
     timestamp: string;
@@ -87,6 +103,8 @@ export interface ConversationItem {
     registrationId: number;
     identityFingerprint: string;
     isVerified: boolean;
+    /** True when the contact's security code differs from the one we saw before. */
+    keyChanged?: boolean;
     presence?: UserPresence;
   };
   groupMeta?: {
@@ -94,6 +112,10 @@ export interface ConversationItem {
     memberCount: number;
     senderKeyVersion: number;
     memberIds?: string[];
+    /** Needs migration 013. Undefined means roles are not available yet. */
+    roles?: Record<string, GroupRole>;
+    description?: string;
+    onlyAdminsPost?: boolean;
   };
 }
 
@@ -104,6 +126,9 @@ export interface UserItem {
   email?: string;
   phoneNumber?: string;
   avatarUrl?: string;
+  bio?: string;
+  pronouns?: string;
+  timezone?: string;
   registrationId: number;
   role: 'admin' | 'member';
   deviceCount: number;
@@ -112,3 +137,20 @@ export interface UserItem {
   presence?: UserPresence;
 }
 
+export interface CommunityItem {
+  id: string;
+  name: string;
+  description?: string;
+  /** Your role in the community. */
+  role: GroupRole;
+  ownerId?: string;
+}
+
+export interface CommunityMemberItem {
+  userId: string;
+  name: string;
+  username?: string;
+  avatarUrl?: string;
+  role: GroupRole;
+  joinedAt: string;
+}

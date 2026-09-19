@@ -18,9 +18,9 @@ export interface LandingPageProps {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 font-sans flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200">
+    <div data-theme="dark" className="min-h-screen bg-[var(--canvas-bg)] text-slate-100 font-sans flex flex-col selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* 1. Header Navigation */}
-      <header className="w-full border-b border-slate-800/80 bg-[#070b14]/90 backdrop-blur-md sticky top-0 z-50">
+      <header className="w-full border-b border-slate-800/80 bg-[var(--canvas-bg)]/90 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shadow-sm">
@@ -109,7 +109,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
             </div>
 
             {/* Mock Chat Canvas */}
-            <div className="p-4 sm:p-6 flex flex-col gap-3.5 bg-[#0b0f19] text-xs">
+            <div className="p-4 sm:p-6 flex flex-col gap-3.5 bg-[var(--canvas-bg)] text-xs">
               {/* E2EE Info pill */}
               <div className="self-center px-3 py-1 bg-slate-950/80 border border-slate-800/80 rounded-full text-[11px] text-slate-400 font-sans flex items-center gap-1.5 shadow-xs">
                 <IconLock className="w-3 h-3 text-emerald-400" />
@@ -258,7 +258,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth }) => {
       </main>
 
       {/* 5. Footer */}
-      <footer className="border-t border-slate-900 py-8 bg-[#05080f] text-xs text-slate-500">
+      <footer className="border-t border-slate-900 py-8 bg-[var(--canvas-bg)] text-xs text-slate-500">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-slate-400">
             <IconLock className="w-4 h-4 text-emerald-400" />

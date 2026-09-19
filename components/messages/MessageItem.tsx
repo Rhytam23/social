@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RichText } from './RichText';
 import { MessageData } from '../../types/ui';
 import {
   IconCheck,
@@ -11,6 +12,7 @@ import {
   IconPin,
   IconStar,
   IconTrash,
+  IconThread,
 } from '../ui/icons';
 import { VoiceMessagePreview } from './VoiceMessagePreview';
 import { MessageInfoModal } from './MessageInfoModal';
@@ -26,6 +28,11 @@ export interface MessageItemProps {
   onForwardMessage?: (msg: MessageData) => void;
   onPinMessage?: (msgId: string) => void;
   onStarMessage?: (msgId: string) => void;
+  /** Opens the thread under this message (reply count is shown when > 0). */
+  onOpenThread?: (msg: MessageData) => void;
+  threadReplyCount?: number;
+  /** Report someone else's message to platform administrators. */
+  onReportMessage?: (msg: MessageData) => void;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -39,8 +46,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onForwardMessage,
   onPinMessage,
   onStarMessage,
+  onOpenThread,
+  threadReplyCount = 0,
+  onReportMessage,
 }) => {
   const isSelf = message.isSelf;
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -150,9 +161,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
             {/* Text Content */}
             {message.content && (
-              <p className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-slate-100">
-                {message.content}
-              </p>
+              <div className="font-sans text-sm leading-relaxed text-slate-100 break-words">
+                <RichText text={message.content} />
+              </div>
             )}
 
             {/* Encrypted Attachments */}
@@ -254,9 +265,30 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               </div>
             )}
 
+            {threadReplyCount > 0 && onOpenThread && (
+              <button
+                onClick={() => onOpenThread(message)}
+                className="mt-2 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-400 hover:underline"
+              >
+                <IconThread className="w-3.5 h-3.5" />
+                {threadReplyCount} {threadReplyCount === 1 ? 'reply' : 'replies'}
+              </button>
+            )}
+
+            {/* Touch devices have no hover: a small button opens the same actions. */}
+            <button
+              type="button"
+              onClick={() => setActionsOpen((o) => !o)}
+              aria-label="Message actions"
+              aria-expanded={actionsOpen}
+              className="md:hidden absolute top-1 right-1 w-6 h-6 rounded-full text-slate-400 hover:bg-slate-800 flex items-center justify-center text-sm leading-none"
+            >
+              &#8943;
+            </button>
+
             {/* Contextual Action Hover Toolbar (Desktop & Mobile Touch Menu) */}
             <div
-              className={`absolute -top-3.5 hidden group-hover:flex items-center gap-1 bg-[#090d16] border border-slate-700 p-1 rounded-xl shadow-xl z-20 ${
+              className={`absolute -top-3.5 ${actionsOpen ? 'flex' : 'hidden'} group-hover:flex group-focus-within:flex items-center gap-1 bg-[var(--canvas-bg)] border border-slate-700 p-1 rounded-xl shadow-xl z-20 ${
                 isSelf ? 'right-2' : 'left-2'
               }`}
             >
@@ -299,6 +331,16 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 </button>
               )}
 
+              {onOpenThread && !message.threadRootId && (
+                <button
+                  onClick={() => onOpenThread(message)}
+                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
+                  title="Reply in thread"
+                >
+                  <IconThread className="w-3.5 h-3.5" />
+                </button>
+              )}
+
               {onPinMessage && (
                 <button
                   onClick={() => onPinMessage(message.id)}
@@ -316,6 +358,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                   title={message.isStarred ? 'Unstar message' : 'Star message'}
                 >
                   <IconStar className="w-3.5 h-3.5" />
+                </button>
+              )}
+
+              {!isSelf && onReportMessage && (
+                <button
+                  onClick={() => onReportMessage(message)}
+                  className="p-1 text-slate-300 hover:text-rose-400 hover:bg-slate-800 rounded-lg text-xs leading-none"
+                  title="Report message"
+                  aria-label="Report message"
+                >
+                  &#9873;
                 </button>
               )}
 

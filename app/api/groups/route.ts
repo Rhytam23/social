@@ -115,9 +115,12 @@ export async function POST(request: NextRequest) {
       user_id: uid,
     }));
 
-    const { error: membersError } = await supabase
-      .from('conversation_members')
-      .insert(memberRows as unknown as never);
+    // The creator becomes the owner. Falls back to plain rows when migration 013 has not been applied.
+    const withRoles = memberRows.map((r) => (r.user_id === user.id ? { ...r, role: 'owner' as const } : r));
+    let { error: membersError } = await supabase.from('conversation_members').insert(withRoles as unknown as never);
+    if (membersError && /role/i.test(membersError.message)) {
+      ({ error: membersError } = await supabase.from('conversation_members').insert(memberRows as unknown as never));
+    }
 
     if (membersError) {
       return NextResponse.json({ error: membersError.message }, { status: 500 });
@@ -127,5 +130,63 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Invalid request payload.';
     return NextResponse.json({ error: message }, { status: 400 });
+  }
+}
+
+/** Update group settings: name, description, admin-only posting. Group admins only (enforced by RLS too). */
+export async function PATCH(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
+  const rateLimit = await checkRateLimit(`grp-update:${ip}`, { limit: 30, windowMs: 60 * 1000 });
+  if (!rateLimit.success) {
+    return NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429 });
+  }
+
+  const supabase = await createServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
+  }
+
+  try {
+    const { groupId, name, description, onlyAdminsPost } = await request.json();
+    if (!groupId) {
+      return NextResponse.json({ error: 'groupId is required.' }, { status: 400 });
+    }
+
+    const patch: Record<string, unknown> = {};
+    if (typeof name === 'string') {
+      if (name.trim().length === 0 || name.trim().length > 80) {
+        return NextResponse.json({ error: 'Group names need 1 to 80 characters.' }, { status: 400 });
+      }
+      patch.name = name.trim();
+    }
+    if (typeof description === 'string') {
+      if (description.length > 500) {
+        return NextResponse.json({ error: 'Descriptions can be at most 500 characters.' }, { status: 400 });
+      }
+      patch.description = description.trim() || null;
+    }
+    if (typeof onlyAdminsPost === 'boolean') patch.only_admins_post = onlyAdminsPost;
+    if (Object.keys(patch).length === 0) {
+      return NextResponse.json({ error: 'Nothing to update.' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('conversations')
+      .update(patch as never)
+      .eq('id', groupId)
+      .eq('type', 'group')
+      .select('id')
+      .maybeSingle();
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    if (!data) {
+      return NextResponse.json({ error: 'Group not found, or only group admins can change its settings.' }, { status: 403 });
+    }
+    return NextResponse.json({ success: true });
+  } catch (err: unknown) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Invalid request payload.' }, { status: 400 });
   }
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { UserItem } from '../../types/ui';
+import { AdminReports } from './AdminReports';
 
 export interface AdminDashboardProps {
   users: UserItem[];
@@ -70,6 +71,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, onToggleU
           </table>
         </div>
       </div>
+
+      <AdminReports nameOf={(id) => users.find((u) => u.id === id)?.name ?? 'A member'} />
     </div>
   );
 };

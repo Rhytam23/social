@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 010**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 015**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -18,6 +18,11 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `008_realtime_publication.sql` | Adds tables to the Realtime publication; `REPLICA IDENTITY FULL` on two tables | Yes |
 | `009_oauth_profile_metadata.sql` | Final `handle_new_user` | Yes. Run it last after re-running `005`-`007` |
 | `010_conversation_creator_can_read.sql` | Conversation creators can read their own conversation, fixing "new row violates row-level security policy for table conversations" when starting a chat | Yes |
+| `011_profile_fields_and_privacy.sql` | `bio`, `pronouns`, `timezone`, `preferences`, `onboarding_completed` on `profiles`; **column-level read access hides `email` and `phone_number`**; `get_my_contact()`, `find_profiles_by_contact()` | Yes |
+| `012_messaging_state.sql` | `conversation_members.last_read_at`, `get_unread_counts()`, `saved_messages` | Yes |
+| `013_group_roles_threads.sql` | `conversation_members.role`, `conversations.description` / `only_admins_post`, `messages.thread_root_id`, `is_group_admin()`, `is_group_owner()`, role guard trigger, tighter member and group policies | Yes |
+| `014_communities.sql` | `communities`, `community_members`, `community_invites`, channels as `conversations` of type `channel`; seven functions (`create_community`, `create_channel`, `join_community`, ...) | Yes |
+| `015_privacy_controls.sql` | `conversations.disappear_after`, `messages.expires_at` (trigger), `purge_expired_messages()`, `set_disappearing()`, `blocks`, `reports`; messages insert rule refuses blocked senders | Yes |
 | `functions/atomic_invite_consumption.sql` | `consume_invite` (unused; the invite feature was removed from the app) | Yes. Not numbered; skip on new installs |
 
 ## Tables
@@ -88,6 +93,16 @@ No size or file type limits are set in SQL; the upload route enforces 25 MB.
 ## Realtime
 
 Migration `008` puts `messages`, `message_reactions`, `message_receipts`, `conversation_members` and `presence` in the `supabase_realtime` publication (if it exists) and sets `REPLICA IDENTITY FULL` on `messages` and `message_reactions`. Subscribers only receive rows their row level security allows. The app currently listens for `INSERT` and `UPDATE` on `messages`.
+
+## Added by migrations 011 to 015
+
+- **Profiles.** Other members can read every profile column except `email` and `phone_number`. Those two are readable only through `get_my_contact()` (your own) and the exact-match lookup `find_profiles_by_contact()`. **Any new `profiles` column that other people should see must be added to the `GRANT SELECT (...)` list in `011`.**
+- **Unread and saved.** `last_read_at` per member drives unread counts. `saved_messages` stores only message ids; the text stays encrypted.
+- **Roles.** `owner > admin > member` per group. Only the owner can change roles (a trigger enforces it even for direct API calls). Adding members needs a group admin. "Only admins can post" is enforced in the messages insert rule.
+- **Threads.** `messages.thread_root_id` links a reply to its parent. The server can see which message a reply belongs to, not what it says.
+- **Communities.** A channel is a `conversations` row with `type = 'channel'` and a `community_id`. Public channels contain every community member; private channels only the chosen people. Writes go through `SECURITY DEFINER` functions that check permissions and use a session flag to pass the role guard.
+- **Disappearing messages.** A trigger stamps `expires_at` from the conversation timer on insert. `purge_expired_messages()` deletes expired rows and is scheduled with `pg_cron` if that extension is enabled; the app also calls it while it is open. Encrypted attachment files in Storage are not removed.
+- **Blocking and reports.** `blocks` is owner-only. A blocked user cannot insert messages into a direct chat with the person who blocked them. `reports` can be created by any member and read only by platform admins.
 
 ## Changing the schema
 

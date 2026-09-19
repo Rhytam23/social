@@ -3,6 +3,10 @@ import { ConversationItem, MessageData, ReplyReference } from '../../types/ui';
 import { MessageItem } from '../messages/MessageItem';
 import { MessageComposer } from '../messages/MessageComposer';
 import { IconChevronDown, IconLock, IconPin, IconSearch, IconShield, IconX } from '../ui/icons';
+import { PRESENCE_LABEL } from '../ui/avatar';
+import { MessageListSkeleton, TypingDots } from '../ui/primitives';
+import { NotifyMenu } from '../notifications/NotifyMenu';
+import { DisappearMenu } from '../privacy/DisappearMenu';
 
 export interface ChatCanvasProps {
   conversation: ConversationItem;
@@ -24,6 +28,23 @@ export interface ChatCanvasProps {
   onSaveEditMessage?: (msgId: string, newContent: string) => void;
   onCancelEdit?: () => void;
   onBackToList?: () => void;
+  /** Names of people typing right now in this conversation. */
+  typingNames?: string[];
+  onTyping?: () => void;
+  isLoadingMessages?: boolean;
+  canLoadOlder?: boolean;
+  onLoadOlder?: () => void;
+  onOpenThread?: (msg: MessageData) => void;
+  /** When set, the composer is replaced by this notice (for example admin-only groups). */
+  readOnlyReason?: string;
+  onSetNotify?: (level: 'all' | 'mentions' | 'none' | 'default', muteMs?: number) => void;
+  mentionCandidates?: Array<{ id: string; name: string; username?: string }>;
+  onSetDisappear?: (seconds: number | null) => void;
+  onAcceptKeyChange?: () => void;
+  onVerifyPeer?: () => void;
+  onReportMessage?: (msg: MessageData) => void;
+  /** Start a voice (false) or video (true) call with the other person (direct chats only). */
+  onStartCall?: (video: boolean) => void;
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -46,6 +67,20 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   onSaveEditMessage,
   onCancelEdit,
   onBackToList,
+  typingNames = [],
+  onTyping,
+  isLoadingMessages,
+  canLoadOlder,
+  onLoadOlder,
+  onOpenThread,
+  readOnlyReason,
+  onSetNotify,
+  mentionCandidates,
+  onSetDisappear,
+  onAcceptKeyChange,
+  onVerifyPeer,
+  onReportMessage,
+  onStartCall,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [showInChatSearch, setShowInChatSearch] = useState(false);
@@ -91,12 +126,19 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
     }
   };
 
+  // Thread replies live in the thread panel, not the main stream.
+  const threadCounts = new Map<string, number>();
+  for (const m of messages) {
+    if (m.threadRootId && !m.isDeletedLocally) threadCounts.set(m.threadRootId, (threadCounts.get(m.threadRootId) ?? 0) + 1);
+  }
+  const mainMessages = messages.filter((m) => !m.threadRootId);
   const displayedMessages = inChatSearchQuery.trim()
-    ? messages.filter((m) => m.content.toLowerCase().includes(inChatSearchQuery.toLowerCase()))
-    : messages;
+    ? mainMessages.filter((m) => m.content.toLowerCase().includes(inChatSearchQuery.toLowerCase()))
+    : mainMessages;
 
   return (
-    <main
+    <section
+      aria-label={`Conversation with ${conversation.title}`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
@@ -128,27 +170,56 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           <div className="flex flex-col truncate">
             <div className="flex items-center gap-2 truncate">
               <h2 className="text-sm font-bold text-slate-100 truncate font-sans">
-                {conversation.title}
+                {conversation.communityId ? `# ${conversation.title}` : conversation.title}
               </h2>
               {conversation.isMuted && (
                 <span className="text-[10px] text-slate-500">Muted</span>
               )}
             </div>
             <div className="flex items-center gap-2 text-[11px] text-slate-400">
-              <span>{conversation.type === 'group' ? 'Group Space' : 'Direct Conversation'}</span>
+              <span>
+                {conversation.communityId && conversation.topic
+                  ? conversation.topic
+                  : conversation.type === 'group'
+                  ? `${conversation.groupMeta?.memberCount ?? ''} members`.trim()
+                  : PRESENCE_LABEL[conversation.recipientUser?.presence ?? 'offline']}
+              </span>
               <span>•</span>
               <div className="flex items-center gap-1.5 text-emerald-400 font-medium">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span>End-to-End Encrypted</span>
+                <IconLock className="w-3 h-3" />
+                <span>End-to-end encrypted</span>
               </div>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {onStartCall && (
+            <>
+              <button
+                onClick={() => onStartCall(false)}
+                aria-label="Start a voice call"
+                title="Voice call"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M3 5a2 2 0 012-2h2.3a1 1 0 01.95.68l1.1 3.3a1 1 0 01-.5 1.2l-1.5.75a11 11 0 005.3 5.3l.75-1.5a1 1 0 011.2-.5l3.3 1.1a1 1 0 01.68.95V19a2 2 0 01-2 2A16 16 0 013 5z" />
+                </svg>
+              </button>
+              <button
+                onClick={() => onStartCall(true)}
+                aria-label="Start a video call"
+                title="Video call"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M15 10l4.5-2.5v9L15 14m-9 4h7a2 2 0 002-2V8a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+              </button>
+            </>
+          )}
+          {onSetDisappear && <DisappearMenu current={conversation.disappearAfter} onChange={onSetDisappear} />}
+          {onSetNotify && <NotifyMenu conversation={conversation} onChange={onSetNotify} />}
           <button
             onClick={() => setShowInChatSearch(!showInChatSearch)}
             className={`p-2 rounded-xl transition-colors ${
@@ -172,6 +243,16 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           )}
         </div>
       </div>
+
+      {conversation.recipientUser?.keyChanged && (
+        <div role="alert" className="px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/30 text-xs text-[var(--warning)] flex flex-wrap items-center gap-x-3 gap-y-1">
+          <span className="flex-1 min-w-[12rem]">
+            {conversation.recipientUser.name}&apos;s security code changed. This happens when they use a new device or reinstall. If you did not expect it, compare safety numbers before sharing anything sensitive.
+          </span>
+          {onVerifyPeer && <button onClick={onVerifyPeer} className="font-semibold underline">I verified it</button>}
+          {onAcceptKeyChange && <button onClick={onAcceptKeyChange} className="font-semibold underline">Dismiss</button>}
+        </div>
+      )}
 
       {/* In-Chat Filter Search Bar */}
       {showInChatSearch && (
@@ -233,8 +314,19 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
             </span>
           </div>
 
+          {canLoadOlder && !inChatSearchQuery && (
+            <button
+              onClick={onLoadOlder}
+              className="self-center px-3 py-1.5 text-[11px] font-semibold rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:bg-[var(--surface-2)] transition-colors"
+            >
+              Load earlier messages
+            </button>
+          )}
+
           {/* Messages */}
-          {displayedMessages.length === 0 ? (
+          {isLoadingMessages && displayedMessages.length === 0 ? (
+            <MessageListSkeleton />
+          ) : displayedMessages.length === 0 ? (
             <div className="my-auto text-center text-xs text-slate-500 p-12">
               {inChatSearchQuery
                 ? `No messages in this chat match "${inChatSearchQuery}"`
@@ -265,12 +357,31 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                     onForwardMessage={onForwardMessage}
                     onPinMessage={onPinMessage}
                     onStarMessage={onStarMessage}
+                    onOpenThread={onOpenThread}
+                    onReportMessage={onReportMessage}
+                    threadReplyCount={threadCounts.get(msg.id) ?? 0}
                   />
                 </React.Fragment>
               );
             })
           )}
         </div>
+      </div>
+
+      {/* Typing indicator (ephemeral, never stored) */}
+      <div className="h-5 px-6 max-w-4xl w-full mx-auto text-[11px] text-[var(--text-muted)] flex items-center gap-2" aria-live="polite">
+        {typingNames.length > 0 && (
+          <>
+            <TypingDots />
+            <span>
+              {typingNames.length === 1
+                ? `${typingNames[0]} is typing`
+                : typingNames.length === 2
+                ? `${typingNames[0]} and ${typingNames[1]} are typing`
+                : 'Several people are typing'}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Floating Scroll to Bottom Button */}
@@ -286,6 +397,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
 
       {/* Composer Row */}
       <div className="w-full max-w-4xl mx-auto">
+        {readOnlyReason ? (
+          <p className="m-4 p-3 text-xs text-center rounded-xl bg-[var(--surface-2)] text-[var(--text-secondary)]">{readOnlyReason}</p>
+        ) : (
         <MessageComposer
           onSendMessage={onSendMessage}
           replyTarget={replyTarget}
@@ -293,8 +407,11 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           editingMessage={editingMessage}
           onSaveEditMessage={onSaveEditMessage}
           onCancelEdit={onCancelEdit}
+          onTyping={onTyping}
+          mentionCandidates={mentionCandidates}
         />
+        )}
       </div>
-    </main>
+    </section>
   );
 };

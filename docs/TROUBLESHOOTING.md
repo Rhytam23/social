@@ -48,6 +48,22 @@ A red error message names the failing statement. No error means the trigger is h
 
 Shown when starting a chat or group. The app creates the conversation and reads it back in one step, but the read policy only allowed existing members and the creator is not a member yet. Run `database/migrations/010_conversation_creator_can_read.sql` in the Supabase SQL Editor (safe to re-run), then try again.
 
+## "Communities need the latest database update (migration 014)"
+
+The community rail works, but creating one failed because the database functions do not exist yet. Run `database/migrations/014_communities.sql` (and `011` to `013` before it if you skipped them) in the Supabase SQL Editor.
+
+## Group or thread features seem missing
+
+Roles, admin-only posting and threads need `013_group_roles_threads.sql`. Until it is applied, groups behave as before (every member can manage) and the app says roles are unavailable.
+
+## Someone joined a community but sees no messages
+
+Each channel key must be shared to a new member by an admin's device. Ask an admin to open the app; the key is shared automatically within a few seconds. If the admin was already open, sign out and in again on the admin's device to reconnect the live channel.
+
+## A call rings but never connects
+
+Both people need working microphone (and camera) permission, and the network must allow a direct connection. On strict corporate or mobile networks add a TURN relay (`TURN_URLS`, plus `TURN_SHARED_SECRET` or `TURN_USERNAME` and `TURN_CREDENTIAL`) and redeploy; see [Deployment](DEPLOYMENT.md). Calls only ring people you already have a direct chat with.
+
 ## Google sign-in problems
 
 The login page shows a reason after "We couldn't complete Google sign-in", for example `(Reason: Database error saving new user)`. Use it with this table:

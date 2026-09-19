@@ -21,7 +21,9 @@ export type MessageEnvelope =
   | { v: 1; kind: 'system'; text: string }
   | { v: 1; kind: 'poll'; question: string; options: PollOptionEnvelope[]; multi: boolean; closesAt?: string }
   | { v: 1; kind: 'poll_vote'; pollId: string; optionIds: string[] }
-  | { v: 1; kind: 'call'; callId: string; outcome: CallOutcome; video: boolean; durationMs?: number };
+  | { v: 1; kind: 'call'; callId: string; outcome: CallOutcome; video: boolean; durationMs?: number }
+  /** Call signalling. Encrypted like a message but sent over a live channel and never stored. */
+  | { v: 1; kind: 'call_signal'; callId: string; signal: 'offer' | 'answer' | 'ice' | 'hangup' | 'decline' | 'busy'; video: boolean; sdp?: string; candidate?: RTCIceCandidateInit };
 
 /**
  * Everything about a message - including that it has an attachment at all,

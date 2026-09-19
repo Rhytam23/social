@@ -23,6 +23,11 @@ export interface Database {
           is_admin: boolean;
           created_at: string;
           updated_at: string;
+          bio: string | null;
+          pronouns: string | null;
+          timezone: string | null;
+          preferences: Json;
+          onboarding_completed: boolean;
         };
         Insert: {
           id: string;
@@ -34,6 +39,11 @@ export interface Database {
           is_admin?: boolean;
           created_at?: string;
           updated_at?: string;
+          bio?: string | null;
+          pronouns?: string | null;
+          timezone?: string | null;
+          preferences?: Json;
+          onboarding_completed?: boolean;
         };
         Update: {
           id?: string;
@@ -45,6 +55,11 @@ export interface Database {
           is_admin?: boolean;
           created_at?: string;
           updated_at?: string;
+          bio?: string | null;
+          pronouns?: string | null;
+          timezone?: string | null;
+          preferences?: Json;
+          onboarding_completed?: boolean;
         };
         Relationships: [
           {
@@ -104,6 +119,8 @@ export interface Database {
           created_by: string | null;
           created_at: string;
           updated_at: string;
+          description: string | null;
+          only_admins_post: boolean;
         };
         Insert: {
           id?: string;
@@ -113,6 +130,8 @@ export interface Database {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          description?: string | null;
+          only_admins_post?: boolean;
         };
         Update: {
           id?: string;
@@ -122,6 +141,8 @@ export interface Database {
           created_by?: string | null;
           created_at?: string;
           updated_at?: string;
+          description?: string | null;
+          only_admins_post?: boolean;
         };
         Relationships: [];
       };
@@ -131,16 +152,22 @@ export interface Database {
           user_id: string;
           joined_at: string;
           left_at: string | null;
+          last_read_at: string | null;
+          role: 'owner' | 'admin' | 'member';
         };
         Insert: {
           conversation_id: string;
           user_id: string;
           joined_at?: string;
           left_at?: string | null;
+          last_read_at?: string | null;
+          role?: 'owner' | 'admin' | 'member';
         };
         Update: {
           conversation_id?: string;
           user_id?: string;
+          role?: 'owner' | 'admin' | 'member';
+          last_read_at?: string | null;
           joined_at?: string;
           left_at?: string | null;
         };
@@ -170,6 +197,7 @@ export interface Database {
           nonce: string;
           encryption_version: number;
           reply_to_message_id: string | null;
+          thread_root_id: string | null;
           created_at: string;
           edited_at: string | null;
           deleted_at: string | null;
@@ -182,6 +210,7 @@ export interface Database {
           nonce: string;
           encryption_version?: number;
           reply_to_message_id?: string | null;
+          thread_root_id?: string | null;
           created_at?: string;
           edited_at?: string | null;
           deleted_at?: string | null;
@@ -323,6 +352,27 @@ export interface Database {
           online?: boolean;
           last_seen?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      saved_messages: {
+        Row: {
+          user_id: string;
+          message_id: string;
+          conversation_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          message_id: string;
+          conversation_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          message_id?: string;
+          conversation_id?: string;
+          created_at?: string;
         };
         Relationships: [];
       };

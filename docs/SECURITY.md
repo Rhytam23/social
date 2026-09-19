@@ -42,13 +42,23 @@ What the app protects, what it deliberately does not, the rules contributors mus
 8. **No analytics, advertising or tracking scripts.**
 9. **Schema changes go through a new migration**, with matching updates to `types/database.ts` and tests.
 
+## Added controls (unverified against a live project)
+
+- Group roles with a database trigger so a member cannot promote themselves (`013`); owner-only role changes.
+- Blocking enforced by the messages insert rule, not just the interface (`015`).
+- Disappearing messages enforced by a trigger (`015`).
+- App lock: PBKDF2-SHA256 (310,000 iterations, random salt) PIN check with backoff after five wrong attempts. It is a screen lock on one device and **does not encrypt the keys stored in the browser**.
+- Call signalling encrypted end to end; TURN credentials short-lived.
+- Message formatting is parsed into a data tree and rendered as React elements, never as HTML; only `http(s)` links are recognised.
+- Security-relevant limitation of live features: the presence, typing and call-signal Realtime channels are readable by any signed-in client of the project (Realtime Authorization is not enabled). They carry ids and statuses, or encrypted payloads, never message text.
+
 ## Known gaps
 
 Ordered roughly by importance. These are tracked in the [Roadmap](ROADMAP.md).
 
-1. **Profile email and phone are readable by any signed-in user.** The `profiles` table has a read policy of `USING (true)` for all authenticated users, and migration `005` added the `email` and `phone_number` columns without restricting them. The `/api/users` route hides them, but a signed-in user can query the Supabase API directly and read every profile's email and phone. This was identified by reading the policies and has not been tested against a live project. The fix is to move those columns into a private table (or restrict them with column privileges) and update the app.
-2. **`DELETE /api/groups/members` relies on row level security alone**, with no route-level authorization. RLS limits it to removing yourself or being a platform admin, but the route should verify this explicitly.
-3. **The `conversation_members` insert rule lets a conversation's creator add any user id**, without that user's consent, and any member can add others to a group.
+1. **(Fixed by migration `011`, not yet verified on a live project.)** ~~Profile email and phone are readable by any signed-in user.~~ Column privileges now hide them; **run `011` and confirm** with a second account that `select email from profiles` fails. Original description: **Profile email and phone are readable by any signed-in user.** The `profiles` table has a read policy of `USING (true)` for all authenticated users, and migration `005` added the `email` and `phone_number` columns without restricting them. The `/api/users` route hides them, but a signed-in user can query the Supabase API directly and read every profile's email and phone. This was identified by reading the policies and has not been tested against a live project. The fix is to move those columns into a private table (or restrict them with column privileges) and update the app.
+2. **(Fixed in code, needs migration `013`.)** **`DELETE /api/groups/members` relied on row level security alone**, with no route-level authorization. RLS limits it to removing yourself or being a platform admin, but the route should verify this explicitly.
+3. **The `conversation_members` insert rule lets a conversation's creator add any user id**, without that user's consent. Plain members can no longer add people to a group (`013`), but there is still no consent step for being added.
 4. **Rate limiting is weak.** The limiter is fixed-window (not sliding), keyed on the `x-forwarded-for` header (spoofable unless your proxy overwrites it), and in memory per server instance unless Upstash is configured.
 5. **No Content Security Policy.** A cross-site scripting bug would expose the key store in IndexedDB.
 6. **No forward secrecy, no real multi-device support, key substitution risk**: see [E2EE limitations](E2EE.md#limitations).
