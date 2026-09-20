@@ -24,7 +24,8 @@ function likeToRegex(pattern: string): RegExp {
   return new RegExp(`^${out}$`, 'i');
 }
 
-function table(rows: Row[]) {
+function table(source: Row[]) {
+  let rows = source;
   const filters: Array<(r: Row) => boolean> = [];
   let cols: string[] | null = null;
   let max = Infinity;
@@ -56,6 +57,10 @@ function table(rows: Row[]) {
     },
     is: (col: string, v: unknown) => {
       filters.push((r) => (r[col] ?? null) === v);
+      return q;
+    },
+    order: (col: string) => {
+      rows = [...rows].sort((a, b) => String(a[col] ?? '').localeCompare(String(b[col] ?? '')));
       return q;
     },
     limit: (n: number) => {
@@ -96,66 +101,75 @@ beforeEach(() => {
   db.conversation_members = [];
 });
 
-describe('GET /api/users?username=', () => {
+type Found = { username: string; blocked: boolean; id: string };
+const names = (body: { users: Found[] }) => body.users.map((u) => u.username);
+
+describe('GET /api/users?username= (start of a username)', () => {
   it('requires a signed-in user', async () => {
     db.me = '';
     expect((await get('?username=alex_m')).status).toBe(401);
   });
 
-  it('finds a person by exact username', async () => {
+  it('finds a person by their full username', async () => {
     const { status, body } = await get('?username=alex_m');
     expect(status).toBe(200);
-    expect(body.user).toMatchObject({ id: 'u1', username: 'alex_m', display_name: 'Alex Morgan', blocked: false });
+    expect(body.users).toHaveLength(1);
+    expect(body.users[0]).toMatchObject({ id: 'u1', username: 'alex_m', display_name: 'Alex Morgan', blocked: false });
+  });
+
+  it('finds everyone whose username starts with the text, exact match first', async () => {
+    const { body } = await get('?username=alex');
+    expect(names(body)).toEqual(['alex_m', 'alexxm']);
+    db.profiles.push({ id: 'u9', username: 'alex', display_name: 'Alex', is_admin: false });
+    expect(names((await get('?username=alex')).body)[0]).toBe('alex');
   });
 
   it('is case-insensitive and accepts a leading @', async () => {
-    expect((await get('?username=ALEX_M')).body.user?.id).toBe('u1');
-    expect((await get('?username=%40Alex_M')).body.user?.id).toBe('u1');
+    expect((await get('?username=ALEX_M')).body.users[0].id).toBe('u1');
+    expect((await get('?username=%40Alex_M')).body.users[0].id).toBe('u1');
   });
 
   it('never returns email or phone number', async () => {
-    const { body } = await get('?username=alex_m');
-    expect(body.user).not.toHaveProperty('email');
-    expect(body.user).not.toHaveProperty('phone_number');
+    const { body } = await get('?username=alex');
     expect(JSON.stringify(body)).not.toContain('example.com');
     expect(JSON.stringify(body)).not.toContain('5550199');
+    expect(JSON.stringify(body)).not.toContain('email');
   });
 
-  it('does not match part of a username', async () => {
-    expect((await get('?username=alex')).body.user).toBeNull();
-    expect((await get('?username=lex_m')).body.user).toBeNull();
+  it('does not match the middle or end of a username', async () => {
+    expect((await get('?username=lex_m')).body.users).toEqual([]);
+    expect((await get('?username=morgan')).body.users).toEqual([]);
   });
 
-  it('treats an underscore literally: al_x_m must not match alex_m', async () => {
-    expect((await get('?username=al_x_m')).body.user).toBeNull();
+  it('treats an underscore literally: al_x must not match alex_m', async () => {
+    expect((await get('?username=al_x')).body.users).toEqual([]);
   });
 
   it('does not find people by display name, email, phone or bio', async () => {
     expect((await get('?username=Alex%20Morgan')).status).toBe(400);
-    expect((await get('?username=morgan')).body.user).toBeNull();
     expect((await get('?username=alex%40example.com')).status).toBe(400);
     expect((await get('?username=%2B15550199')).status).toBe(400);
-    expect((await get('?username=hello')).body.user).toBeNull();
+    expect((await get('?username=hello')).body.users).toEqual([]);
   });
 
-  it('rejects empty and invalid searches', async () => {
+  it('rejects empty, too short and wildcard searches', async () => {
     expect((await get('?username=')).status).toBe(400);
-    expect((await get('?username=a')).status).toBe(400);
+    expect((await get('?username=al')).status).toBe(400);
     expect((await get('?username=%25%25%25')).status).toBe(400);
   });
 
   it('does not return yourself', async () => {
-    expect((await get('?username=me_user')).body.user).toBeNull();
+    expect((await get('?username=me_')).body.users).toEqual([]);
   });
 
   it('flags people you blocked', async () => {
     db.blocks = [{ blocker_id: 'me', blocked_id: 'u1' }];
-    expect((await get('?username=alex_m')).body.user).toMatchObject({ id: 'u1', blocked: true });
+    expect((await get('?username=alex')).body.users.find((u: Found) => u.id === 'u1')).toMatchObject({ blocked: true });
   });
 
   it('does not reveal that someone blocked you', async () => {
     db.blocks = [{ blocker_id: 'u1', blocked_id: 'me' }];
-    expect((await get('?username=alex_m')).body.user).toMatchObject({ id: 'u1', blocked: false });
+    expect((await get('?username=alex')).body.users.find((u: Found) => u.id === 'u1')).toMatchObject({ blocked: false });
   });
 });
 

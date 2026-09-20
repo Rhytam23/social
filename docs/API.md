@@ -19,7 +19,7 @@ Route handlers live in `app/api/**/route.ts`, plus `app/auth/confirm/route.ts`.
 The app reads the current session and its own conversations straight from Supabase, so there are no session, conversation-list or group-detail routes (`GET /api/auth`, `GET /api/conversations` and `GET /api/groups` were removed as unused).
 
 ### `GET /api/users?username=` (60/min per address, 30/min per account)
-Find one person by **exact username**. This is the only way to discover someone you have not talked to. The value is trimmed, a leading `@` is dropped and it is lower-cased; it must be 3 to 30 letters, numbers, dots or underscores. Display name, email, phone number and bio are never searched.
+Find people whose username **starts with** the text ("ars" finds arsh and arsalan): at most 8, the exact match first. This is the only way to discover someone you have not talked to. The value is trimmed, a leading `@` is dropped and it is lower-cased; it must be 3 to 30 letters, numbers, dots or underscores. Display name, email, phone number and bio are never searched. Limited to 40 searches a minute and 1500 a day per account, because a prefix search can be walked to list people. Platform admins do not appear to people they have not talked to. The answer is `{ users: [...] }`, each with a `blocked` flag.
 - `200 { user: { id, username, display_name, avatar_url, created_at, bio?, pronouns?, timezone?, blocked } }` on a match, `200 { user: null }` when nobody has that username (you never get a partial match).
 - `blocked` is `true` when *you* blocked that person. Whether someone blocked *you* is not revealed.
 - `400 { error }` for an empty or invalid username (including email addresses and phone numbers). The caller is never returned.

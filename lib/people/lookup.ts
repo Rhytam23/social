@@ -13,7 +13,7 @@ export interface ProfileRow {
 }
 
 export type LookupOutcome =
-  | { status: 'found'; user: UserItem; blocked: boolean }
+  | { status: 'found'; matches: Array<{ user: UserItem; blocked: boolean }> }
   | { status: 'none' }
   | { status: 'invalid'; message: string }
   | { status: 'error'; message: string };
@@ -43,7 +43,7 @@ export function profileRowToUser(p: ProfileRow): UserItem {
   };
 }
 
-/** Exact-username lookup against the server. */
+/** Finds people whose username starts with the text (at least 3 characters). */
 export async function lookupUsernameRemote(raw: string, fetchImpl: typeof fetch = fetch): Promise<LookupOutcome> {
   const parsed = parseUsernameQuery(raw);
   if (!parsed.ok) return { status: 'invalid', message: parsed.error };
@@ -56,9 +56,10 @@ export async function lookupUsernameRemote(raw: string, fetchImpl: typeof fetch 
       return { status: 'invalid', message: body.error ?? 'That is not a valid username.' };
     }
     if (!res.ok) return { status: 'error', message: 'Search failed. Check your connection and try again.' };
-    const body = (await res.json()) as { user: (ProfileRow & { blocked?: boolean }) | null };
-    if (!body.user) return { status: 'none' };
-    return { status: 'found', user: profileRowToUser(body.user), blocked: !!body.user.blocked };
+    const body = (await res.json()) as { users?: Array<ProfileRow & { blocked?: boolean }> };
+    const users = body.users ?? [];
+    if (users.length === 0) return { status: 'none' };
+    return { status: 'found', matches: users.map((u) => ({ user: profileRowToUser(u), blocked: !!u.blocked })) };
   } catch {
     return { status: 'error', message: 'Search failed. Check your connection and try again.' };
   }

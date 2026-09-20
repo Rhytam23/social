@@ -75,7 +75,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps & PartProps> = ({ pa
         <>
       <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Who can find you</h3>
       <p className="text-xs text-[var(--text-muted)] pb-3">
-        People can only find you by your exact username. Your name, email address and phone number are never searchable.
+        People can only find you by your username (typing its first letters shows it). Your name, email address and phone number are never searchable.
       </p>
 
       <h3 className="text-sm font-bold text-[var(--text-primary)] mt-4 mb-1">What others can see</h3>

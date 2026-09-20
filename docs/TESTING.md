@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **432 tests in 43 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **457 tests in 46 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -23,6 +23,8 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
 | `tests/security/latestMessages.test.ts` | 4 | Migration `020` on real Postgres: exactly the newest message per conversation, never one from a conversation the caller is not in, empty input, signed-out refused |
 | `tests/security/latestRoute.test.ts` | 5 | `GET /api/messages/latest`: 401, uses only the caller's own conversations, only known columns returned, 501 fallback while `020` is missing, no database text in errors |
+| `tests/security/messageRequests.test.ts` | 9 | Migration `026` on real Postgres: 3 messages then refused, a reply opens the chat, deleting or leaving and re-adding does not reset it, the counters cannot be edited, admins and groups are not limited |
+| `tests/security/usersRoute.test.ts` | 9 | People search: starts-with matching, at most 8, exact match first, no email or phone, blocked flag, limits |
 | `tests/security/moderation.test.ts` | 24 | Migration `024` on real Postgres: who may report whom, the 3, 10 and 20 tiers counted by different reporters, the account-age rule, dismissed reports, the ban (auth ban set, sessions ended, email and addresses blocked), the sign-up hook, admins never auto-banned, admin ban, undo and unblock, audit trail, tables closed to clients, address retention |
 | `tests/security/sessionSeenRoute.test.ts` | 8 | `POST /api/session/seen`: session required, the real address only, malformed and unknown addresses ignored, never fails the session, limited per account |
 | `tests/security/hiddenAdmins.test.ts` | 10 | Migration `023` on real Postgres: a stranger cannot list, look up or fetch an admin, ordinary profiles are unchanged, the admin appears to people who share a chat or community and disappears when they leave, anonymous visitors see nothing, `is_admin()` does not recurse |
@@ -234,3 +236,15 @@ Use throwaway accounts older than a day. Nothing below has been run against a li
 - [ ] A shared address shows "shared: N accounts" and Unblock removes it.
 - [ ] A platform admin reported by many accounts is not banned.
 - [ ] Every step appears in Admin, Activity.
+
+## Checklist for people search and message requests (migration 026)
+
+Nothing below has been run against a live Supabase project.
+
+- [ ] Search box: typing 2 letters searches nothing; 3 or more shows everyone whose username starts with them (for example "ars" shows arsh and arsalan), at most 8, and never yourself, never a platform admin you have not talked to.
+- [ ] Typing quickly sends one search per pause, not one per letter (Network tab).
+- [ ] As A, message B (who has never talked to A) 3 times: all sent. The 4th shows "You can send 3 messages to someone until they reply" and no failed message is left in the chat.
+- [ ] B sends one reply: A can now send freely, both ways.
+- [ ] A deletes the 3 messages and tries again: still refused.
+- [ ] A platform admin can message anyone repeatedly; the person can answer at length.
+- [ ] Groups are not limited (known gap: someone can add you to a group without your acceptance).

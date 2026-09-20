@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { isIsoDate, isUuid, limitByIp, limitByUser, readJson, rejectCrossSite, serverError } from '@/lib/api/security';
 import { Database } from '@/types/database';
+import { MESSAGE_REQUEST_CODE, MESSAGE_REQUEST_NOTICE, isMessageRequestLimit } from '@/lib/messaging/messageRequests';
 
 // Ciphertext is base64 of an encrypted envelope. Attachments are separate files, so messages stay small.
 const MAX_CIPHERTEXT_CHARS = 200_000;
@@ -194,6 +195,9 @@ export async function POST(request: NextRequest) {
     // Row level security refuses blocked senders and admin-only channels; say so plainly.
     const denied = !!insertError && /row-level security/i.test(insertError.message);
     if (denied) return NextResponse.json({ error: 'You cannot send messages to this conversation right now.' }, { status: 403 });
+    if (insertError && isMessageRequestLimit(insertError)) {
+      return NextResponse.json({ error: MESSAGE_REQUEST_NOTICE, code: MESSAGE_REQUEST_CODE }, { status: 429 });
+    }
     return serverError('messages.insert', insertError, 500, undefined, user.id);
   }
   return NextResponse.json(newMsg, { status: 201 });

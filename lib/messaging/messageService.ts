@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from './messagingCrypto';
 import type { MessageEnvelope } from './envelope';
-import { adminDetail } from '../ui/errors';
+import { adminDetail, UserMessageError } from '../ui/errors';
+import { MESSAGE_REQUEST_CODE } from './messageRequests';
 import { isGroupRole, type GroupRole } from '../groups/roles';
 
 export interface ConversationSummary {
@@ -319,6 +320,7 @@ export async function sendEnvelope(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (body.code === MESSAGE_REQUEST_CODE) throw new UserMessageError(body.error);
     throw new Error(body.error || `Failed to send message (${res.status})`);
   }
 

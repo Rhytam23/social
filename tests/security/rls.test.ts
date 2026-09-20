@@ -65,6 +65,8 @@ describe('row level security, current schema (001 to 017)', () => {
     ab = await createConversation(db, A, 'private', [B]);
     group = await createConversation(db, A, 'group', [B]);
     await sendMessage(db, A, ab, 'secret from A');
+    // B answers, so this is a normal conversation and the tests below are not held to the 3-message limit for strangers (026).
+    await sendMessage(db, B, ab, 'reply from B');
     await sendMessage(db, B, group, 'group note');
   }, 120000);
 
@@ -94,7 +96,7 @@ describe('row level security, current schema (001 to 017)', () => {
     });
 
     it('members do see them', async () => {
-      expect(await asUser(db, B, (q) => count(q, `SELECT 1 FROM public.messages WHERE conversation_id = $1`, [ab]))).toBe(1);
+      expect(await asUser(db, B, (q) => count(q, `SELECT 1 FROM public.messages WHERE conversation_id = $1`, [ab]))).toBe(2);
     });
 
     it('outsider C cannot see the conversation or its members', async () => {

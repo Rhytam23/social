@@ -12,7 +12,7 @@ import { uploadEncryptedAttachment, downloadAndDecryptAttachment } from '../mess
 import type { MessageEnvelope, CallOutcome } from '../messaging/envelope';
 import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } from '../messaging/envelopeDisplay';
 import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
-import { userError, adminDetail, technicalNote } from '../ui/errors';
+import { userError, adminDetail, technicalNote, UserMessageError } from '../ui/errors';
 
 type StoreMode = 'connected' | 'demo';
 
@@ -437,21 +437,23 @@ export class ChatStore {
     this.setState({ allUsers: [...known, ...foundEarlier] });
   }
 
-  /** Finds one person by exact username (demo mode searches the sample users). */
+  /** Finds people whose username starts with the text (demo mode searches the sample users). */
   public async lookupUsername(raw: string): Promise<LookupOutcome> {
     const parsed = parseUsernameQuery(raw);
     if (!parsed.ok) return { status: 'invalid', message: parsed.error };
 
     if (this.state.mode === 'demo') {
-      const match = this.state.allUsers.find((u) => u.id !== this.state.currentUser.id && (u.username ?? '').toLowerCase() === parsed.value);
-      if (!match) return { status: 'none' };
-      return { status: 'found', user: match, blocked: this.state.blocked.includes(match.id) };
+      const found = this.state.allUsers
+        .filter((u) => u.id !== this.state.currentUser.id && (u.username ?? '').toLowerCase().startsWith(parsed.value))
+        .slice(0, 8);
+      if (found.length === 0) return { status: 'none' };
+      return { status: 'found', matches: found.map((user) => ({ user, blocked: this.state.blocked.includes(user.id) })) };
     }
 
     const outcome = await lookupUsernameRemote(raw);
     if (outcome.status !== 'found') return outcome;
-    this.rememberUser(outcome.user);
-    return { ...outcome, blocked: outcome.blocked || this.state.blocked.includes(outcome.user.id) };
+    for (const m of outcome.matches) this.rememberUser(m.user);
+    return { status: 'found', matches: outcome.matches.map((m) => ({ user: m.user, blocked: m.blocked || this.state.blocked.includes(m.user.id) })) };
   }
 
   /** Keeps a person found by username so groups and chats can use them straight away. */
@@ -707,6 +709,12 @@ export class ChatStore {
       );
       this.notify();
     } catch (err) {
+      if (err instanceof UserMessageError) {
+        // The limit for someone who has not replied: retrying cannot help, so drop the message and say why.
+        this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: (this.state.messagesMap[conversationId] || []).filter((m) => m.id !== localId) };
+        this.setState({ error: err.message });
+        return;
+      }
       this.updateMessage(conversationId, localId, { status: 'failed' });
       this.setState({ error: userError(err, 'Failed to send message') });
     }

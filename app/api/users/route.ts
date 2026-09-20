@@ -5,10 +5,12 @@ import { clientIp, serverError } from '@/lib/api/security';
 import { parseUsernameQuery } from '@/lib/people/username';
 
 /**
- * GET /api/users?username=<exact username>
- *   The only way to find someone you have not talked to yet. Matches the
- *   username exactly (case-insensitive). Display name, email, phone number and
- *   bio are never searched, and email/phone are never returned.
+ * GET /api/users?username=<start of a username>
+ *   The only way to find someone you have not talked to yet. Matches usernames that START WITH the text
+ *   (case-insensitive, at least 3 characters, at most MAX_MATCHES results, exact match first). Display name,
+ *   email, phone number and bio are never searched, and email/phone are never returned. Platform admins are
+ *   not returned to people they have not talked to (row security, migration 023). Rate limited per person,
+ *   per address and per day, because a prefix search can be walked to list people.
  *
  * GET /api/users
  *   People you already share a conversation with (platform admins get the
@@ -18,6 +20,8 @@ import { parseUsernameQuery } from '@/lib/people/username';
 // Columns other people may see. bio/pronouns/timezone come from migration 011.
 const PROFILE_COLUMNS = 'id, username, display_name, avatar_url, created_at, bio, pronouns, timezone';
 const BASE_COLUMNS = 'id, username, display_name, avatar_url, created_at';
+
+const MAX_MATCHES = 8;
 
 type Row = { id: string; username: string | null };
 
@@ -44,37 +48,45 @@ async function lookupByUsername(supabase: Awaited<ReturnType<typeof createServer
   const parsed = parseUsernameQuery(raw);
   if (!parsed.ok) return NextResponse.json({ error: parsed.error }, { status: 400 });
 
-  const perUser = await checkRateLimit(`user-lookup:${myId}`, { limit: 30, windowMs: 60 * 1000 });
+  // Live search sends a request at each pause in typing, so the per-minute limit is higher than an exact lookup
+  // needed. The daily cap is what makes walking the whole directory impractical.
+  const perUser = await checkRateLimit(`user-lookup:${myId}`, { limit: 40, windowMs: 60 * 1000 });
   if (!perUser.success) {
     return NextResponse.json({ error: 'Search rate limit exceeded.' }, { status: 429 });
   }
+  const perDay = await checkRateLimit(`user-lookup-day:${myId}`, { limit: 1500, windowMs: 24 * 60 * 60 * 1000 });
+  if (!perDay.success) {
+    return NextResponse.json({ error: 'Search rate limit exceeded.' }, { status: 429 });
+  }
 
-  // ILIKE with the "_" wildcard escaped is an exact, case-insensitive match; the
-  // JS check below is the final say, so a wildcard can never widen the result.
-  const pattern = parsed.value.replace(/[\\%_]/g, (c) => `\\${c}`);
+  // ILIKE with the wildcards in the text escaped and one "%" added on the end means "starts with". The JS check
+  // below is the final say, so a wildcard typed by the caller can never widen the result.
+  const pattern = parsed.value.replace(/[\\%_]/g, (c) => `\\${c}`) + '%';
   const build = (columns: string) =>
-    supabase.from('profiles').select(columns).ilike('username', pattern).neq('id', myId).limit(5);
+    supabase.from('profiles').select(columns).ilike('username', pattern).neq('id', myId).order('username', { ascending: true }).limit(MAX_MATCHES);
 
   let { data, error } = await build(PROFILE_COLUMNS);
   if (error) ({ data, error } = await build(BASE_COLUMNS));
   if (error) return serverError('users.lookup', error, 500, 'Search failed.', myId);
 
-  const rows = (data as unknown as Array<Row & Record<string, unknown>>) || [];
-  const match = rows.find((r) => (r.username ?? '').toLowerCase() === parsed.value);
-  if (!match) return NextResponse.json({ user: null });
+  const isExact = (r: Row) => (r.username ?? '').toLowerCase() === parsed.value;
+  const rows = ((data as unknown as Array<Row & Record<string, unknown>>) || [])
+    .filter((r) => (r.username ?? '').toLowerCase().startsWith(parsed.value))
+    // The exact match first, then alphabetical (the query already ordered them).
+    .sort((x, y) => Number(isExact(y)) - Number(isExact(x)));
+  if (rows.length === 0) return NextResponse.json({ users: [] });
 
   // People you blocked are flagged so the UI can say so. (Blocks are only visible to the
   // blocker, so this cannot reveal who blocked you. Migration 015 must be applied.)
-  let blocked = false;
-  const { data: block, error: blockError } = await supabase
+  const blockedIds = new Set<string>();
+  const { data: blocks, error: blockError } = await supabase
     .from('blocks')
     .select('blocked_id')
     .eq('blocker_id', myId)
-    .eq('blocked_id', match.id)
-    .maybeSingle();
-  if (!blockError && block) blocked = true;
+    .in('blocked_id', rows.map((r) => r.id));
+  if (!blockError) for (const b of (blocks as Array<{ blocked_id: string }> | null) || []) blockedIds.add(b.blocked_id);
 
-  return NextResponse.json({ user: { ...match, blocked } });
+  return NextResponse.json({ users: rows.map((r) => ({ ...r, blocked: blockedIds.has(r.id) })) });
 }
 
 async function listKnownPeople(supabase: Awaited<ReturnType<typeof createServerClient>>, myId: string) {

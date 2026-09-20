@@ -61,7 +61,7 @@ export interface AppShellProps {
   onNewMessage: () => void;
   /** Starts (or opens) a direct chat with someone, including people found by username. */
   onStartDirectChat?: (user: UserItem) => void | Promise<void>;
-  /** Finds one person by exact username. The only way to discover new people. */
+  /** Finds people whose username starts with the text. The only way to discover new people. */
   onLookupUser: (raw: string) => Promise<LookupOutcome>;
   onCreateGroup?: (name: string, memberIds: string[]) => Promise<boolean>;
 
@@ -543,7 +543,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               </div>
               <h3 className="text-base font-bold text-slate-100 mb-1">No chats yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">
-                Your messages are end-to-end encrypted. Find someone by their exact username to start a private conversation.
+                Your messages are end-to-end encrypted. Find someone by their username to start a private conversation.
               </p>
               <Button variant="primary" size="md" onClick={onNewMessage} className="gap-2">
                 <IconPlus className="w-4 h-4" />

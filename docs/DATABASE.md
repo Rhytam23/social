@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 025**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 026**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -29,6 +29,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `024_moderation.sql` | Reports that lead to warnings and bans: report rules (only about someone you share a conversation with), tables `user_ips`, `blocked_identities` and `user_moderation` (no client access), the tier trigger on `reports`, `get_my_warning()`, server-only `record_user_ip()`, admin functions (`admin_moderation_overview`, `admin_ban_user`, `admin_unban_user`, `admin_blocked_identities`, `admin_unblock_identity`) and the sign-up hook `hook_before_user_created()`. **Needs the hook switched on in the Supabase dashboard** | Yes |
 | `023_hide_platform_admins.sql` | `profiles` read rule: a platform admin's profile is visible only to themselves, other admins, and people who share a conversation or a community with them (new helper `shares_community_with()`). Everyone else gets no row, whatever they ask for. Other profiles are unchanged | Yes |
 | `025_admin_lock_and_roles.sql` | Two kinds of admin. **`is_admin` can no longer be changed by any API role, including the service role**; the only way is the Supabase dashboard or SQL editor, and each change is written to the admin activity log. Group and community admins can make members admins (owners do everything else); a community holds at most 10 channels; official-looking names ("admin", "staff", a check mark, reserved handles) can only belong to platform admins | Yes |
+| `026_message_requests.sql` | Direct chats: a person who has not been answered can send 3 messages. Adds `intro_sender`, `intro_count` and `replied` to `conversations` (guarded so the API cannot edit them) and the `enforce_message_request_limit()` trigger on `messages`. Platform admins are exempt | Yes |
 | `022_support_requests.sql` | The support inbox: table `support_requests` (readable by platform admins only, no client writes), the server-only function `submit_support_request()` (validates, allows at most 5 requests a day per email, keeps 90 days and 5,000 rows), and `admin_set_support_status()` (admins only, audited) | Yes |
 | `021_upload_limits.sql` | Attachments only through signed uploads: drops the client upload policy, sets the bucket ceiling (100 MB) and the avatar limit (2 MB, images), adds `uploaded_bytes_last_day()` for the daily quota. **Deploy the matching app version before running it** | Yes |
 | `020_latest_messages.sql` | `get_latest_messages(uuid[])`: the newest message of each conversation in one query, for the sidebar previews. Runs with the caller's own rights, so row level security decides what is returned. Optional: without it the app makes one request per conversation | Yes |

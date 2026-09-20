@@ -32,7 +32,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 | `lib/logging/` | The admin error log: scrubbing, the server writer, the browser reporter |
 | `lib/calls/`, `lib/realtime/` | WebRTC calls; presence and typing channels |
 | `crypto/` | The cryptographic primitives (libsodium, WebCrypto, Argon2id). Small and self-contained on purpose |
-| `database/migrations/` | **The schema.** `001` to `025` |
+| `database/migrations/` | **The schema.** `001` to `026` |
 | `types/database.ts` | Hand-maintained TypeScript mirror of the schema |
 | `tests/` | Vitest suites. `tests/security/` runs the real migrations on an in-process Postgres and attacks them |
 | `docs/` | This documentation |
@@ -78,7 +78,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-At the time of writing this gives: no type or lint errors, **432 tests passing in 43 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
+At the time of writing this gives: no type or lint errors, **457 tests passing in 46 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
 
 ## What will change over ten years (and what to check)
 

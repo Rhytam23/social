@@ -4,6 +4,12 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**People search by the start of a username, and message requests (September 2026).** Needs migration `026`.
+
+- **Search.** Type 3 or more characters of a username and everyone whose username starts with it appears (at most 8, exact match first), live after a short pause in typing. Names, emails and phone numbers are still not searchable; platform admins still do not appear. Limits: 40 a minute and 1500 a day per account, so the directory cannot practically be listed.
+- **Message requests.** In a direct chat a person who has not been answered can send 3 messages; the 4th is refused until the other person sends anything. Kept on the conversation, so deleting messages or leaving does not reset it. Platform admins are exempt. Groups are not covered (see Security, known gaps).
+- **Known gap.** Any signed-in person can still read the public columns of `profiles` straight through the Supabase API (this was already documented), so the search limits stop the app's search box, not someone calling the database API directly.
+
 **Reports lead to warnings, bans and blocks (September 2026).** Needs migration `024` and the sign-up hook (see Setup); updates the privacy policy and terms.
 
 - **Levels.** Each different person who reports someone counts once (90 days; dismissed reports and accounts under 24 hours old do not count). 3 gives an in-app warning, 10 a 7-day ban (no sign-in, sessions ended, email and recorded network addresses blocked from creating new accounts for the same time), above 10 the person is shown in red in the admin queue, 20 a permanent block. Platform admins are never banned automatically, every action is audited, admins can ban or lift any ban. Thresholds live in the database and are mirrored in `lib/moderation.ts` (a test keeps them equal).
