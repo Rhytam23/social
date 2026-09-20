@@ -222,6 +222,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               showConfirmationPending(normalizedEmail, 'unconfirmed');
             } else if (error.code === 'invalid_credentials') {
               setErrorMsg('Invalid email or password. Please check your details.');
+            } else if (error.code === 'user_banned') {
+              setErrorMsg('This account is suspended. If you think this is a mistake, contact support from the Contact page.');
             } else {
               setErrorMsg(error.message);
             }

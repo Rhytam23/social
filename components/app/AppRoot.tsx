@@ -25,6 +25,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 
 import { Button } from '../../components/ui/button';
+import { Dialog } from '../../components/ui/dialog';
 import { LinkDevice } from '../../components/auth/LinkDevice';
 import { setErrorReporter, setErrorViewer, userError } from '../../lib/ui/errors';
 import { reportClientError, startClientLogging, stopClientLogging } from '../../lib/logging/clientLogger';
@@ -38,6 +39,7 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
 
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  const [warningOpen, setWarningOpen] = useState(false);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -109,6 +111,22 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
     realtimeChannelRef.current = channel;
   }, [configured, state.conversations, store]);
 
+  // Safety housekeeping after sign-in. Both parts are best effort and never block the app.
+  const afterSignIn = useCallback(async (supabase: ReturnType<typeof createClient>) => {
+    try {
+      // Record the network address once per browser session (used only to block repeat abuse; see the privacy policy).
+      if (!sessionStorage.getItem('nook_seen_recorded')) {
+        sessionStorage.setItem('nook_seen_recorded', '1');
+        void fetch('/api/session/seen', { method: 'POST' }).catch(() => {});
+      }
+      // A warning appears once when several different people have reported this account.
+      const { data } = await supabase.rpc('get_my_warning' as never);
+      if (data === true) setWarningOpen(true);
+    } catch {
+      // migration 024 not applied yet, or storage blocked: nothing to show
+    }
+  }, []);
+
   const bootstrapSession = useCallback(async () => {
     if (!configured) {
       if (isDemoModeAllowed()) {
@@ -142,6 +160,7 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
 
       const profile = await loadOwnProfile(supabase, user);
       setErrorViewer(profile?.is_admin === true);
+      void afterSignIn(supabase);
       startClientLogging();
       setErrorReporter((err, friendly) => reportClientError(`ui: ${friendly}`, err));
       initPreferences(user.id, profile?.preferences, (prefs: Preferences) => {
@@ -238,7 +257,7 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
     } finally {
       setAuthLoading(false);
     }
-  }, [configured, store]);
+  }, [configured, store, afterSignIn]);
 
   useEffect(() => {
     if (initedRef.current) return;
@@ -686,6 +705,31 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
       />
 
       {configured && state.mode === 'connected' && <AppLockGate userId={state.currentUser.id} onSignOut={handleLogout} />}
+
+      <Dialog
+        isOpen={warningOpen}
+        title="A notice about your account"
+        onClose={() => {
+          setWarningOpen(false);
+          void createClient().rpc('acknowledge_warning' as never).then(() => {}, () => {});
+        }}
+        hideCancel
+        footerAction={
+          <Button
+            variant="primary"
+            onClick={() => {
+              setWarningOpen(false);
+              void createClient().rpc('acknowledge_warning' as never).then(() => {}, () => {});
+            }}
+          >
+            I understand
+          </Button>
+        }
+      >
+        <p className="text-[var(--text-secondary)] leading-relaxed">
+          Several different people have reported your account. Please follow the Terms of Service. If more people report you, your account can be suspended and blocked. We do not share who reported you.
+        </p>
+      </Dialog>
 
       <OnboardingModal
         isOpen={onboardingOpen}

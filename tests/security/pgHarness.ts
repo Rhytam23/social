@@ -21,8 +21,12 @@ const BOOTSTRAP = `
     email TEXT,
     phone TEXT,
     raw_user_meta_data JSONB NOT NULL DEFAULT '{}'::jsonb,
-    raw_app_meta_data JSONB NOT NULL DEFAULT '{}'::jsonb
+    raw_app_meta_data JSONB NOT NULL DEFAULT '{}'::jsonb,
+    banned_until TIMESTAMPTZ
   );
+  CREATE TABLE auth.sessions (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), user_id UUID NOT NULL);
+  -- The role Supabase Auth uses to call database hooks.
+  CREATE ROLE supabase_auth_admin NOLOGIN;
   CREATE FUNCTION auth.uid() RETURNS UUID LANGUAGE sql STABLE AS
     $$ SELECT NULLIF(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
   CREATE FUNCTION auth.role() RETURNS TEXT LANGUAGE sql STABLE AS

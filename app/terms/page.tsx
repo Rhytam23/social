@@ -38,7 +38,13 @@ export default function TermsOfServicePage() {
         </ul>
       </LegalSection>
 
-      <LegalSection title="5. No warranty">
+      <LegalSection title="5. Warnings, suspension and blocks">
+        <p>
+          Accounts that many different people report can be warned, suspended or blocked, automatically or by an administrator, as described in the Privacy Policy. Suspended and blocked accounts, and the email addresses and network addresses tied to them, cannot be used to create new accounts. You can ask for a decision to be reviewed from the Contact page.
+        </p>
+      </LegalSection>
+
+      <LegalSection title="6. No warranty">
         <p>
           The service is provided &quot;as is&quot; and &quot;as available&quot;, without warranties of any kind, express or implied. It has not had an independent security audit and should not be relied on for information whose exposure could cause serious harm.
         </p>

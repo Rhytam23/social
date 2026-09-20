@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **397 tests in 40 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **432 tests in 43 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -23,6 +23,8 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
 | `tests/security/latestMessages.test.ts` | 4 | Migration `020` on real Postgres: exactly the newest message per conversation, never one from a conversation the caller is not in, empty input, signed-out refused |
 | `tests/security/latestRoute.test.ts` | 5 | `GET /api/messages/latest`: 401, uses only the caller's own conversations, only known columns returned, 501 fallback while `020` is missing, no database text in errors |
+| `tests/security/moderation.test.ts` | 24 | Migration `024` on real Postgres: who may report whom, the 3, 10 and 20 tiers counted by different reporters, the account-age rule, dismissed reports, the ban (auth ban set, sessions ended, email and addresses blocked), the sign-up hook, admins never auto-banned, admin ban, undo and unblock, audit trail, tables closed to clients, address retention |
+| `tests/security/sessionSeenRoute.test.ts` | 8 | `POST /api/session/seen`: session required, the real address only, malformed and unknown addresses ignored, never fails the session, limited per account |
 | `tests/security/hiddenAdmins.test.ts` | 10 | Migration `023` on real Postgres: a stranger cannot list, look up or fetch an admin, ordinary profiles are unchanged, the admin appears to people who share a chat or community and disappears when they leave, anonymous visitors see nothing, `is_admin()` does not recurse |
 | `tests/security/adminChatAudit.test.ts` | 3 | A chat started by a platform admin is written to the activity log; ordinary chats and groups are not |
 | `tests/security/adminRoles.test.ts` | 21 | Migration `025` on real Postgres: nobody, not even the service role, can change `is_admin` through the API, dashboard changes work and are logged, group admins have no platform powers, group and community role rules (admins only make members admins), the 10-channel limit, reserved official-looking names (and sign-up not failing for them) |
@@ -36,7 +38,7 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/integration/apiRoutes.test.ts` | 6 | Every data route returns `401` when signed out |
 | `tests/integration/userSearch.test.ts` | 14 | Username-only lookup rules |
 | `tests/chat/chatStore.test.ts`, `envelopeDisplay.test.ts` | 8 + 8 | The store in demo mode; how message payloads become text |
-| `tests/ui/*.test.ts` | 108 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the site address and its production fallback (`site.test.ts`), when the 3D hero may run (`capability.test.ts`: computers only), the bot-check switch, the support helpers, that the default theme follows the device and the sign-in hint used by the landing page, that technical error detail is shown only to admins (`errorVisibility.test.ts`), the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`), and that analytics only ever receives the origin and path (`analytics.test.ts`) |
+| `tests/ui/*.test.ts` | 108 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the moderation levels and that they match the migration (`moderation.test.ts`), the site address and its production fallback (`site.test.ts`), when the 3D hero may run (`capability.test.ts`: computers only), the bot-check switch, the support helpers, that the default theme follows the device and the sign-in hint used by the landing page, that technical error detail is shown only to admins (`errorVisibility.test.ts`), the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`), and that analytics only ever receives the origin and path (`analytics.test.ts`) |
 
 `tests/security/pgHarness.ts` is the test database: it creates the Supabase roles (`anon`, `authenticated`, `service_role`), `auth.uid()` and the storage and realtime tables the migrations expect, then runs every migration. **When Supabase changes how any of those work, this file is where to update the emulation.**
 
@@ -219,3 +221,16 @@ Run after applying `022`.
 - [ ] Community members can see the admin's name in the member list; someone outside the community cannot.
 - [ ] Community lists, group member lists, mentions and onboarding still show everyone else correctly (this is the change most likely to break something: check it on a staging project first).
 - [ ] The admin's start of a chat appears in Admin, Activity as `admin_start_chat`.
+
+## Checklist for reports and bans (migration 024)
+
+Use throwaway accounts older than a day. Nothing below has been run against a live Supabase project.
+
+- [ ] Report a message from a chat you share; a report about someone you do not share a chat with is refused.
+- [ ] With 3 different accounts reporting one account, that account sees the warning once after its next sign-in, and it is gone after "I understand". It does not say who reported.
+- [ ] With 10 different accounts, the account is suspended: it cannot sign in ("This account is suspended"), existing sessions end, and Admin, Safety queue shows it with the ban date. Lift ban lets it sign in again.
+- [ ] After a suspension, signing up with the same email is refused (needs the Before User Created hook, see Setup). Confirm whether signing up from the same network is also refused; if not, address blocking is not working on your Supabase version.
+- [ ] Above 10 the person is shown in red; at 20 they are blocked permanently.
+- [ ] A shared address shows "shared: N accounts" and Unblock removes it.
+- [ ] A platform admin reported by many accounts is not banned.
+- [ ] Every step appears in Admin, Activity.

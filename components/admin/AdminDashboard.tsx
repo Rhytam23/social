@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserItem } from '../../types/ui';
 import { AdminReports } from './AdminReports';
+import { AdminModeration } from './AdminModeration';
 import { AdminErrors } from './AdminErrors';
 import { AdminActivity } from './AdminActivity';
 import { AdminSupport } from './AdminSupport';
@@ -86,6 +87,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users }) => {
           </table>
         </div>
       </div>
+
+      <AdminModeration />
 
       <AdminReports nameOf={nameOf} />
         </>

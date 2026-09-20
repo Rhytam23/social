@@ -4,6 +4,13 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Reports lead to warnings, bans and blocks (September 2026).** Needs migration `024` and the sign-up hook (see Setup); updates the privacy policy and terms.
+
+- **Levels.** Each different person who reports someone counts once (90 days; dismissed reports and accounts under 24 hours old do not count). 3 gives an in-app warning, 10 a 7-day ban (no sign-in, sessions ended, email and recorded network addresses blocked from creating new accounts for the same time), above 10 the person is shown in red in the admin queue, 20 a permanent block. Platform admins are never banned automatically, every action is audited, admins can ban or lift any ban. Thresholds live in the database and are mirrored in `lib/moderation.ts` (a test keeps them equal).
+- **Reports are stricter:** only about someone you share a conversation with, not yourself, not in a conversation you are not in.
+- **Network addresses** are recorded after sign-in (`POST /api/session/seen`, 20 per account, 180 days, admins only) and named in the privacy policy. The Admin safety queue shows how many accounts used a blocked address, because addresses are shared.
+- **No admin access to chats.** Messages stay end-to-end encrypted; evidence is the reports and the excerpts reporters choose to include.
+
 **Platform admins cannot be found (September 2026).** Needs migration `023`; try it on a staging project first.
 
 - The `profiles` read rule hides a platform admin from everyone except themselves, other admins, and people who share a conversation or community with them. Username search, listing the table and joins all follow it. Other people's profiles are unchanged.
