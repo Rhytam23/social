@@ -42,20 +42,31 @@ export async function POST(request: NextRequest) {
   if (createError || !group) return serverError('groups.create', createError, 500, undefined, user.id);
 
   const createdGroup = group as { id: string; type: string; name: string | null; created_at: string };
-  const memberRows: Database['public']['Tables']['conversation_members']['Insert'][] = [user.id, ...others].map((uid) => ({
-    conversation_id: createdGroup.id,
-    user_id: uid,
-  }));
 
-  // The creator becomes the owner. Falls back to plain rows when migration 013 has not been applied.
-  const withRoles = memberRows.map((r) => (r.user_id === user.id ? { ...r, role: 'owner' as const } : r));
-  let { error: membersError } = await supabase.from('conversation_members').insert(withRoles as unknown as never);
-  if (membersError && /role/i.test(membersError.message)) {
-    ({ error: membersError } = await supabase.from('conversation_members').insert(memberRows as unknown as never));
+  // The creator takes their own seat as owner (falls back to a plain row when migration 013 has not been applied).
+  // Nobody else can be inserted: from migration 027 the others come in through add_group_member, which adds people
+  // the creator knows straight away and sends everyone else an invitation.
+  const seat: Database['public']['Tables']['conversation_members']['Insert'] = { conversation_id: createdGroup.id, user_id: user.id };
+  let { error: seatError } = await supabase.from('conversation_members').insert({ ...seat, role: 'owner' } as unknown as never);
+  if (seatError && /role/i.test(seatError.message)) {
+    ({ error: seatError } = await supabase.from('conversation_members').insert(seat as unknown as never));
   }
-  if (membersError) return serverError('groups.create.members', membersError, 400, 'Could not add those people.', user.id);
+  if (seatError) return serverError('groups.create.members', seatError, 400, 'Could not create the group.', user.id);
 
-  return NextResponse.json(createdGroup, { status: 201 });
+  const added: string[] = [];
+  const invited: string[] = [];
+  let failed = 0;
+  for (const other of others) {
+    const { data: result, error: addError } = await (supabase as unknown as {
+      rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
+    }).rpc('add_group_member', { p_conversation: createdGroup.id, p_user: other });
+    if (addError) failed++;
+    else if (result === 'added') added.push(other);
+    else if (result === 'invited') invited.push(other);
+  }
+
+  // `added` are members now (the app shares the group key with them); `invited` must accept first.
+  return NextResponse.json({ ...createdGroup, added, invited, failed }, { status: 201 });
 }
 
 /** Update group settings: name, description, admin-only posting. Group admins only (enforced by RLS too). */

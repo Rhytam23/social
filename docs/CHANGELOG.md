@@ -4,11 +4,17 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Group invitations and private profiles (September 2026).** Needs migrations `027` and `028`. Deploy the app first, and have `SUPABASE_SERVICE_ROLE_KEY` set (search needs it).
+
+- **Group invitations (`027`).** Someone you know (a direct chat where you were answered, or a shared community) is added to a group at once; anyone else gets an invitation and joins only if they accept. Invitations show at the top of the chat list, last 14 days, stop working if the sender is no longer an admin of the group, and at most 30 wait for one person. Nobody can insert group members by writing the table any more. A person who blocked you is skipped without telling you. A new member reads the group once an admin's device shares the key.
+- **Private profiles (`028`).** A profile is now visible only to its owner, platform admins, people you share a conversation or community with (including people who left a chat with you) and people you blocked. Strangers can no longer be listed or looked up through the database API, and search runs in a function only the server can call, so its rate limits cannot be skipped. People search returns no platform admins or suspended accounts.
+- **Behaviour change.** A person you have never talked to is invisible until you find them by username or share a chat or community.
+
 **People search by the start of a username, and message requests (September 2026).** Needs migration `026`.
 
 - **Search.** Type 3 or more characters of a username and everyone whose username starts with it appears (at most 8, exact match first), live after a short pause in typing. Names, emails and phone numbers are still not searchable; platform admins still do not appear. Limits: 40 a minute and 1500 a day per account, so the directory cannot practically be listed.
 - **Message requests.** In a direct chat a person who has not been answered can send 3 messages; the 4th is refused until the other person sends anything. Kept on the conversation, so deleting messages or leaving does not reset it. Platform admins are exempt. Groups are not covered (see Security, known gaps).
-- **Known gap.** Any signed-in person can still read the public columns of `profiles` straight through the Supabase API (this was already documented), so the search limits stop the app's search box, not someone calling the database API directly.
+- **Known gap (closed by `027` and `028`, below).** Group adds needed no acceptance and any signed-in person could read the public columns of `profiles` through the database API.
 
 **Reports lead to warnings, bans and blocks (September 2026).** Needs migration `024` and the sign-up hook (see Setup); updates the privacy policy and terms.
 

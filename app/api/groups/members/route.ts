@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { isUuid, limitByIp, limitByUser, readJson, rejectCrossSite, serverError } from '@/lib/api/security';
-import { Database } from '@/types/database';
 import { canAddMembers, canChangeRole, canRemoveMember, isGroupRole, pickSuccessor, type GroupRole } from '@/lib/groups/roles';
 
 type Supabase = Awaited<ReturnType<typeof createServerClient>>;
@@ -86,13 +85,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Only group admins can add members.' }, { status: 403 });
     }
 
-    const insertData: Database['public']['Tables']['conversation_members']['Insert'] = {
-      conversation_id: groupId,
-      user_id: userId,
-    };
-    const { error: insertError } = await supabase.from('conversation_members').insert(insertData as unknown as never);
-    if (insertError) return serverError('groups.members.add', insertError, 400, 'Could not add that person.', user.id);
-    return NextResponse.json({ success: true }, { status: 201 });
+    // A person the adder knows is added at once; anyone else gets an invitation and joins only if they accept
+    // (migration 027). The database checks the adder's role again, and someone who blocked the adder is skipped
+    // without the adder being told, so `invited` does not prove an invitation exists.
+    const { data: result, error: addError } = await (supabase as unknown as {
+      rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: { message?: string } | null }>;
+    }).rpc('add_group_member', { p_conversation: groupId, p_user: userId });
+    if (addError) return serverError('groups.members.add', addError, 400, 'Could not add that person.', user.id);
+    const outcome = result === 'added' || result === 'already' ? result : 'invited';
+    return NextResponse.json({ success: true, result: outcome }, { status: 201 });
   }
 }
 

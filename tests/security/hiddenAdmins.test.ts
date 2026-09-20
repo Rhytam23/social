@@ -43,8 +43,8 @@ describe('migration 023: platform admins cannot be found', () => {
     expect((await asUser(db, A, (q) => q(`SELECT count(*)::int AS n FROM public.profiles WHERE display_name ILIKE '%oo%'`))).rows[0].n).toBe(0);
   });
 
-  it('ordinary people are visible exactly as before', async () => {
-    expect(await idsVisibleTo(db, A)).toEqual([A, B, C].sort());
+  it('strangers are hidden too since 028: with no conversation or community in common you see only yourself', async () => {
+    expect(await idsVisibleTo(db, A)).toEqual([A]);
   });
 
   it('everyone still sees themselves', async () => {
@@ -67,9 +67,10 @@ describe('migration 023: platform admins cannot be found', () => {
     const row = (await asUser(db, A, (q) => q(`SELECT display_name, is_admin FROM public.profiles WHERE id = $1`, [ROOT]))).rows[0];
     expect(row).toEqual({ display_name: 'root', is_admin: true });
 
-    // When the admin leaves the conversation, they are hidden again.
+    // When the admin leaves the conversation the person still sees who wrote the old messages (028), and nobody else does.
     await seed(db, `UPDATE public.conversation_members SET left_at = NOW() WHERE conversation_id = $1 AND user_id = $2`, [conv, ROOT]);
-    expect(await idsVisibleTo(db, A)).not.toContain(ROOT);
+    expect(await idsVisibleTo(db, A)).toContain(ROOT);
+    expect(await idsVisibleTo(db, B)).not.toContain(ROOT);
   });
 
   it('people in the same community as the admin can see them', async () => {

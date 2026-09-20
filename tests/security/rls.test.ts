@@ -26,16 +26,27 @@ async function seedUsers(db: PGlite) {
   }
 }
 
-/** Creates a conversation the way the API does: creator inserts it, then every member row in ONE statement. */
+/**
+ * Creates a conversation the way the API does. A direct chat: the creator inserts both member rows in ONE statement.
+ * A group: the creator takes their own seat, and the other members are set up directly (in the app they arrive through
+ * add_group_member or an invitation, tested in groupInvites.test.ts; from 027 the creator can no longer insert them).
+ */
 async function createConversation(db: PGlite, owner: string, type: 'private' | 'group', members: string[]): Promise<string> {
-  return asUser(db, owner, async (q) => {
+  const id = await asUser(db, owner, async (q) => {
     const conv = await q(`INSERT INTO public.conversations (type, name, created_by) VALUES ($1, $2, $3) RETURNING id`, [type, type === 'group' ? 'team' : null, owner]);
-    const id = conv.rows[0].id as string;
-    const all = [owner, ...members];
-    const rows = all.map((u, i) => `($1, $${i + 2}${type === 'group' && u === owner ? `, 'owner'` : ''})`).join(',');
-    await q(`INSERT INTO public.conversation_members (conversation_id, user_id${type === 'group' ? ', role' : ''}) VALUES ${type === 'group' ? all.map((u, i) => `($1, $${i + 2}, '${u === owner ? 'owner' : 'member'}')`).join(',') : rows}`, [id, ...all]);
-    return id;
+    const convId = conv.rows[0].id as string;
+    if (type === 'group') {
+      await q(`INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'owner')`, [convId, owner]);
+    } else {
+      const all = [owner, ...members];
+      await q(`INSERT INTO public.conversation_members (conversation_id, user_id) VALUES ${all.map((_, i) => `($1, $${i + 2})`).join(',')}`, [convId, ...all]);
+    }
+    return convId;
   });
+  if (type === 'group') {
+    for (const m of members) await seed(db, `INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'member')`, [id, m]);
+  }
+  return id;
 }
 
 async function sendMessage(db: PGlite, sender: string, conv: string, text = 'ciphertext') {
@@ -190,10 +201,10 @@ describe('row level security, current schema (001 to 017)', () => {
       expect(r.ok).toBe(false);
     });
 
-    it('the owner can add people', async () => {
+    it('even the owner cannot put people in by writing the table: only add_group_member and an invitation can (027)', async () => {
       const g = await createConversation(db, A, 'group', [B]);
       const r = await attempt(() => asUser(db, A, (q) => q(`INSERT INTO public.conversation_members (conversation_id, user_id) VALUES ($1, $2)`, [g, D])));
-      expect(r.ok).toBe(true);
+      expect(r.ok).toBe(false);
     });
 
     it('a member cannot promote themselves or anyone', async () => {

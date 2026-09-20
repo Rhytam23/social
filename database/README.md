@@ -1,6 +1,6 @@
 # Database
 
-This folder is the **only definition of the schema**. There is no migration tool: each file in `migrations/` is a plain SQL script that a person pastes into the Supabase **SQL Editor** and runs once, in numeric order (`001` to `026` at the time of writing).
+This folder is the **only definition of the schema**. There is no migration tool: each file in `migrations/` is a plain SQL script that a person pastes into the Supabase **SQL Editor** and runs once, in numeric order (`001` to `028` at the time of writing).
 
 - **Order matters.** Each migration assumes the ones before it. Running a later one early fails with "function ... does not exist" or "relation ... does not exist".
 - **Never edit an applied migration.** Add a new numbered file instead, and make it safe to run twice (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP ... IF EXISTS` before `CREATE POLICY`). `002` and `003` are older and are **not** re-runnable.

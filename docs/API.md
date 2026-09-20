@@ -18,11 +18,13 @@ Route handlers live in `app/api/**/route.ts`, plus `app/auth/confirm/route.ts`.
 
 The app reads the current session and its own conversations straight from Supabase, so there are no session, conversation-list or group-detail routes (`GET /api/auth`, `GET /api/conversations` and `GET /api/groups` were removed as unused).
 
-### `GET /api/users?username=` (60/min per address, 30/min per account)
+### `GET /api/users?username=` (60/min per address, 40/min and 1500/day per account)
 Find people whose username **starts with** the text ("ars" finds arsh and arsalan): at most 8, the exact match first. This is the only way to discover someone you have not talked to. The value is trimmed, a leading `@` is dropped and it is lower-cased; it must be 3 to 30 letters, numbers, dots or underscores. Display name, email, phone number and bio are never searched. Limited to 40 searches a minute and 1500 a day per account, because a prefix search can be walked to list people. Platform admins do not appear to people they have not talked to. The answer is `{ users: [...] }`, each with a `blocked` flag.
 - `200 { user: { id, username, display_name, avatar_url, created_at, bio?, pronouns?, timezone?, blocked } }` on a match, `200 { user: null }` when nobody has that username (you never get a partial match).
 - `blocked` is `true` when *you* blocked that person. Whether someone blocked *you* is not revealed.
 - `400 { error }` for an empty or invalid username (including email addresses and phone numbers). The caller is never returned.
+
+Search runs through `search_profiles_by_prefix`, a database function only the server key can call (migration `028`), so it needs `SUPABASE_SERVICE_ROLE_KEY` (`503` without it). Platform admins and suspended accounts are never returned.
 
 ### `GET /api/users` (60/min)
 People you already share a conversation with (used to fill the contacts list). Platform admins get the full list for the admin dashboard. The old free-text `q` parameter no longer does anything. `200` array of `{ id, username, display_name, avatar_url, created_at, bio?, pronouns?, timezone? }`.
@@ -34,10 +36,10 @@ Body: `{ type: "private" | "group", name?, participantIds: string[] }`. `name` i
 - `201 { id, type, name, created_at }` · `400` invalid input.
 
 ### `POST /api/groups` (20/min)
-Body: `{ name, memberIds: string[] }`. You are added automatically. `201 { id, type, name, created_at }`.
+Body: `{ name, memberIds: string[] }`. You are added automatically as owner. Each other person goes through `add_group_member`: someone you know (a direct chat where you were answered, or a shared community) is added at once, everyone else is sent an **invitation** and joins only if they accept. `201 { id, type, name, created_at, added: string[], invited: string[], failed: number }`. The app shares the group key with `added` only.
 
 ### `POST /api/groups/members` (30/min)
-Add a member. Body: `{ groupId, userId }`. Caller must be a group **admin or owner** (plain members are refused). Works only on plain groups, not direct chats or community channels. `201 { success: true }` · `403` not allowed · `404` group not found.
+Add a member. Body: `{ groupId, userId }`. Caller must be a group **admin or owner** (plain members are refused). Works only on plain groups, not direct chats or community channels. `201 { success: true, result: 'added' | 'invited' | 'already' }` (a person who blocked you also answers `invited`, so you cannot tell) · `403` not allowed · `404` group not found. A stranger becomes a member only when they accept the invitation (`respond_group_invite`).
 
 ### `DELETE /api/groups/members?groupId=&userId=` (30/min)
 Remove a member (a hard delete of the membership row). The caller must be an active member; you can remove yourself, or someone ranked below you (owner above admin above member). When the owner leaves, ownership first passes to the longest-serving admin (or member). Row level security checks the same rules again. The client then rotates the group key. `200 { success: true }` · `403` not allowed · `404` not a plain group or that person is not in it.
@@ -81,7 +83,7 @@ Returns `{ iceServers, relayAvailable }` for a call. Signed-in users only. TURN 
 
 ## Database functions called from the browser
 
-Communities, disappearing messages and a few lookups are Postgres functions called with `supabase.rpc(...)`, each checking permissions itself: `create_community`, `create_channel`, `create_community_invite`, `join_community`, `leave_community`, `remove_community_member`, `set_community_role`, `set_disappearing`, `purge_expired_messages`, `get_unread_counts`, `get_my_contact`. (`find_profiles_by_contact` still exists but clients can no longer call it after `016`.) See [Database](DATABASE.md).
+Communities, disappearing messages and a few lookups are Postgres functions called with `supabase.rpc(...)`, each checking permissions itself: `add_group_member`, `my_group_invites`, `respond_group_invite`, `create_community`, `create_channel`, `create_community_invite`, `join_community`, `leave_community`, `remove_community_member`, `set_community_role`, `set_disappearing`, `purge_expired_messages`, `get_unread_counts`, `get_my_contact`. (`find_profiles_by_contact` still exists but clients can no longer call it after `016`.) See [Database](DATABASE.md).
 
 ## Error reports from the browser
 

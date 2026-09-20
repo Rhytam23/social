@@ -1,38 +1,38 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
-type Profile = { id: string; username: string; display_name: string };
+type Profile = { id: string; username: string; display_name: string; is_admin?: boolean };
 
-const state: { user: string | null; profiles: Profile[]; blocked: string[]; patterns: string[] } = { user: null, profiles: [], blocked: [], patterns: [] };
+const state: { user: string | null; profiles: Profile[]; blocked: string[]; rpcCalls: Array<Record<string, unknown>>; readProfilesAsUser: number } = {
+  user: null,
+  profiles: [],
+  blocked: [],
+  rpcCalls: [],
+  readProfilesAsUser: 0,
+};
 
-/** A tiny stand-in for the query builder: ilike prefix, order, limit. Row security is the database's job (tests/security/hiddenAdmins). */
-function profilesQuery() {
-  let pattern = '';
-  let self = '';
-  let max = 1000;
-  const q = {
-    select: () => q,
-    ilike: (_col: string, p: string) => ((pattern = p), state.patterns.push(p), q),
-    neq: (_col: string, v: string) => ((self = v), q),
-    order: () => q,
-    limit: (n: number) => ((max = n), q),
-    then: (resolve: (v: unknown) => void) => {
-      const prefix = pattern.replace(/\\(.)/g, '$1').replace(/%$/, '').toLowerCase();
+/** The server-only search function, as migration 028 defines it (its behaviour is tested on real Postgres in profileVisibility.test.ts). */
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => ({
+    rpc: async (fn: string, args: { p_caller: string; p_prefix: string; p_limit: number }) => {
+      state.rpcCalls.push({ fn, ...args });
+      const prefix = args.p_prefix.toLowerCase();
       const rows = state.profiles
-        .filter((p) => p.id !== self && p.username.toLowerCase().startsWith(prefix))
+        .filter((p) => p.id !== args.p_caller && !p.is_admin && p.username.toLowerCase().startsWith(prefix))
         .sort((a, b) => a.username.localeCompare(b.username))
-        .slice(0, max);
-      resolve({ data: rows, error: null });
+        .slice(0, args.p_limit)
+        .map(({ id, username, display_name }) => ({ id, username, display_name }));
+      return { data: rows, error: null };
     },
-  };
-  return q;
-}
+  }),
+}));
 
 vi.mock('@/lib/supabase/server', () => ({
   createServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user ? { id: state.user } : null }, error: null }) },
     from: (table: string) => {
-      if (table === 'profiles') return profilesQuery();
+      // Reading strangers' profiles with the person's own session is exactly what 028 closed: count any attempt.
+      if (table === 'profiles') state.readProfilesAsUser++;
       const b = {
         select: () => b,
         eq: () => b,
@@ -51,9 +51,11 @@ const search = (q: string) =>
   GET(new NextRequest(`http://localhost:3000/api/users?username=${encodeURIComponent(q)}`, { headers: { 'x-real-ip': `192.0.2.${(++n % 240) + 1}` } }));
 
 beforeEach(() => {
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role');
   Object.assign(state, {
     user: ME,
-    patterns: [],
+    rpcCalls: [],
+    readProfilesAsUser: 0,
     blocked: [],
     profiles: [
       { id: 'u1', username: 'arsh', display_name: 'Arsh' },
@@ -64,6 +66,8 @@ beforeEach(() => {
     ],
   });
 });
+
+afterEach(() => vi.unstubAllEnvs());
 
 describe('GET /api/users?username=<start of a username>', () => {
   it('needs a session', async () => {
@@ -92,7 +96,7 @@ describe('GET /api/users?username=<start of a username>', () => {
     expect((await search('ar')).status).toBe(400);
     expect((await search('a%s')).status).toBe(400);
     expect((await search('a@b.com')).status).toBe(400);
-    expect(state.patterns).toHaveLength(0);
+    expect(state.rpcCalls).toHaveLength(0);
   });
 
   it('never lists the searcher, and returns nothing for an unused start', async () => {
@@ -112,6 +116,24 @@ describe('GET /api/users?username=<start of a username>', () => {
     const body = (await (await search('arsh')).json()) as { users: Array<Record<string, unknown>> };
     expect(body.users[0].blocked).toBe(true);
     expect(Object.keys(body.users[0]).sort()).toEqual(['blocked', 'display_name', 'id', 'username']);
+  });
+
+  it('searches only through the server-only function, never by reading profiles with the caller session', async () => {
+    await search('ars');
+    expect(state.rpcCalls).toEqual([{ fn: 'search_profiles_by_prefix', p_caller: ME, p_prefix: 'ars', p_limit: 8 }]);
+    expect(state.readProfilesAsUser).toBe(0);
+  });
+
+  it('is unavailable without the server key, instead of falling back to reading profiles', async () => {
+    vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', '');
+    expect((await search('ars')).status).toBe(503);
+    expect(state.readProfilesAsUser).toBe(0);
+  });
+
+  it('never returns a platform admin', async () => {
+    state.profiles.push({ id: 'admin1', username: 'arsroot', display_name: 'Root', is_admin: true });
+    const body = (await (await search('ars')).json()) as { users: Array<{ username: string }> };
+    expect(body.users.map((u) => u.username)).not.toContain('arsroot');
   });
 
   it('limits how often one account can search', async () => {

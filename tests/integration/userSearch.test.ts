@@ -73,6 +73,20 @@ function table(source: Row[]) {
   return q;
 }
 
+/** The server-only search function (migration 028): starts-with, no admins, not the caller. Real behaviour is tested on Postgres. */
+vi.mock('@/lib/supabase/admin', () => ({
+  createAdminClient: () => ({
+    rpc: async (_fn: string, args: { p_caller: string; p_prefix: string; p_limit: number }) => {
+      const rows = db.profiles
+        .filter((p) => p.id !== args.p_caller && !p.is_admin && String(p.username).toLowerCase().startsWith(args.p_prefix))
+        .sort((a, b) => String(a.username).localeCompare(String(b.username)))
+        .slice(0, args.p_limit)
+        .map(({ id, username, display_name, avatar_url, created_at, bio, pronouns, timezone }) => ({ id, username, display_name, avatar_url, created_at, bio, pronouns, timezone }));
+      return { data: rows, error: null };
+    },
+  }),
+}));
+
 vi.mock('@/lib/supabase/server', () => ({
   createServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user: db.me ? { id: db.me } : null }, error: null }) },
@@ -90,6 +104,7 @@ const get = async (qs: string) => {
 };
 
 beforeEach(() => {
+  vi.stubEnv('SUPABASE_SERVICE_ROLE_KEY', 'test-service-role');
   db.me = 'me';
   db.profiles = [
     { id: 'me', username: 'me_user', display_name: 'Me', email: 'me@x.io', phone_number: '111', is_admin: false },

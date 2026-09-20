@@ -61,6 +61,8 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 023 | `023_hide_platform_admins.sql` | Platform admins cannot be found in search or by listing profiles; only people who share a chat or community with them can see them. |
 | 025 | `025_admin_lock_and_roles.sql` | Platform admins can only be made from Supabase; group admins can promote members; 10 channels per community; official-looking names are reserved. **Deploy the matching app first** (it removes the in-app promote button). |
 | 026 | `026_message_requests.sql` | A person you have never talked to can send 3 messages until you reply. |
+| 027 | `027_group_invites.sql` | People you do not know must accept an invitation to join a group. **Deploy the app first, then run this straight away:** the old app cannot create groups after it, and the new app cannot add people before it. |
+| 028 | `028_profile_visibility.sql` | Strangers can no longer read profiles; search runs on the server. **Deploy the app first, and have `SUPABASE_SERVICE_ROLE_KEY` set** or search stops working. |
 | 022 | `022_support_requests.sql` | The support inbox behind the Contact page and Settings, Report a problem (Admin, Support). |
 | 021 | `021_upload_limits.sql` | Attachments can only be uploaded through the server's signed addresses; per-account daily upload quota; bucket and avatar limits. Deploy the matching app first, then run it. |
 | 020 | `020_latest_messages.sql` | One query for the newest message of every conversation (sidebar previews). Optional: without it the app makes one request per conversation. |
@@ -87,7 +89,9 @@ select
   to_regprocedure('public.shares_community_with(uuid)') is not null            as m023_hidden_admins,
   to_regprocedure('public.hook_before_user_created(jsonb)') is not null        as m024_moderation,
   exists (select 1 from pg_trigger where tgname = 'trigger_audit_profile_admin_change') as m025_admin_lock,
-  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'conversations' and column_name = 'intro_count') as m026_message_requests;
+  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'conversations' and column_name = 'intro_count') as m026_message_requests,
+  to_regprocedure('public.add_group_member(uuid,uuid)') is not null            as m027_group_invites,
+  to_regprocedure('public.search_profiles_by_prefix(uuid,text,integer)') is not null as m028_profile_visibility;
 ```
 
 **Do not re-run old migrations on an existing project.** `002` and `003` are not re-runnable: `002` refers to a column that `003` removes, so running it again fails with `column "role" does not exist`. If you are unsure what has been applied, run this read-only check and only run what is missing:

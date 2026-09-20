@@ -18,6 +18,7 @@ import { CommunitySidebar } from '../community/CommunitySidebar';
 import { CreateChannelDialog, CommunitySettingsDialog } from '../community/CommunityDialogs';
 import { GroupsDialog } from '../groups/GroupsDialog';
 import type { LookupOutcome } from '../../lib/people/lookup';
+import type { GroupInviteItem } from '../../lib/groups/invites';
 import { isGroupManager, type GroupRole } from '../../lib/groups/roles';
 import { setTheme, effectiveTheme } from '../../lib/ui/theme';
 import { toast } from '../../lib/ui/toastStore';
@@ -105,6 +106,9 @@ export interface AppShellProps {
 
   // Privacy
   blockedIds?: string[];
+  /** Group invitations waiting for an answer, and how to answer one. */
+  groupInvites?: GroupInviteItem[];
+  onRespondGroupInvite?: (inviteId: string, accept: boolean) => void;
   onBlockUser?: (userId: string) => void;
   onUnblockUser?: (userId: string) => void;
   onReportMessage?: (messageId: string, reason: string, includeText: boolean) => Promise<boolean>;
@@ -180,6 +184,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   onLeaveCommunity,
   currentUser,
   blockedIds = [],
+  groupInvites,
+  onRespondGroupInvite,
   onBlockUser,
   onUnblockUser,
   onReportMessage,
@@ -402,6 +408,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
             onNewMessage={onNewMessage}
             onNewGroup={() => setGroupsDialogOpen(true)}
+            groupInvites={groupInvites}
+            onRespondGroupInvite={onRespondGroupInvite}
             unreadTotal={unreadTotal}
             groupUnreadTotal={groupUnreadTotal}
             isLoading={isLoading}

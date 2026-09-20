@@ -213,6 +213,7 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
         void store.loadSavedMessages();
         void store.loadCommunities();
         void store.loadBlocked();
+        void store.loadGroupInvites();
 
         callsRef.current?.stop();
         const stopRinging = () => {
@@ -290,6 +291,18 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
   useEffect(() => {
     if (isAuthenticated === false) document.documentElement.removeAttribute('data-session');
   }, [isAuthenticated]);
+
+  // Group invitations arrive while you are away: look again when the window regains focus and once a minute.
+  useEffect(() => {
+    if (!isAuthenticated || state.mode !== 'connected') return;
+    const look = () => void store.loadGroupInvites();
+    window.addEventListener('focus', look);
+    const timer = window.setInterval(look, 60 * 1000);
+    return () => {
+      window.removeEventListener('focus', look);
+      window.clearInterval(timer);
+    };
+  }, [isAuthenticated, state.mode, store]);
 
   // An invite link (?join=CODE) is remembered across the sign-in redirect, then offered once signed in.
   useEffect(() => {
@@ -661,6 +674,8 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
         callActive={callState.phase !== 'idle'}
         currentUser={state.currentUser}
         blockedIds={state.blocked}
+        groupInvites={state.groupInvites}
+        onRespondGroupInvite={(id, accept) => void store.respondToGroupInvite(id, accept)}
         onBlockUser={(id) => void store.blockUser(id)}
         onUnblockUser={(id) => void store.unblockUser(id)}
         onReportMessage={state.mode === 'connected' ? (id, reason, includeText) => store.reportMessage(id, reason, includeText) : undefined}

@@ -11,6 +11,8 @@ import {
 import { Avatar } from '../ui/avatar';
 import { StatusMenu } from './StatusMenu';
 import { NotificationCenter } from '../notifications/NotificationCenter';
+import { GroupInvites } from '../groups/GroupInvites';
+import type { GroupInviteItem } from '../../lib/groups/invites';
 import { CountBadge, ConversationListSkeleton } from '../ui/primitives';
 
 export interface NavDeckProps {
@@ -25,6 +27,9 @@ export interface NavDeckProps {
   onNewMessage: () => void;
   /** Create or join a group (Groups). */
   onNewGroup?: () => void;
+  /** Group invitations waiting for an answer, and how to answer one. */
+  groupInvites?: GroupInviteItem[];
+  onRespondGroupInvite?: (inviteId: string, accept: boolean) => void;
   /** Unread in direct chats. */
   unreadTotal: number;
   /** Unread in groups. */
@@ -52,6 +57,8 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   onSelectConversation,
   onNewMessage,
   onNewGroup,
+  groupInvites = [],
+  onRespondGroupInvite,
   unreadTotal,
   groupUnreadTotal = 0,
   isLoading,
@@ -177,6 +184,8 @@ export const NavDeck: React.FC<NavDeckProps> = ({
           </button>
         )}
       </div>
+
+      {onRespondGroupInvite && <GroupInvites invites={groupInvites} onRespond={onRespondGroupInvite} />}
 
       {/* 3. Search Bar */}
       <div className="p-3 border-b border-[var(--border-subtle)]">

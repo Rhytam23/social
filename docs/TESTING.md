@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **457 tests in 46 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **495 tests in 50 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -23,6 +23,9 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
 | `tests/security/latestMessages.test.ts` | 4 | Migration `020` on real Postgres: exactly the newest message per conversation, never one from a conversation the caller is not in, empty input, signed-out refused |
 | `tests/security/latestRoute.test.ts` | 5 | `GET /api/messages/latest`: 401, uses only the caller's own conversations, only known columns returned, 501 fallback while `020` is missing, no database text in errors |
+| `tests/security/groupInvites.test.ts` | 15 | Migration `027` on real Postgres: known people added at once, strangers invited, accept and decline, nobody else can answer, expiry, the 30-waiting cap, blocked adders, admins, community channels, and that group members cannot be inserted by writing the table |
+| `tests/security/profileVisibility.test.ts` | 12 | Migration `028`: who can read which profile through the API (strangers see only themselves), the server-only search (not callable by signed-in users), starts-with matching, no admins or suspended accounts, at most 8 |
+| `tests/security/groupRoutes.test.ts` | 5 | `POST /api/groups` seats only the creator and reports who was added or invited; `POST /api/groups/members` |
 | `tests/security/messageRequests.test.ts` | 9 | Migration `026` on real Postgres: 3 messages then refused, a reply opens the chat, deleting or leaving and re-adding does not reset it, the counters cannot be edited, admins and groups are not limited |
 | `tests/security/usersRoute.test.ts` | 9 | People search: starts-with matching, at most 8, exact match first, no email or phone, blocked flag, limits |
 | `tests/security/moderation.test.ts` | 24 | Migration `024` on real Postgres: who may report whom, the 3, 10 and 20 tiers counted by different reporters, the account-age rule, dismissed reports, the ban (auth ban set, sessions ended, email and addresses blocked), the sign-up hook, admins never auto-banned, admin ban, undo and unblock, audit trail, tables closed to clients, address retention |
@@ -247,4 +250,17 @@ Nothing below has been run against a live Supabase project.
 - [ ] B sends one reply: A can now send freely, both ways.
 - [ ] A deletes the 3 messages and tries again: still refused.
 - [ ] A platform admin can message anyone repeatedly; the person can answer at length.
-- [ ] Groups are not limited (known gap: someone can add you to a group without your acceptance).
+- [ ] Groups are not limited by the 3-message rule, but a stranger cannot add you to one: see the next checklist.
+
+## Checklist for group invitations and profile visibility (migrations 027 and 028)
+
+Nothing below has been run against a live Supabase project. Use three accounts: O (owner), K (someone O has talked to who replied) and S (a stranger to O).
+
+- [ ] O creates a group with K and S. K is a member straight away. S is not: a toast says one person was sent an invitation.
+- [ ] S sees "1 group invitation" at the top of the chat list within a minute (or when the window regains focus), with O's name and the group name, and cannot see the group or its members.
+- [ ] S presses Join: the group appears, S can read messages once an admin's device is online (an admin must be signed in to share the group key). S presses Decline on another invitation: nothing happens and it disappears.
+- [ ] In the browser console as O: `supabase.from('conversation_members').insert({conversation_id: <group>, user_id: <S>})` is refused (row-level security).
+- [ ] In the console as S: `supabase.from('profiles').select('*')` returns only S's own row and people S shares a chat or community with; `supabase.from('group_invites').select('*')` is refused.
+- [ ] In the console as S: `supabase.rpc('search_profiles_by_prefix', {p_caller: '<any id>', p_prefix: 'abc'})` is refused (permission denied).
+- [ ] The people search box still finds a stranger by the start of their username (the server needs `SUPABASE_SERVICE_ROLE_KEY`), still never shows a platform admin, and old messages from someone who has left a chat still show their name.
+- [ ] Your block list still shows the names of people you blocked, including ones you no longer share a chat with.

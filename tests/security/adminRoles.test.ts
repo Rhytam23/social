@@ -98,7 +98,8 @@ describe('a group admin has no platform powers', () => {
     }
     // gabe is an admin of a group.
     const conv = (await asUser(db, OWNER, (q) => q(`INSERT INTO public.conversations (type, name, created_by) VALUES ('group', 'team', $1) RETURNING id`, [OWNER]))).rows[0].id as string;
-    await asUser(db, OWNER, (q) => q(`INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'owner'), ($1, $3, 'member'), ($1, $4, 'member')`, [conv, OWNER, GA, M]));
+    await asUser(db, OWNER, (q) => q(`INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'owner')`, [conv, OWNER]));
+    await seed(db, `INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'member'), ($1, $3, 'member')`, [conv, GA, M]);
     await asUser(db, OWNER, (q) => q(`UPDATE public.conversation_members SET role = 'admin' WHERE conversation_id = $1 AND user_id = $2`, [conv, GA]));
     await seed(db, `SELECT public.log_error('server', 'error', 'x', 'boom', NULL, 'fp-roles-0001', NULL, NULL, NULL, NULL)`);
     await seed(db, `SELECT public.submit_support_request(NULL, 'p', 'p@example.com', 'question', 'a message long enough', NULL)`);
@@ -136,7 +137,8 @@ describe('group roles', () => {
       await seed(db, `INSERT INTO auth.users (id, email, raw_user_meta_data) VALUES ($1, $2, $3)`, [id, `${name}@example.com`, JSON.stringify({ display_name: name, username: name })]);
     }
     group = (await asUser(db, OWNER, (q) => q(`INSERT INTO public.conversations (type, name, created_by) VALUES ('group', 'team', $1) RETURNING id`, [OWNER]))).rows[0].id as string;
-    await asUser(db, OWNER, (q) => q(`INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'owner'), ($1, $3, 'member'), ($1, $4, 'member'), ($1, $5, 'member')`, [group, OWNER, GA, M, N]));
+    await asUser(db, OWNER, (q) => q(`INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'owner')`, [group, OWNER]));
+    await seed(db, `INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'member'), ($1, $3, 'member'), ($1, $4, 'member')`, [group, GA, M, N]);
     await asUser(db, OWNER, (q) => q(`UPDATE public.conversation_members SET role = 'admin' WHERE conversation_id = $1 AND user_id = $2`, [group, GA]));
   }, 120000);
 
