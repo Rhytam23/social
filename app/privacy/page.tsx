@@ -3,7 +3,7 @@ import { LegalPage, LegalSection } from '../../components/landing/LegalPage';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy',
-  description: 'What Private Chat stores, what it cannot read, and how long it keeps it.',
+  description: 'What Nook stores, what it cannot read, and how long it keeps it.',
   alternates: { canonical: '/privacy' },
 };
 
@@ -12,7 +12,7 @@ export default function PrivacyPolicyPage() {
     <LegalPage title="Privacy Policy" updated="September 20, 2026">
       <LegalSection title="1. What this covers">
         <p>
-          Private Chat is an end-to-end encrypted messenger. The people who run a deployment do not read, analyse or sell your message content, conversation contents or attachments, and the software is built so that they cannot.
+          Nook is an end-to-end encrypted messenger. The people who run a deployment do not read, analyse or sell your message content, conversation contents or attachments, and the software is built so that they cannot.
         </p>
       </LegalSection>
 

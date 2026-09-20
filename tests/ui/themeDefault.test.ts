@@ -57,4 +57,10 @@ describe('sign-in hint for the landing page', () => {
     expect(hintFor('theme=dark; other-sb-auth=1')).toBeNull();
     expect(hintFor('xsb-abc-auth-token=1')).toBeNull();
   });
+
+  it('is not set by the temporary cookies of a sign-in that has only started', () => {
+    expect(hintFor('sb-abcdefgh-auth-token-code-verifier=base64-x')).toBeNull();
+    expect(hintFor('sb-127-auth-token-flow-f6304091-code-verifier=x; sb-127-auth-token-flows-code-verifier=y')).toBeNull();
+    expect(hintFor('sb-abcdefgh-auth-token-code-verifier=x; sb-abcdefgh-auth-token.1=y')).toBe('1');
+  });
 });

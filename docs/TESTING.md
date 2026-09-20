@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **306 tests in 28 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **360 tests in 36 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -23,6 +23,8 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
 | `tests/security/latestMessages.test.ts` | 4 | Migration `020` on real Postgres: exactly the newest message per conversation, never one from a conversation the caller is not in, empty input, signed-out refused |
 | `tests/security/latestRoute.test.ts` | 5 | `GET /api/messages/latest`: 401, uses only the caller's own conversations, only known columns returned, 501 fallback while `020` is missing, no database text in errors |
+| `tests/security/supportRequests.test.ts` | 7 | Migration `022` on real Postgres: only admins read requests, nobody writes directly, submitting is server-only, per-email daily limit, 90-day retention, admin resolve is audited and non-admins are refused |
+| `tests/security/supportRoute.test.ts` | 9 | `POST /api/support`: signed-out and signed-in requests, honeypot, cross-site, oversized and malformed bodies, validation (including header-injection-shaped emails), control characters, rate limit, no database text in errors |
 | `tests/security/floodAndDevices.test.ts` | 8 | Migration `018` on real Postgres: the 3-key cap, per-account write limits, server writes not limited |
 | `tests/security/deviceLinking.test.ts` | 6 | A new browser links instead of creating a key; failed checks refuse to continue; restore gives the same key; wrong passphrase and empty backup refused. Uses a stubbed database |
 | `tests/security/authorization.test.ts` | 16 | Static checks of the SQL text of early migrations (`001`, `003`, `004`) |
@@ -31,7 +33,7 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/integration/apiRoutes.test.ts` | 6 | Every data route returns `401` when signed out |
 | `tests/integration/userSearch.test.ts` | 14 | Username-only lookup rules |
 | `tests/chat/chatStore.test.ts`, `envelopeDisplay.test.ts` | 8 + 8 | The store in demo mode; how message payloads become text |
-| `tests/ui/*.test.ts` | 108 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the site address and its production fallback (`site.test.ts`), that the default theme follows the device and the sign-in hint used by the landing page, that technical error detail is shown only to admins (`errorVisibility.test.ts`), the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`), and that analytics only ever receives the origin and path (`analytics.test.ts`) |
+| `tests/ui/*.test.ts` | 108 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the site address and its production fallback (`site.test.ts`), when the 3D hero may run (`capability.test.ts`: computers only), the bot-check switch, the support helpers, that the default theme follows the device and the sign-in hint used by the landing page, that technical error detail is shown only to admins (`errorVisibility.test.ts`), the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`), and that analytics only ever receives the origin and path (`analytics.test.ts`) |
 
 `tests/security/pgHarness.ts` is the test database: it creates the Supabase roles (`anon`, `authenticated`, `service_role`), `auth.uid()` and the storage and realtime tables the migrations expect, then runs every migration. **When Supabase changes how any of those work, this file is where to update the emulation.**
 
@@ -185,3 +187,15 @@ Run after applying `019`. Use an admin account and an ordinary account.
 - A CI workflow that runs the four commands above on every pull request.
 - Browser end-to-end tests (Playwright) for the journeys above.
 - Row level security tests against a real Supabase project (pgTAP or the Supabase CLI). RLS is currently tested on an in-process Postgres with an emulated Supabase (`tests/security/rls.test.ts`).
+
+## Checklist for the public pages, support and the bot check
+
+Run after applying `022`.
+
+- [ ] Signed out: Home, Features, Security, Help, Contact, Privacy and Terms all load, show the header and footer, and the header tab of the current page is highlighted. On a phone the menu opens without JavaScript.
+- [ ] Signed in: the app shows no site header or footer anywhere.
+- [ ] Contact form: a message with a valid email sends and shows the confirmation; a missing email or a message under 10 characters is refused with a clear note; sending more than 5 in a day from one email is refused.
+- [ ] Admin, Support lists the message with its topic, email and time; Reply by email opens a mail to that address; Mark resolved and Reopen work and appear in Admin, Activity.
+- [ ] Settings, About, Report a problem sends as the signed-in account (no email field) and appears in Admin, Support with the account.
+- [ ] Landing on a computer: the 3D scene appears after the page loads; with the operating system's reduced-motion setting on, or on a phone or tablet, it never loads and the page is plain.
+- [ ] With `NEXT_PUBLIC_TURNSTILE_SITE_KEY` set and CAPTCHA enabled in Supabase: sign-up, sign-in and reset show the check and refuse to submit until it passes; a wrong password can be retried (the check refreshes).

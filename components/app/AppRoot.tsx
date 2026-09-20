@@ -338,7 +338,7 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
   // Unread count in the browser tab title.
   const totalUnread = state.conversations.reduce((sum, c) => (c.isMuted ? sum : sum + c.unreadCount), 0);
   useEffect(() => {
-    document.title = totalUnread > 0 ? `(${totalUnread > 99 ? '99+' : totalUnread}) Private Chat` : 'Private Chat';
+    document.title = totalUnread > 0 ? `(${totalUnread > 99 ? '99+' : totalUnread}) Nook` : 'Nook';
   }, [totalUnread]);
 
   // Typing indicators follow the conversation the user is looking at.
@@ -368,7 +368,7 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
     const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'private-chat-export.json';
+    a.download = 'nook-export.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -429,7 +429,7 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `private-chat-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `nook-backup-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     a.remove();

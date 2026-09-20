@@ -3,6 +3,7 @@ import { UserItem } from '../../types/ui';
 import { AdminReports } from './AdminReports';
 import { AdminErrors } from './AdminErrors';
 import { AdminActivity } from './AdminActivity';
+import { AdminSupport } from './AdminSupport';
 import { Button } from '../ui/button';
 
 export interface AdminDashboardProps {
@@ -10,7 +11,7 @@ export interface AdminDashboardProps {
   onToggleUserRole: (userId: string, currentRole: 'admin' | 'member') => void;
 }
 
-type AdminTab = 'people' | 'errors' | 'activity';
+type AdminTab = 'people' | 'support' | 'errors' | 'activity';
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, onToggleUserRole }) => {
   const [tab, setTab] = useState<AdminTab>('people');
@@ -33,6 +34,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, onToggleU
         <div className="flex gap-1.5 mt-3" role="tablist" aria-label="Admin sections">
           {([
             ['people', 'People and reports'],
+            ['support', 'Support'],
             ['errors', 'Errors'],
             ['activity', 'Activity'],
           ] as Array<[AdminTab, string]>).map(([id, label]) => (
@@ -43,6 +45,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, onToggleU
         </div>
       </div>
 
+      {tab === 'support' && <AdminSupport nameOf={nameOf} />}
       {tab === 'errors' && <AdminErrors nameOf={nameOf} />}
       {tab === 'activity' && <AdminActivity nameOf={nameOf} />}
       {tab === 'people' && (

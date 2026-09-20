@@ -1,5 +1,7 @@
 import React from 'react';
-import { IconLock, IconShield } from '../ui/icons';
+import { IconShield } from '../ui/icons';
+import { LogoMark } from '../brand/Logo';
+import { SITE_NAME } from '../../lib/site';
 
 export interface AuthLayoutProps {
   children: React.ReactNode;
@@ -15,11 +17,9 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitl
     <div className="relative min-h-screen bg-[var(--canvas-bg)] text-[var(--text-primary)] flex flex-col items-center justify-center p-4 sm:p-6 font-sans">
       <div className="relative z-10 w-full max-w-md flex flex-col gap-6 anim-slide-up">
         <div className="flex flex-col items-center text-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[var(--surface-2)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--accent-text)] ">
-            <IconLock className="w-5 h-5" />
-          </div>
+          <LogoMark className="w-11 h-11 text-[var(--accent-text)]" />
           <div className="flex flex-col gap-1">
-            <h1 className="text-lg font-semibold tracking-tight">Private Chat</h1>
+            <h1 className="text-lg font-semibold tracking-tight">{SITE_NAME}</h1>
             <p className="text-xs text-[var(--text-secondary)] max-w-xs mx-auto leading-relaxed">{subtitle}</p>
           </div>
         </div>

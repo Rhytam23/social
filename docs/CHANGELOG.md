@@ -4,6 +4,16 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Nook: name, logo, public site, support and landing animation (September 2026).** Needs migration `022` for the support inbox.
+
+- **Renamed to Nook** (was Private Chat). The name is `SITE_NAME` in `lib/site.ts`. Internal storage names (`private_chat_*` preferences, the `private-chat-keystore` IndexedDB name, `pc-*` channels) were deliberately **not** renamed: that would drop saved preferences and could orphan the browser-held encryption key. Trademark, domain and app-store availability of the name were not checked.
+- **Logo** (`components/brand/Logo.tsx`): a speech bubble with a keyhole cut out, plus the lowercase wordmark. Used in the public header and footer, sign-in screens, Settings, favicon, home-screen icon and the link-preview image.
+- **Public site.** Shared header (Features, Security, Help, Contact, Sign in, Create account, with a menu that works without JavaScript) and footer (Product, Support, Legal), used only on public pages: none inside the signed-in app. New pages `/features`, `/security`, `/help` (questions and answers written from the docs), `/contact`, a branded 404, all in the sitemap.
+- **Support.** The contact form (`POST /api/support`, no account needed) and **Settings, Report a problem** write to `support_requests` (`022`: admin-only reads, server-only writes, 90-day retention, at most 5 requests a day per email address, honeypot field). Admins read and resolve them under **Admin, Support**; resolving is audited.
+- **Landing animation.** Quiet entrance and scroll reveal for everyone (CSS plus a small observer; nothing hidden without JavaScript, off with reduced motion). **Computers only** (mouse and a screen at least 1024 px wide): a 3D scene of how a message travels, in its own chunk loaded after the page is idle. It never loads on phones, tablets, with reduced motion or data saver, without WebGL, or on weak devices, pauses off screen, and hands over to a still picture if it cannot keep up. The home page's first load stays about 110 kB.
+- **Bot check on sign-in** (optional, `lib/captcha.ts`): Cloudflare Turnstile on sign-up, sign-in and password reset when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is set and CAPTCHA protection is enabled in Supabase. Tighter per-address limit (60 a minute) on the sign-in, sign-up, reset and email-link pages.
+- **Bug fixed:** the pre-paint "signed in" hint (`data-session`) also matched the temporary cookies of a sign-in that had only started, so the landing page could load the whole app for nothing. It now matches only real session cookies.
+
 **Calmer chat interface (September 2026).** No database changes.
 
 - **Encryption is stated once**, in the chat header. Removed the repeated pill inside the conversation, the composer placeholder ("Write a message") and the sidebar footer.

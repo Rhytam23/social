@@ -334,6 +334,29 @@ samp,
   }
 }
 
+/* ------------------------------------------------------------------
+   Public pages: quiet entrance and scroll reveal. Both are progressive
+   enhancement: without JavaScript, or with reduced motion, everything is
+   simply visible (see components/landing/RevealObserver.tsx).
+   ------------------------------------------------------------------ */
+@keyframes pc-hero-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hero-in {
+  animation: pc-hero-in 700ms var(--ease-out) both;
+  animation-delay: calc(var(--i, 0) * 90ms);
+}
+html.js-reveal .reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out);
+}
+html.js-reveal .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
 /* Someone with a sign-in cookie is about to see the app, not the public page (see lib/ui/themeScript.ts). */
 html[data-session='1'] .public-landing {
   visibility: hidden;

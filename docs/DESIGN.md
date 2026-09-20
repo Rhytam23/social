@@ -52,3 +52,15 @@ Signed-in visitors do not see the landing page: `/` opens the app directly.
 ## The chat screen
 
 Say things once. "End-to-end encrypted" appears only in the chat header. Controls that are used rarely live in menus: the header has voice and video call and one options menu (`ChatHeaderMenu`), and each message has quick reactions, Reply and one "more" menu. Consecutive messages from one person in the same minute are grouped so the name and photo are not repeated. There is no footer anywhere inside the signed-in app; Settings is at the bottom of the left rail on desktop and in the bottom bar on phones. Warnings that matter (changed security code, failed delivery, offline) stay visible and are not folded into menus.
+
+## Brand
+
+The mark is a speech bubble with a keyhole cut out of it (`components/brand/Logo.tsx`), always one colour, drawn on a 32 unit grid. The wordmark is the lowercase word "nook" in the product font. The same paths feed the favicon (`app/icon.svg`), the home-screen icon (`app/apple-icon.tsx`) and the link preview (`app/opengraph-image.tsx`): change them together.
+
+- Clear space of a quarter of the mark's height on every side; never smaller than 16 px.
+- Use the accent text colour (`--accent-text`) on the app's surfaces; do not recolour outside the palette in `app/globals.css`, stretch, rotate or add shadows or gradients.
+- The product name is `SITE_NAME` in `lib/site.ts`. Do not rename storage keys when renaming the product.
+
+## Public pages and motion
+
+Public pages (home, features, security, help, contact, privacy, terms) share `SiteHeader` and `SiteFooter` through `PageShell`. **Inside the signed-in app there is no header or footer of that kind.** Motion is progressive enhancement: the hero entrance (`.hero-in`) and scroll reveal (`.reveal`, activated by `RevealObserver`) leave everything visible without JavaScript and turn off with reduced motion. The 3D hero (`HeroScene`) is for computers only and is decided by `shouldRender3D` in `components/landing/capability.ts`; keep it abstract (no fake conversations, names or screenshots) and keep its chunk out of the first load.

@@ -21,7 +21,7 @@ export interface OnboardingModalProps {
   onExportKeyBackup?: (passphrase: string) => Promise<void>;
 }
 
-const STEP_TITLES = ['Welcome to Private Chat', 'Protect your keys', 'Notifications', 'Ready to message'] as const;
+const STEP_TITLES = ['Welcome to Nook', 'Protect your keys', 'Notifications', 'Ready to message'] as const;
 const inputClass =
   'w-full bg-[var(--surface-2)] border border-[var(--border-subtle)] p-2.5 rounded-xl text-[var(--text-primary)] text-xs focus:outline-none focus:border-emerald-500/60 transition-all';
 

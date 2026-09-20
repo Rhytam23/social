@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 021**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 022**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -26,6 +26,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `016_username_only_discovery.sql` | Revokes client access to `find_profiles_by_contact()` (people are found by exact username only) | Yes |
 | `017_security_hardening.sql` | Security fixes from the September 2026 audit: `conversation_has_members()`, creator-only-while-empty membership insert, `guard_membership_identity`, group key envelopes only from group admins, `is_blocked_in_conversation()` and a working blocking rule, `guard_message_columns` and `guard_receipt_identity` triggers, storage size and type limits, invite caps, an avatar URL allow-list, and Realtime Authorization policies for the typing and call channels | Yes |
 | `018_devices_and_flood_limits.sql` | At most 3 registered device keys per account (`limit_devices_per_user`); per-account write limits inside the database (`enforce_write_rate`: 120 messages and 200 reactions per minute, 30 new conversations per hour) | Yes |
+| `022_support_requests.sql` | The support inbox: table `support_requests` (readable by platform admins only, no client writes), the server-only function `submit_support_request()` (validates, allows at most 5 requests a day per email, keeps 90 days and 5,000 rows), and `admin_set_support_status()` (admins only, audited) | Yes |
 | `021_upload_limits.sql` | Attachments only through signed uploads: drops the client upload policy, sets the bucket ceiling (100 MB) and the avatar limit (2 MB, images), adds `uploaded_bytes_last_day()` for the daily quota. **Deploy the matching app version before running it** | Yes |
 | `020_latest_messages.sql` | `get_latest_messages(uuid[])`: the newest message of each conversation in one query, for the sidebar previews. Runs with the caller's own rights, so row level security decides what is returned. Optional: without it the app makes one request per conversation | Yes |
 | `019_admin_logs.sql` | The admin error log and admin activity log: tables `error_logs` and `admin_audit_log` (readable by platform admins only), the server-only ingest functions `log_error()` and `log_admin_action()`, and the admin actions `admin_set_error_status()` and `admin_clear_errors()`. 30-day retention and a 5,000-row cap | Yes |

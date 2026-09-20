@@ -80,7 +80,7 @@ const DEMO_USERS: UserItem[] = [
 const DEMO_CONVERSATIONS: ConversationItem[] = [
   {
     id: 'conv-alice-bob', title: 'Bob Miller', type: 'direct', unreadCount: 0, isPinned: true,
-    lastMessage: { snippet: 'Welcome to Private Chat! (demo data)', timestamp: '10:30 AM', status: 'read' },
+    lastMessage: { snippet: 'Welcome to Nook! (demo data)', timestamp: '10:30 AM', status: 'read' },
     recipientUser: { id: 'usr-bob', name: 'Bob Miller', registrationId: 10482, identityFingerprint: '992A-44B1-0081-F09C-1192-33E4-AA11-22BB', isVerified: true, presence: 'online' },
   },
   {
@@ -93,7 +93,7 @@ const DEMO_CONVERSATIONS: ConversationItem[] = [
 const DEMO_MESSAGES: Record<string, MessageData[]> = {
   'conv-alice-bob': [
     { id: 'msg-init-1', conversationId: 'conv-alice-bob', senderId: 'usr-bob', senderName: 'Bob Miller', isSelf: false, content: 'Hey Alice! This is local demo mode - nothing here is sent to a server.', timestamp: '10:28 AM', status: 'read', reactions: [{ emoji: '👋', count: 1, userReacted: true }], encryptionVersion: 0 },
-    { id: 'msg-init-2', conversationId: 'conv-alice-bob', senderId: 'usr-alice', senderName: 'Alice Vance', isSelf: true, content: 'Welcome to Private Chat! (demo data, not encrypted)', timestamp: '10:30 AM', status: 'read', replyTo: { id: 'msg-init-1', senderName: 'Bob Miller', snippet: 'Hey Alice! This is local demo mode - nothing here is sent to a server.' }, reactions: [{ emoji: '🔒', count: 1, userReacted: false }], encryptionVersion: 0 },
+    { id: 'msg-init-2', conversationId: 'conv-alice-bob', senderId: 'usr-alice', senderName: 'Alice Vance', isSelf: true, content: 'Welcome to Nook! (demo data, not encrypted)', timestamp: '10:30 AM', status: 'read', replyTo: { id: 'msg-init-1', senderName: 'Bob Miller', snippet: 'Hey Alice! This is local demo mode - nothing here is sent to a server.' }, reactions: [{ emoji: '🔒', count: 1, userReacted: false }], encryptionVersion: 0 },
   ],
   'conv-security-team': [
     { id: 'gmsg-init-1', conversationId: 'conv-security-team', senderId: 'usr-alice', senderName: 'Alice Vance', isSelf: true, content: 'This is local demo data, not a real conversation.', timestamp: '09:15 AM', status: 'read', reactions: [{ emoji: '🚀', count: 3, userReacted: true }], encryptionVersion: 0 },

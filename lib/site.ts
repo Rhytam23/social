@@ -6,10 +6,13 @@
  * project's production domain is used when it is not set. Without either, production builds have no
  * absolute URL and the sitemap and canonical links are simply left out rather than pointing at a wrong host.
  */
-export const SITE_NAME = 'Private Chat';
+export const SITE_NAME = 'Nook';
+/** Where people can reach the people who run the service. Override with NEXT_PUBLIC_CONTACT_EMAIL. */
+export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || 'rhytam.biswas0823@gmail.com';
+export const LICENSE_URL = 'https://github.com/Rhytam23/social/blob/main/LICENSE';
 export const SITE_TAGLINE = 'End-to-end encrypted messaging';
 export const SITE_DESCRIPTION =
-  'Private Chat is an end-to-end encrypted messenger for direct messages, groups and communities. Messages are encrypted on your device, so the server only stores ciphertext.';
+  'Nook is an end-to-end encrypted messenger for direct messages, groups and communities. Messages are encrypted on your device, so the server only stores ciphertext.';
 
 /** Normalises a host or URL to an origin without a trailing slash, or null when it is not usable. */
 function toOrigin(value: string | undefined | null): string | null {

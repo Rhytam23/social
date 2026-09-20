@@ -1,5 +1,5 @@
 {
-  "name": "private-chat",
+  "name": "nook",
   "version": "0.1.0",
   "private": true,
   "license": "SEE LICENSE IN LICENSE",
@@ -19,13 +19,15 @@
     "libsodium-wrappers": "^0.8.4",
     "next": "^15.1.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "three": "^0.186.0"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@types/node": "^20.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/three": "^0.186.0",
     "autoprefixer": "^10.5.4",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.1.0",

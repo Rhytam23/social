@@ -1,11 +1,13 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AuthLayout } from './AuthLayout';
 import { createClient } from '../../lib/supabase/client';
 import { isSupabaseConfigured as checkSupabaseConfigured } from '../../lib/supabase/env';
 import { IconCheck, IconLock, IconX } from '../ui/icons';
 import { Button } from '../ui/button';
+import { TurnstileWidget, type TurnstileHandle } from './TurnstileWidget';
+import { captchaEnabled } from '../../lib/captcha';
 
 import Link from 'next/link';
 
@@ -39,6 +41,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showAlreadyRegistered, setShowAlreadyRegistered] = useState(false);
@@ -51,6 +55,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [resendResult, setResendResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const isSupabaseConfigured = checkSupabaseConfigured();
+  const needsCaptcha = isSupabaseConfigured && captchaEnabled();
 
   // Surface failures from the /auth/confirm redirect (?error=...).
   useEffect(() => {
@@ -137,10 +142,20 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     e.preventDefault();
     setTouched({ displayName: true, email: true, password: true, confirmPassword: true });
     if (Object.keys(fieldErrors).length > 0) return;
+    if (needsCaptcha && !captchaToken) {
+      setErrorMsg('Please complete the security check first.');
+      return;
+    }
 
     setIsSubmitting(true);
     resetFeedback();
     const normalizedEmail = email.trim();
+    // A check token works once: use it now and ask for a fresh one for any next attempt.
+    const token = captchaToken ?? undefined;
+    if (needsCaptcha) {
+      setCaptchaToken(null);
+      captchaRef.current?.reset();
+    }
 
     try {
       if (isSupabaseConfigured) {
@@ -151,6 +166,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             email: normalizedEmail,
             password,
             options: {
+              captchaToken: token,
               emailRedirectTo: emailRedirectTo(),
               data: {
                 display_name: displayName.trim(),
@@ -196,6 +212,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           const { error } = await supabase.auth.signInWithPassword({
             email: normalizedEmail,
             password,
+            options: { captchaToken: token },
           });
 
           if (error) {
@@ -379,7 +396,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   return (
     <AuthLayout
-      title={tab === 'signin' ? 'Sign In to Private Chat' : 'Create Your Account'}
+      title={tab === 'signin' ? 'Sign In to Nook' : 'Create Your Account'}
       subtitle={
         tab === 'signin'
           ? 'Enter your credentials to unlock your end-to-end encrypted messaging keys.'
@@ -573,7 +590,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </div>
           )}
 
-          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} className="mt-2">
+          {needsCaptcha && <TurnstileWidget ref={captchaRef} onToken={setCaptchaToken} onUnavailable={() => setErrorMsg('The security check could not be loaded. Check your connection and reload the page.')} />}
+
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} disabled={needsCaptcha && !captchaToken} className="mt-2">
             <IconLock className="w-3.5 h-3.5" />
             <span>
               {isSubmitting

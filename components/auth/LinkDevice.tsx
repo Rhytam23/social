@@ -31,7 +31,7 @@ export const LinkDevice: React.FC<LinkDeviceProps> = ({ onLink, onStartFresh, on
     setError(null);
     if (!file) return;
     if (file.size > MAX_BACKUP_BYTES) {
-      setError('That file is too large to be a Private Chat backup.');
+      setError('That file is too large to be a Nook backup.');
       return;
     }
     setFileText(await file.text());

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Reset your password',
-  description: 'Request a password reset link for Private Chat.',
+  description: 'Request a password reset link for Nook.',
   robots: { index: false, follow: false },
 };
 

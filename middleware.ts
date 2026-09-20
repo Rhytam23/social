@@ -22,7 +22,14 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({ error: "Request too large." }, { status: 413 });
   }
 
-  const limited = await limitByIp(request, isApi ? "mw-api" : "mw-page", isApi ? { limit: 300, windowMs: 60_000 } : { limit: 600, windowMs: 60_000 });
+  // Sign-in, sign-up, password reset and email-link pages are the ones bots hammer: a tighter per-address limit.
+  // (The sign-in requests themselves go to Supabase Auth, which the optional bot check in lib/captcha.ts protects.)
+  const isAuthEntry = /^\/(login|signup|register|forgot-password|reset-password|auth\/)/.test(pathname);
+  const limited = await limitByIp(
+    request,
+    isAuthEntry ? "mw-auth" : isApi ? "mw-api" : "mw-page",
+    isAuthEntry ? { limit: 60, windowMs: 60_000 } : isApi ? { limit: 300, windowMs: 60_000 } : { limit: 600, windowMs: 60_000 }
+  );
   if (limited) return limited;
 
   // Only screens that depend on who you are pay for a session check (a network call to Supabase Auth
@@ -116,6 +123,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|opengraph-image|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|opengraph-image|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

@@ -1,6 +1,6 @@
 # Setup
 
-How to get Private Chat running against your own Supabase project. Plan on about 15 minutes, plus 10 more if you add Google sign-in.
+How to get Nook running against your own Supabase project. Plan on about 15 minutes, plus 10 more if you add Google sign-in.
 
 You need Node.js 20+, npm, and a Supabase account. Google Cloud (for Google sign-in) and Upstash (rate limiting across servers) are optional.
 
@@ -57,10 +57,11 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 017 | `017_security_hardening.sql` | Security fixes: blocking that works, group key envelopes only from admins, membership and message integrity guards, storage limits, realtime authorization. **Required for the security fixes to take effect.** |
 | 018 | `018_devices_and_flood_limits.sql` | At most 3 registered device identities per account, and per-account write limits (messages, reactions, new conversations) enforced in the database. |
 | 019 | `019_admin_logs.sql` | The admin error log and admin activity log (Admin, Errors and Activity), so admins can see problems without Supabase access. |
+| 022 | `022_support_requests.sql` | The support inbox behind the Contact page and Settings, Report a problem (Admin, Support). |
 | 021 | `021_upload_limits.sql` | Attachments can only be uploaded through the server's signed addresses; per-account daily upload quota; bucket and avatar limits. Deploy the matching app first, then run it. |
 | 020 | `020_latest_messages.sql` | One query for the newest message of every conversation (sidebar previews). Optional: without it the app makes one request per conversation. |
 
-Migrations 011 to 021 are safe to re-run. **Each one needs the ones before it**: running `017` on a project that is missing `013` fails with `function public.is_group_admin(uuid) does not exist`. Run them strictly in order, once each. The app keeps working if some late ones are missing: each feature that needs one says so instead of failing, but **`017` and `018` carry security fixes and should always be applied.**
+Migrations 011 to 022 are safe to re-run. **Each one needs the ones before it**: running `017` on a project that is missing `013` fails with `function public.is_group_admin(uuid) does not exist`. Run them strictly in order, once each. The app keeps working if some late ones are missing: each feature that needs one says so instead of failing, but **`017` and `018` carry security fixes and should always be applied.**
 
 To confirm the later migrations took effect, run this read-only check (all `true`):
 
@@ -77,7 +78,8 @@ select
   to_regclass('public.error_logs') is not null                                  as m019_error_logs,
   to_regclass('public.admin_audit_log') is not null                             as m019_audit_log,
   to_regprocedure('public.get_latest_messages(uuid[])') is not null            as m020_latest_messages,
-  to_regprocedure('public.uploaded_bytes_last_day(uuid)') is not null           as m021_upload_quota;
+  to_regprocedure('public.uploaded_bytes_last_day(uuid)') is not null           as m021_upload_quota,
+  to_regclass('public.support_requests') is not null                            as m022_support;
 ```
 
 **Do not re-run old migrations on an existing project.** `002` and `003` are not re-runnable: `002` refers to a column that `003` removes, so running it again fails with `column "role" does not exist`. If you are unsure what has been applied, run this read-only check and only run what is missing:

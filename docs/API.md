@@ -90,6 +90,10 @@ Stores an error that happened in someone's browser in the admin error log. Signe
 
 ## Files
 
+### `POST /api/support` (5 per 10 minutes per address; 10 per hour per account)
+Body `{ topic, name?, email, message, website }`. The contact form and Settings, Report a problem. Works signed out. A signed-in caller is identified by the session (its own email and id are used and the body's are ignored). `topic` is one of `question`, `problem`, `account`, `abuse`, `other`; `message` is 10 to 2000 characters. `website` is a honeypot: filled in means a bot and the reply is a success that stores nothing. Stored by the server-only function `submit_support_request` (migration `022`).
+- `201 { ok: true }` · `400` invalid topic, message or email · `403` cross-site · `413` body too large · `429` rate limit, or 5 requests already today from that email · `503` server key not configured.
+
 ### `POST /api/uploads/sign` (60/min per address; 6/min and 30/hour per account)
 Body `{ conversationId, kind: 'image' | 'video' | 'file', size }` (size in bytes of the already encrypted file). Active members only. Checks the size against the limit for the kind (image 10 MB, video 100 MB, other 25 MB, never above `NEXT_PUBLIC_STORAGE_MAX_FILE_MB`, default 50) and the account's daily quota (500 MB in 24 hours, from migration `021`). The file itself never passes through this server (serverless functions cannot take bodies over 4.5 MB): the reply is a one-file signed upload address and the browser uploads the ciphertext straight to Storage. The stored name is `<conversationId>/<your user id>_<random uuid>`; the real file name lives only inside the encrypted message.
 - `201 { path, token }` · `400` malformed · `401` · `403` not a member · `413` over the limit for its kind · `429` rate or daily quota · `503` server key not configured.

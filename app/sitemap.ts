@@ -8,6 +8,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const updated = new Date('2026-09-20');
   return [
     { url: `${origin}/`, lastModified: updated, changeFrequency: 'monthly', priority: 1 },
+    { url: `${origin}/features`, lastModified: updated, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${origin}/security`, lastModified: updated, changeFrequency: 'monthly', priority: 0.8 },
+    { url: `${origin}/help`, lastModified: updated, changeFrequency: 'monthly', priority: 0.7 },
+    { url: `${origin}/contact`, lastModified: updated, changeFrequency: 'yearly', priority: 0.5 },
     { url: `${origin}/privacy`, lastModified: updated, changeFrequency: 'yearly', priority: 0.4 },
     { url: `${origin}/terms`, lastModified: updated, changeFrequency: 'yearly', priority: 0.4 },
   ];

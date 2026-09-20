@@ -3,7 +3,7 @@ import { LegalPage, LegalSection } from '../../components/landing/LegalPage';
 
 export const metadata: Metadata = {
   title: 'Terms of Service',
-  description: 'The rules for using Private Chat.',
+  description: 'The rules for using Nook.',
   alternates: { canonical: '/terms' },
 };
 
@@ -12,13 +12,13 @@ export default function TermsOfServicePage() {
     <LegalPage title="Terms of Service" updated="September 20, 2026">
       <LegalSection title="1. Acceptance">
         <p>
-          By using the Private Chat web application you agree to these terms. If you do not agree, do not use the service.
+          By using the Nook web application you agree to these terms. If you do not agree, do not use the service.
         </p>
       </LegalSection>
 
       <LegalSection title="2. The service">
         <p>
-          Private Chat provides end-to-end encrypted direct messages, groups, communities, voice notes, calls and file sharing.
+          Nook provides end-to-end encrypted direct messages, groups, communities, voice notes, calls and file sharing.
         </p>
       </LegalSection>
 
@@ -29,7 +29,7 @@ export default function TermsOfServicePage() {
       </LegalSection>
 
       <LegalSection title="4. Acceptable use">
-        <p>You agree not to use Private Chat to:</p>
+        <p>You agree not to use Nook to:</p>
         <ul className="list-disc pl-5 flex flex-col gap-1.5">
           <li>Break the law or send malicious code.</li>
           <li>Disrupt, overload, probe or reverse-engineer the service infrastructure.</li>

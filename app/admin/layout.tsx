@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Administration',
-  description: 'Private Chat administration.',
+  description: 'Nook administration.',
   robots: { index: false, follow: false },
 };
 

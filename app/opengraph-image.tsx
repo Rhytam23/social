@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { SITE_NAME, SITE_TAGLINE } from '../lib/site';
+import { MARK_BUBBLE, MARK_KEYHOLE_HEAD, MARK_KEYHOLE_SLOT } from '../components/brand/Logo';
 
 export const alt = `${SITE_NAME}: ${SITE_TAGLINE}`;
 export const size = { width: 1200, height: 630 };
@@ -22,10 +23,10 @@ export default function OpenGraphImage() {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#7cc3e8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          <svg width="64" height="64" viewBox="0 0 32 32" fill="#7cc3e8">
+            <path fillRule="evenodd" d={`${MARK_BUBBLE}${MARK_KEYHOLE_HEAD}${MARK_KEYHOLE_SLOT}`} />
           </svg>
-          <div style={{ fontSize: 40, fontWeight: 600 }}>{SITE_NAME}</div>
+          <div style={{ fontSize: 40, fontWeight: 600 }}>nook</div>
         </div>
         <div style={{ marginTop: 40, fontSize: 76, fontWeight: 600, lineHeight: 1.05, letterSpacing: -2 }}>Conversations that stay yours.</div>
         <div style={{ marginTop: 28, fontSize: 30, color: '#9aa1ad' }}>{`${SITE_TAGLINE} for people and communities`}</div>

@@ -8,7 +8,6 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconLaptop,
-  IconLock,
   IconMobile,
   IconShield,
   IconX,
@@ -17,6 +16,8 @@ import { createClient } from '../../lib/supabase/client';
 import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
 import { userError } from '../../lib/ui/errors';
 import { MB, UPLOAD_LIMITS } from '../../lib/limits';
+import { LogoMark } from '../brand/Logo';
+import { SupportForm } from '../site/SupportForm';
 import { AppearanceSettings } from './AppearanceSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { PrivacySettings, type PrivacySettingsProps } from './PrivacySettings';
@@ -55,6 +56,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   // Phones show the list of sections first, then one section at a time.
   const [showDetail, setShowDetail] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Profile Form State
   const [displayName, setDisplayName] = useState(currentUser.name);
@@ -617,23 +619,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {activeTab === 'about' && (
         <div className="panel flex flex-col gap-4 shadow-xs text-xs">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-              <IconLock className="w-5 h-5" />
-            </div>
+            <LogoMark className="w-10 h-10 text-[var(--accent-text)]" />
             <div className="flex flex-col">
-              <span className="font-bold text-white text-sm">Private Chat</span>
-              <span className="text-slate-400 text-[11px] font-mono">Version 1.0.0 (Production V1)</span>
+              <span className="font-semibold text-[var(--text-primary)] text-sm">Nook</span>
+              <span className="text-[var(--text-muted)] text-[11px] font-mono">Version 1.0</span>
             </div>
           </div>
 
           <p className="text-slate-300 leading-relaxed pt-2">
-            Private Chat encrypts messages client-side using X25519 key exchange with XSalsa20-Poly1305 authenticated encryption (libsodium), AES-256-GCM for attachments, and Argon2id for passphrase-protected key backups. The server only ever stores ciphertext.
+            Nook encrypts messages client-side using X25519 key exchange with XSalsa20-Poly1305 authenticated encryption (libsodium), AES-256-GCM for attachments, and Argon2id for passphrase-protected key backups. The server only ever stores ciphertext.
           </p>
 
           <div className="flex items-center gap-4 pt-3 border-t border-slate-800 text-slate-400">
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <span>•</span>
             <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+            <span>•</span>
+            <Link href="/help" className="hover:text-white transition-colors">Help</Link>
+          </div>
+
+          <div className="pt-3 border-t border-slate-800 flex flex-col gap-3">
+            {reportOpen ? (
+              <>
+                <p className="text-[var(--text-secondary)] leading-relaxed">
+                  Tell us what went wrong. Your account is attached so we can reply by email. Do not include passwords, your encryption key or private message text.
+                </p>
+                <SupportForm askEmail={false} defaultTopic="problem" onSent={() => setTimeout(() => setReportOpen(false), 4000)} />
+              </>
+            ) : (
+              <div>
+                <Button variant="tertiary" size="sm" onClick={() => setReportOpen(true)}>
+                  Report a problem
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Private Chat',
+  title: 'Nook',
   description: 'Your conversations.',
   robots: { index: false, follow: false },
 };
