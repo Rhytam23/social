@@ -70,7 +70,10 @@ Use a real Supabase project ([Setup](SETUP.md)) and two browser profiles (or one
 
 ### Files and voice
 - [ ] Send an image and a document; the recipient can download and open them
-- [ ] A file over 25 MB is refused with a clear message
+- [ ] An image over 10 MB, a video over 100 MB (or over the ceiling you set) and any other file over 25 MB are each refused with a clear message before anything uploads
+- [ ] A 5 MB image, a 20 MB video and a 20 MB PDF upload, send and open for the other person (with migration `021` applied)
+- [ ] After `021`, a direct upload to the bucket with the Supabase client and your own session is refused
+- [ ] Uploading more than about 500 MB in a day is refused with the daily limit message; starting more than 6 uploads in a minute is slowed down
 - [ ] Record and send a voice note; it plays with a correct duration
 - [ ] In Storage, the uploaded object is unreadable bytes
 

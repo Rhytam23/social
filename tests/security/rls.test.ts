@@ -326,9 +326,9 @@ describe('row level security, current schema (001 to 017)', () => {
       }
     });
 
-    it('members can upload into their own conversation, and users into their own folder', async () => {
-      expect((await attempt(() => asUser(db, B, (q) => q(`INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('encrypted_attachments', $1, $2)`, [`${ab}/2_ok.bin`, B])))).ok).toBe(true);
-      expect((await attempt(() => asUser(db, C, (q) => q(`INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('encrypted_attachments', $1, $2)`, [`${C}/mine.bin`, C])))).ok).toBe(true);
+    it('since 021 nobody can upload directly: not a member into the conversation, not a user into their own folder', async () => {
+      expect((await attempt(() => asUser(db, B, (q) => q(`INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('encrypted_attachments', $1, $2)`, [`${ab}/2_ok.bin`, B])))).ok).toBe(false);
+      expect((await attempt(() => asUser(db, C, (q) => q(`INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('encrypted_attachments', $1, $2)`, [`${C}/mine.bin`, C])))).ok).toBe(false);
     });
 
     it('only the owner of a folder (or an admin) can delete', async () => {
@@ -337,12 +337,11 @@ describe('row level security, current schema (001 to 017)', () => {
     });
 
     it('the buckets carry their own size and type limits', async () => {
-      const r = await seed(db, `SELECT id, file_size_limit, allowed_mime_types FROM storage.buckets WHERE id IN ('encrypted_attachments','attachments')`);
+      const r = await seed(db, `SELECT id, file_size_limit, allowed_mime_types FROM storage.buckets WHERE id IN ('encrypted_attachments','attachments') ORDER BY id`);
       expect(r.rows).toHaveLength(2);
-      for (const row of r.rows) {
-        expect(Number(row.file_size_limit)).toBe(26214400);
-        expect(row.allowed_mime_types).toEqual(['application/octet-stream']);
-      }
+      const limits = Object.fromEntries(r.rows.map((row) => [row.id as string, Number(row.file_size_limit)]));
+      expect(limits).toEqual({ attachments: 26214400, encrypted_attachments: 104857600 });
+      for (const row of r.rows) expect(row.allowed_mime_types).toEqual(['application/octet-stream']);
     });
   });
 

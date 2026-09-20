@@ -16,6 +16,7 @@ import {
 import { createClient } from '../../lib/supabase/client';
 import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
 import { userError } from '../../lib/ui/errors';
+import { MB, UPLOAD_LIMITS } from '../../lib/limits';
 import { AppearanceSettings } from './AppearanceSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { PrivacySettings, type PrivacySettingsProps } from './PrivacySettings';
@@ -177,12 +178,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErrorMessage('Please choose an image file for your avatar.');
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      setErrorMessage('Please choose a JPEG, PNG, WebP or GIF image for your photo.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage('Avatar images must be under 5MB.');
+    if (file.size > UPLOAD_LIMITS.avatarMb * MB) {
+      setErrorMessage(`Profile photos can be up to ${UPLOAD_LIMITS.avatarMb} MB.`);
       return;
     }
 

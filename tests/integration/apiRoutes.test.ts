@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { POST as postConversations } from '../../app/api/conversations/route';
 import { GET as getMessages, POST as postMessages } from '../../app/api/messages/route';
 import { POST as postGroups } from '../../app/api/groups/route';
-import { POST as postUploads } from '../../app/api/uploads/route';
+import { POST as postUploadSign } from '../../app/api/uploads/sign/route';
+import { POST as postUploadComplete } from '../../app/api/uploads/complete/route';
 import { GET as getUsers } from '../../app/api/users/route';
 import { NextRequest } from 'next/server';
 
@@ -64,13 +65,12 @@ describe('API Routes Security & Verification Suite', () => {
     });
   });
 
-  describe('6. Uploads API (/api/uploads)', () => {
-    it('should reject unauthenticated uploads with 401', async () => {
-      const req = createMockRequest('http://localhost:3000/api/uploads', {
-        method: 'POST',
-      });
-      const res = await postUploads(req);
-      expect(res.status).toBe(401);
+  describe('6. Uploads API (/api/uploads/sign and /complete)', () => {
+    it('should reject unauthenticated upload requests with 401', async () => {
+      const sign = createMockRequest('http://localhost:3000/api/uploads/sign', { method: 'POST', body: { conversationId: 'c', kind: 'image', size: 1 } });
+      expect((await postUploadSign(sign)).status).toBe(401);
+      const complete = createMockRequest('http://localhost:3000/api/uploads/complete', { method: 'POST', body: { path: 'x', kind: 'image' } });
+      expect((await postUploadComplete(complete)).status).toBe(401);
     });
   });
 

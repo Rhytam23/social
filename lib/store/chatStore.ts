@@ -8,7 +8,7 @@ import { extractMentionIds } from '../notifications/rules';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
 import { fetchConversations, fetchLatestMessages, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
-import { uploadEncryptedAttachment, downloadAndDecryptAttachment, MAX_ATTACHMENT_BYTES } from '../messaging/attachments';
+import { uploadEncryptedAttachment, downloadAndDecryptAttachment } from '../messaging/attachments';
 import type { MessageEnvelope, CallOutcome } from '../messaging/envelope';
 import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } from '../messaging/envelopeDisplay';
 import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
@@ -684,9 +684,6 @@ export class ChatStore {
     try {
       let envelope: MessageEnvelope;
       if (attachmentFile) {
-        if (attachmentFile.size > MAX_ATTACHMENT_BYTES) {
-          throw new Error('File exceeds the 25MB limit');
-        }
         const attachmentEnvelope = await uploadEncryptedAttachment(conversationId, attachmentFile);
         envelope = isVoice
           ? { v: 1, kind: 'voice', attachment: attachmentEnvelope, durationMs: voiceDurationMs || 0 }

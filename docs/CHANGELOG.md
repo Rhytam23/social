@@ -4,6 +4,14 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Uploads fixed and limited (September 2026).** Needs migration `021` (deploy the app first).
+
+- **Bug fixed: attachments over 2 MB failed.** The request-size cap added to middleware in the security pass (2 MB on every `/api` route) also caught the upload route, which still advertised 25 MB, and serverless functions cannot take bodies over 4.5 MB anyway.
+- **New upload flow.** `POST /api/uploads/sign` decides (membership, size per kind, rate, daily quota) and returns a signed address; the browser uploads the encrypted file straight to Storage; `POST /api/uploads/complete` confirms the real size and deletes anything over its limit. The old `POST /api/uploads` route is removed. `021` removes the direct client upload policy so this is the only way in.
+- **Limits** (`lib/limits.ts`): images 10 MB, videos 100 MB, other files 25 MB, never above `NEXT_PUBLIC_STORAGE_MAX_FILE_MB` (default 50 for the free Supabase plan); 6 upload starts a minute, 30 an hour and 500 MB a day per account; profile photos 2 MB. No chunking: larger files are refused with a clear message. Files are encrypted, so the server cannot tell an image from a video; the deployment ceiling and the daily quota are the real cost bound.
+- **Stored names are opaque** (`<conversation>/<user id>_<random>`): the real file name only exists inside the encrypted message. Removed `sanitizeFileName`, which is no longer needed.
+- No byte-level progress bar: Supabase's official signed-upload call does not report progress, and it could not be tested against a live project here.
+
 **Production audit: design, performance and search (September 2026).** Migration `020` is optional.
 
 - **Landing page rebuilt as plain HTML.** The home page is now a server component that says only what the product does today: no invented conversations or screenshots, no 3D scene, no decorative effects. Buttons are real links to `/login` and `/signup`. Removed `three`, `@types/three` and the scene code. The old copy that said "one device per account" was wrong since multi-device linking and is fixed.

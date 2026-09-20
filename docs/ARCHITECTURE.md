@@ -102,7 +102,7 @@ On conversation open, history comes from `GET /api/messages` (newest first, page
 ### Attachments and voice notes
 
 1. The browser generates a random AES-256-GCM key and encrypts the file.
-2. The ciphertext is uploaded through `POST /api/uploads` into the private `encrypted_attachments` bucket at `<conversationId>/<random uuid>_<safe name>`.
+2. The browser asks `POST /api/uploads/sign` for permission (membership, size per kind, rate, daily quota), uploads the ciphertext straight to the private `encrypted_attachments` bucket at `<conversationId>/<user id>_<random uuid>` using the signed address it received, and `POST /api/uploads/complete` confirms the real size. Clients cannot upload to that bucket any other way (migration `021`).
 3. The storage path, key, IV, file name, type and size go **inside** the encrypted message envelope. The database never sees them.
 4. Recipients download the ciphertext with the Supabase client (row level security on storage) and decrypt in the browser on demand.
 

@@ -13,6 +13,7 @@ Finish [Setup](SETUP.md) first (Supabase project, migrations, auth settings). De
    |---|---|
    | `NEXT_PUBLIC_SUPABASE_URL` | Copy from Supabase. Do not retype it. |
    | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Public key. |
+| `NEXT_PUBLIC_STORAGE_MAX_FILE_MB` | Optional. Largest single file in MB (default 50, the free Supabase plan's limit). Set 100 after upgrading to allow 100 MB videos. Rebuild after changing it. |
 | `NEXT_PUBLIC_SITE_URL` | Your production address, for example `https://chat.example.com`. Used for canonical links, the sitemap, `robots.txt`, link previews and structured data. On Vercel the project's production domain is used when this is not set; without either, those are left out rather than pointing at a wrong host. |
    | `SUPABASE_SERVICE_ROLE_KEY` | Secret. Mark it **Sensitive**. Vercel warns ("Needs Attention") on secret-looking variables that are not. |
    | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional. Recommended once you run more than one instance. |
@@ -57,7 +58,7 @@ Preview deployments use whatever variables are set for the Preview environment. 
 - [ ] No secrets in git (`.env*` files are ignored except `.env.example`; the service-role key is only in host settings). If a secret was ever committed, it must be **rotated**: removing it from the code does not remove it from git history
 
 **Database and Supabase**
-- [ ] All migrations `001` to `020` applied in order (run the check queries in [Setup](SETUP.md#3-run-the-database-migrations)); `017` and `018` carry security fixes, `019` powers the admin error log
+- [ ] All migrations `001` to `021` applied in order (run the check queries in [Setup](SETUP.md#3-run-the-database-migrations)); `017` and `018` carry security fixes, `019` powers the admin error log
 - [ ] Realtime is on for `messages`, and Realtime Authorization is set up so the private typing and call channels work
 - [ ] `select username, is_admin from profiles;` shows only the people who should be admin (the first account created is admin)
 - [ ] Storage buckets exist; `encrypted_attachments` is private

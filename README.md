@@ -23,7 +23,7 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 - Live delivery of new messages, edits and deletes (Supabase Realtime)
 - Replies, edit, delete, forward, emoji reactions
 - Honest send states: `sending`, `sent`, `failed` with retry (never marked delivered when the server rejected it)
-- Encrypted file attachments (up to 25 MB) and voice notes with real playback
+- Encrypted file attachments (images up to 10 MB, videos up to 100 MB, other files up to 25 MB, all within a per-account daily quota) and voice notes with real playback
 
 **Encryption** (details in [`docs/E2EE.md`](docs/E2EE.md))
 - 1:1 messages: X25519 key agreement with XSalsa20-Poly1305 (libsodium)
@@ -38,7 +38,7 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 - Profile photo upload, notification permission, key backup and device list
 - Admin dashboard: roles, reports, the error log and admin activity
 
-**Platform features** (need migrations 011 to 020; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
+**Platform features** (need migrations 011 to 021; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
 - Themes: **follows the device's light or dark setting by default**, or choose Dark or Light; quick switcher (Ctrl+K), keyboard shortcuts, accessible dialogs
 - Profiles with bio, pronouns and time zone; presence statuses; typing indicators; read receipts
 - Group roles, admin-only posting, threads, saved messages, @mentions, message formatting
@@ -68,7 +68,7 @@ cp .env.example .env.local     # then fill in the three Supabase values
 ```
 
 1. Create a Supabase project and copy the **Project URL**, **anon key** and **service_role key** (Project Settings → API) into `.env.local`.
-2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in strict numeric order** (`001` to `020`). Each needs the ones before it. `017` and `018` carry security fixes; `020` is a performance improvement the app works without.
+2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in strict numeric order** (`001` to `021`). Each needs the ones before it. `017` and `018` carry security fixes; `020` is a performance improvement the app works without.
 3. In Supabase → Authentication, turn on **Confirm email** and add `http://localhost:3000/auth/confirm` to the Redirect URLs. Make sure Realtime Authorization is set up so typing indicators and calls work (see [Setup](docs/SETUP.md#6-verify-the-storage-buckets-and-realtime)).
 4. Start the app:
 
@@ -136,7 +136,7 @@ components/   UI by area: auth, chat, messages, groups, community, calls, settin
 crypto/       Browser encryption: keys, 1:1, groups, attachments, backup (libsodium, WebCrypto)
 lib/          store/ (ChatStore), messaging/ (crypto orchestration, envelopes), api/ (shared route security helpers),
               rate-limit/, supabase/, auth/, calls/, realtime/, ui/ (theme)
-database/     SQL migrations 001-020: the only definition of the schema
+database/     SQL migrations 001-021: the only definition of the schema
 docs/         Documentation (start at docs/README.md or docs/MAINTAINER_GUIDE.md)
 hooks/        React hooks
 tests/        Vitest suites (tests/security runs the real migrations on an in-process Postgres)

@@ -30,7 +30,7 @@ What the app protects, what it deliberately does not, the rules contributors mus
 - **The service-role key is server only**, used only in `lib/supabase/admin.ts` for admin role changes. It is not a `NEXT_PUBLIC_` variable and is absent from the client bundle (checked).
 - **People are found by exact username only** (`/api/users?username=`); email and phone are never returned and are hidden by column privileges (`011`, `016`). **Limit:** any signed-in user can still read the non-private `profiles` columns (username, display name, photo, bio) with the Supabase API, so username-only lookup is enforced by the app, not by RLS.
 - **Private conversations are capped at two members** by a trigger.
-- **Storage.** Encrypted uploads into a private bucket, 25 MB and `application/octet-stream` enforced by the bucket itself, path scoped to the conversation, random file names.
+- **Storage.** Encrypted uploads into a private bucket, `application/octet-stream` and the ceiling enforced by the bucket itself, path scoped to the conversation, random file names. Since `021` clients cannot write to the bucket directly: uploads need a signed address from `/api/uploads/sign`, which enforces membership, size per kind (image 10 MB, video 100 MB, other 25 MB), rate and a 500 MB daily quota, and `/api/uploads/complete` deletes anything whose real size is over its limit. Because files are encrypted the server cannot see the kind, so a dishonest client can use the deployment ceiling (`NEXT_PUBLIC_STORAGE_MAX_FILE_MB`); the ceiling and the quota are the real cost bound.
 - **Profile photo URLs** must be the project's avatars bucket or Google's image host.
 
 **Requests**
@@ -69,7 +69,7 @@ Layers, from the outside in. Only the last two are in this repository; the rest 
 4. **Per-route and per-account limits** in `app/api/*` (`lib/api/security.ts`). Keyed on the platform's trusted client-address header, and on the account, so changing a header does not help.
 5. **Database write limits** (`018`): 120 messages and 200 reactions a minute and 30 new conversations an hour per account, enforced by triggers so they also stop someone who calls Supabase directly.
 
-Weak points: in-memory limits are per server instance (on serverless they are weaker than they look) unless Upstash Redis is configured; direct uploads to Storage are size-limited but not rate limited; sign-up is limited by Supabase, not by this code.
+Weak points: in-memory limits are per server instance (on serverless they are weaker than they look) unless Upstash Redis is configured; the server cannot see how many uploads are still running, so it limits how fast they can start; sign-up is limited by Supabase, not by this code.
 
 ## Rules for contributors
 
@@ -98,7 +98,7 @@ Ordered roughly by importance. Also tracked in the [Roadmap](ROADMAP.md).
 5. **The first account becomes platform admin.** Check `profiles.is_admin` after installing.
 6. **Profile columns are readable by any signed-in user** (username, display name, photo, bio); username-only search is an application rule.
 7. **A group admin's device must be online** to share group keys with a new member or a new community member.
-8. **In-memory rate limits are per instance** without Upstash; direct storage uploads are not rate limited.
+8. **In-memory rate limits are per instance** without Upstash; the number of uploads in progress is bounded by the start rate, not counted.
 9. **Security headers are not present on middleware redirects** and the production misconfiguration 500, because those responses are built separately.
 10. **No audit log** of admin actions beyond a server log line.
 11. **No CI**: nothing forces the checks to run before a merge.

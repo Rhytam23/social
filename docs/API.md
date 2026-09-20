@@ -90,9 +90,13 @@ Stores an error that happened in someone's browser in the admin error log. Signe
 
 ## Files
 
-### `POST /api/uploads` (20/min)
-`multipart/form-data` with `file` (already encrypted by the browser) and `conversationId`. Active members only. Maximum 25 MB. Stored in `encrypted_attachments` at `<conversationId>/<random uuid>_<safeName>` as `application/octet-stream`. The file name is reduced to safe characters (no path separators, no leading dot, at most 120 characters).
-- `201 { path, fileName, fileSize, uploadedAt }` · `413` too large · `403` not a member.
+### `POST /api/uploads/sign` (60/min per address; 6/min and 30/hour per account)
+Body `{ conversationId, kind: 'image' | 'video' | 'file', size }` (size in bytes of the already encrypted file). Active members only. Checks the size against the limit for the kind (image 10 MB, video 100 MB, other 25 MB, never above `NEXT_PUBLIC_STORAGE_MAX_FILE_MB`, default 50) and the account's daily quota (500 MB in 24 hours, from migration `021`). The file itself never passes through this server (serverless functions cannot take bodies over 4.5 MB): the reply is a one-file signed upload address and the browser uploads the ciphertext straight to Storage. The stored name is `<conversationId>/<your user id>_<random uuid>`; the real file name lives only inside the encrypted message.
+- `201 { path, token }` · `400` malformed · `401` · `403` not a member · `413` over the limit for its kind · `429` rate or daily quota · `503` server key not configured.
+
+### `POST /api/uploads/complete` (120/min)
+Body `{ path, kind }`, sent after the upload. Confirms the object exists, belongs to the caller and that its **real** size is within the limit for its kind; an oversized object is deleted, so a client that under-declared the size when signing stores nothing.
+- `200 { path, size }` · `400` path not one issued to this account · `404` not found · `413` too large (and removed).
 
 ## Admin
 

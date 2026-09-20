@@ -38,7 +38,8 @@ const BOOTSTRAP = `
   );
   CREATE TABLE storage.objects (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    bucket_id TEXT, name TEXT, owner UUID
+    bucket_id TEXT, name TEXT, owner UUID,
+    metadata JSONB, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
   );
   ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
   CREATE FUNCTION storage.foldername(name TEXT) RETURNS TEXT[] LANGUAGE sql IMMUTABLE AS

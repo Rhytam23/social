@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 020**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 021**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -26,6 +26,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `016_username_only_discovery.sql` | Revokes client access to `find_profiles_by_contact()` (people are found by exact username only) | Yes |
 | `017_security_hardening.sql` | Security fixes from the September 2026 audit: `conversation_has_members()`, creator-only-while-empty membership insert, `guard_membership_identity`, group key envelopes only from group admins, `is_blocked_in_conversation()` and a working blocking rule, `guard_message_columns` and `guard_receipt_identity` triggers, storage size and type limits, invite caps, an avatar URL allow-list, and Realtime Authorization policies for the typing and call channels | Yes |
 | `018_devices_and_flood_limits.sql` | At most 3 registered device keys per account (`limit_devices_per_user`); per-account write limits inside the database (`enforce_write_rate`: 120 messages and 200 reactions per minute, 30 new conversations per hour) | Yes |
+| `021_upload_limits.sql` | Attachments only through signed uploads: drops the client upload policy, sets the bucket ceiling (100 MB) and the avatar limit (2 MB, images), adds `uploaded_bytes_last_day()` for the daily quota. **Deploy the matching app version before running it** | Yes |
 | `020_latest_messages.sql` | `get_latest_messages(uuid[])`: the newest message of each conversation in one query, for the sidebar previews. Runs with the caller's own rights, so row level security decides what is returned. Optional: without it the app makes one request per conversation | Yes |
 | `019_admin_logs.sql` | The admin error log and admin activity log: tables `error_logs` and `admin_audit_log` (readable by platform admins only), the server-only ingest functions `log_error()` and `log_admin_action()`, and the admin actions `admin_set_error_status()` and `admin_clear_errors()`. 30-day retention and a 5,000-row cap | Yes |
 
@@ -98,7 +99,7 @@ Remaining caveat, recorded in [Security](SECURITY.md#known-gaps): any signed-in 
 | `attachments` | Private | Created by `004` with the same rules; the app currently uses `encrypted_attachments` |
 | `avatars` | Public read | Profile photos at `<userId>/...`; only the owner can write |
 
-Since `017` both attachment buckets are limited to 25 MB and `application/octet-stream` (the files are ciphertext), so the limit holds even if someone uploads directly to Storage instead of through the API. Direct uploads are not rate limited per account.
+Since `017` both attachment buckets are limited to `application/octet-stream` (the files are ciphertext). Since `021` the `encrypted_attachments` bucket takes files up to 100 MB (the Supabase plan limit wins: 50 MB on the free plan) and **has no client upload policy**: files can only be stored through the signed addresses the server issues after checking size, rate and quota. `avatars` is limited to 2 MB of JPEG, PNG, WebP or GIF. The function `uploaded_bytes_last_day(uuid)` (server only) totals what one account stored in the last 24 hours, reading the uploader from the file name.
 
 ## Realtime
 

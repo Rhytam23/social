@@ -116,15 +116,3 @@ export function uuidList(v: unknown, max: number): string[] | null {
   if (!v.every(isUuid)) return null;
   return Array.from(new Set(v.map((s) => s.toLowerCase())));
 }
-
-/** Keeps only safe characters, so a name can never carry a path, a control character or a hidden file. */
-export function sanitizeFileName(fileName: string): string {
-  const cleaned = fileName
-    .normalize('NFKC')
-    .replace(/[^A-Za-z0-9._ -]/g, '_')
-    .replace(/\.{2,}/g, '.')
-    .replace(/^[.\s]+/, '')
-    .trim()
-    .slice(0, 120);
-  return cleaned || 'file';
-}

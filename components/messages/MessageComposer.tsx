@@ -2,8 +2,8 @@ import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { MessageData, ReplyReference } from '../../types/ui';
 import { IconFile, IconMic, IconPaperclip, IconSend, IconX } from '../ui/icons';
 import { wrapSelection } from '../../lib/messaging/richText';
+import { maxUploadBytes, uploadKindFor, uploadLimitMessage } from '../../lib/limits';
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 export interface MessageComposerProps {
   onSendMessage: (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number) => void;
@@ -110,8 +110,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_FILE_BYTES) {
-      setComposerError(`"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB - the limit is 25MB.`);
+    const kind = uploadKindFor(file.type || 'application/octet-stream');
+    if (file.size > maxUploadBytes(kind)) {
+      setComposerError(`"${file.name}": ${uploadLimitMessage(kind, file.size)}`);
       e.target.value = '';
       return;
     }
