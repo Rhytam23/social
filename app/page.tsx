@@ -26,6 +26,7 @@ import { createKeyBackup, restoreKeyBackup } from '../crypto';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
 
+import { Button } from '../components/ui/button';
 export default function HomePage() {
   const [state, store] = useChatStore();
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
@@ -486,16 +487,16 @@ export default function HomePage() {
       <div className="h-screen w-screen bg-[var(--canvas-bg)] flex flex-col items-center justify-center font-sans text-center p-6 gap-3">
         <h1 className="text-sm font-bold text-rose-400">You&apos;re signed in, but setup didn&apos;t finish</h1>
         <p className="text-xs text-slate-400 max-w-sm break-words">{bootError}</p>
-        <button
+        <Button
+          variant="secondary"
           onClick={() => {
             setBootError(null);
             setAuthLoading(true);
             void bootstrapSession();
           }}
-          className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer"
         >
           Try again
-        </button>
+        </Button>
       </div>
     );
   }
@@ -506,12 +507,9 @@ export default function HomePage() {
       return (
         <div data-theme="dark" className="relative min-h-screen bg-[var(--canvas-bg)]">
           <div className="absolute top-4 left-4 z-50">
-            <button
-              onClick={() => setAuthModalTab(null)}
-              className="px-3.5 py-1.5 bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 rounded-xl text-xs font-semibold backdrop-blur-md transition-colors flex items-center gap-1.5 cursor-pointer shadow-md"
-            >
-              ← Back to Overview
-            </button>
+            <Button variant="tertiary" size="sm" onClick={() => setAuthModalTab(null)}>
+              ← Back to overview
+            </Button>
           </div>
           <LoginForm
             initialTab={authModalTab}
@@ -532,17 +530,18 @@ export default function HomePage() {
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden">
       {state.mode === 'demo' && (
-        <div className="bg-emerald-950/60 border-b border-emerald-500/20 px-4 py-1.5 flex items-center justify-between text-[11px] text-emerald-300 font-sans z-50">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold">Local Demo Environment (development only, not connected to Supabase)</span>
+        <div className="bg-[var(--surface-1)] border-b border-[var(--border-subtle)] px-4 py-1.5 flex items-center justify-between gap-3 text-[11px] text-[var(--text-secondary)] font-sans z-50">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--accent-primary)] shrink-0" />
+            <span className="truncate">Local demo: sample data, not connected to Supabase</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-emerald-400/80">Active Persona:</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <label htmlFor="demo-persona" className="text-[var(--text-muted)]">Persona</label>
             <select
+              id="demo-persona"
               value={state.currentUser.id}
               onChange={(e) => store.switchDemoUser(e.target.value)}
-              className="bg-emerald-900/80 border border-emerald-600/40 text-emerald-100 text-xs rounded px-2 py-0.5 font-medium focus:outline-none"
+              className="field !w-auto !py-0.5 !text-[11px]"
             >
               {state.allUsers.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -555,9 +554,9 @@ export default function HomePage() {
       )}
 
       {state.error && (
-        <div className="bg-rose-950/60 border-b border-rose-500/20 px-4 py-1.5 flex items-center justify-between text-[11px] text-rose-300 font-sans z-50">
+        <div role="alert" className="bg-[var(--danger-subtle)] border-b border-[var(--danger-neutral)]/25 px-4 py-1.5 flex items-center justify-between text-[11px] text-[var(--danger-neutral)] font-sans z-50">
           <span>{state.error}</span>
-          <button onClick={() => store.clearError()} className="text-rose-400 hover:text-white font-semibold">
+          <button onClick={() => store.clearError()} className="font-semibold hover:underline">
             Dismiss
           </button>
         </div>

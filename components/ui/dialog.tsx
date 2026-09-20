@@ -63,7 +63,7 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 backdrop-blur-xs animate-in"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4 bg-black/60 animate-in"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -71,7 +71,7 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto bg-[var(--surface-1)] border border-[var(--border-strong)] p-6 shadow-[var(--shadow-pop)] rounded-t-2xl sm:rounded-2xl flex flex-col gap-5 text-[var(--text-primary)] animate-in slide-in-from-bottom sm:zoom-in-95 safe-bottom outline-none"
+        className="w-full sm:max-w-md max-h-[90vh] overflow-y-auto floating p-6 !rounded-b-none sm:!rounded-b-[var(--radius-card)] flex flex-col gap-5 text-[var(--text-primary)] animate-in slide-in-from-bottom sm:zoom-in-95 safe-bottom outline-none"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}

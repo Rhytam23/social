@@ -39,7 +39,7 @@ export const PeopleDirectory: React.FC<PeopleDirectoryProps> = ({ contacts, onLo
         ) : (
           <ul className="flex flex-col gap-1.5">
             {contacts.map((u) => (
-              <li key={u.id} className="p-3 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex items-center justify-between gap-3">
+              <li key={u.id} className="panel p-3 flex items-center justify-between gap-3">
                 <button type="button" onClick={() => onOpenProfile(u)} className="flex items-center gap-3 min-w-0 text-left">
                   <Avatar name={u.name} src={u.avatarUrl} size="md" presence={u.presence ?? 'offline'} />
                   <span className="min-w-0">

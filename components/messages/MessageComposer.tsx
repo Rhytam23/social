@@ -227,7 +227,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
 
   return (
     <div className="p-3 sm:p-4 bg-gradient-to-t from-[var(--canvas-bg)] to-transparent flex flex-col gap-2 font-sans shrink-0">
-      <div className="bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl p-2.5 shadow-lg flex flex-col gap-2 transition-all focus-within:border-slate-500/50">
+      <div className="panel p-2.5 flex flex-col gap-2 transition-[border-color,box-shadow] focus-within:border-[var(--accent-line)] focus-within:shadow-[0_0_0_3px_var(--accent-subtle)]">
 
         {composerError && (
           <div className="flex items-center justify-between px-3 py-2 bg-rose-950/30 border border-rose-500/30 rounded-xl text-xs text-rose-300">
@@ -405,10 +405,11 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               type="button"
               onClick={handleSend}
               disabled={!canSend}
-              className={`p-2.5 rounded-xl flex items-center justify-center transition-all shrink-0 ${
+              aria-label="Send message"
+              className={`pressable w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                 canSend
-                  ? 'bg-slate-100 text-slate-950 hover:bg-white active:scale-95 shadow-md'
-                  : 'bg-slate-800 text-slate-600 cursor-not-allowed opacity-60'
+                  ? 'bg-[var(--accent-primary)] text-[var(--accent-contrast)] hover:bg-[var(--accent-primary-hover)] shadow-[inset_0_1px_0_rgba(255,255,255,0.22)]'
+                  : 'bg-[var(--surface-2)] text-[var(--text-muted)] cursor-not-allowed'
               }`}
               title="Send message (Enter)"
             >

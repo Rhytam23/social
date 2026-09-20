@@ -27,6 +27,22 @@ export const PRESENCE_LABEL: Record<UserPresence, string> = {
   offline: 'Offline',
 };
 
+/** Muted, low-chroma tones so a list of people reads as people, not as a rainbow. */
+const AVATAR_TONES = [
+  'bg-[#3b4a5c] text-[#d3deea]',
+  'bg-[#37504f] text-[#cfe3e0]',
+  'bg-[#514a3c] text-[#e6dcc6]',
+  'bg-[#563f45] text-[#ecd4d9]',
+  'bg-[#3f4d3f] text-[#d6e4d3]',
+  'bg-[#454356] text-[#dad8ea]',
+] as const;
+
+export function avatarTone(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
+  return AVATAR_TONES[Math.abs(h) % AVATAR_TONES.length];
+}
+
 export function initialsOf(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
@@ -51,7 +67,7 @@ export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 'md', presence
     ) : (
       <span
         aria-hidden="true"
-        className={`${SIZES[size]} rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 font-bold flex items-center justify-center select-none`}
+        className={`${SIZES[size]} rounded-full ${avatarTone(name)} font-semibold flex items-center justify-center select-none ring-1 ring-inset ring-white/10`}
       >
         {initialsOf(name)}
       </span>

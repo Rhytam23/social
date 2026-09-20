@@ -15,6 +15,7 @@ import {
   IconThread,
 } from '../ui/icons';
 import { VoiceMessagePreview } from './VoiceMessagePreview';
+import { Avatar } from '../ui/avatar';
 import { MessageInfoModal } from './MessageInfoModal';
 
 export interface MessageItemProps {
@@ -85,14 +86,6 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
   const quickEmojis = ['👍', '❤️', '💡', '🔥'];
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .substring(0, 2);
-  };
 
   const handleCopyText = () => {
     navigator.clipboard.writeText(message.content);
@@ -101,20 +94,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   return (
     <>
       <div
-        className={`flex items-start gap-3 my-2.5 max-w-[85%] sm:max-w-[75%] font-sans ${
+        className={`anim-message flex items-start gap-3 my-2 max-w-[88%] sm:max-w-[72%] font-sans ${
           isSelf ? 'self-end flex-row-reverse' : 'self-start flex-row'
         }`}
       >
         {/* User Avatar */}
-        <div
-          className={`w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 border shadow-xs mt-0.5 ${
-            isSelf
-              ? 'bg-slate-700 text-slate-100 border-slate-600'
-              : 'bg-slate-800 text-slate-300 border-slate-700'
-          }`}
-        >
-          {isSelf ? 'YOU' : getInitials(message.senderName)}
-        </div>
+        <Avatar name={isSelf ? 'You' : message.senderName} size="sm" className="mt-0.5" />
 
         <div className={`flex flex-col gap-1 min-w-0 ${isSelf ? 'items-end' : 'items-start'}`}>
           {/* Header Metadata Line */}
@@ -143,15 +128,15 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
           {/* Bubble Box */}
           <div
-            className={`p-3.5 rounded-2xl border text-sm leading-relaxed relative group shadow-sm transition-all min-w-0 max-w-full ${
+            className={`px-3.5 py-2.5 rounded-2xl border text-sm leading-relaxed relative group transition-colors min-w-0 max-w-full ${
               isSelf
-                ? 'bg-[var(--surface-2)] border-slate-700/70 text-slate-100 rounded-tr-xs'
-                : 'bg-[var(--surface-1)] border-slate-800 text-slate-200 rounded-tl-xs'
+                ? 'bg-[var(--accent-subtle)] border-emerald-500/20 text-slate-100 rounded-tr-md'
+                : 'bg-[var(--surface-1)] border-[var(--border-subtle)] text-slate-200 rounded-tl-md shadow-[var(--edge-light)]'
             }`}
           >
             {/* Quoted Reply Reference */}
             {message.replyTo && (
-              <div className="mb-2.5 p-2.5 bg-slate-950/40 border-l-2 border-slate-400 text-xs text-slate-300 rounded-r-xl">
+              <div className="mb-2.5 p-2.5 bg-black/15 border-l-2 border-emerald-500/60 text-xs text-slate-300 rounded-r-lg">
                 <span className="font-semibold block text-slate-200 mb-0.5">
                   {message.replyTo.senderName}
                 </span>
@@ -288,7 +273,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
 
             {/* Contextual Action Hover Toolbar (Desktop & Mobile Touch Menu) */}
             <div
-              className={`absolute -top-3.5 ${actionsOpen ? 'flex' : 'hidden'} group-hover:flex group-focus-within:flex items-center gap-1 bg-[var(--canvas-bg)] border border-slate-700 p-1 rounded-xl shadow-xl z-20 ${
+              className={`absolute -top-3.5 ${actionsOpen ? 'flex' : 'hidden'} group-hover:flex group-focus-within:flex items-center gap-1 floating !rounded-xl p-1 z-20 ${
                 isSelf ? 'right-2' : 'left-2'
               }`}
             >

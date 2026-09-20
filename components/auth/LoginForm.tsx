@@ -6,6 +6,7 @@ import { createClient } from '../../lib/supabase/client';
 import { getChatStore } from '../../lib/store/chatStore';
 import { isSupabaseConfigured as checkSupabaseConfigured } from '../../lib/supabase/env';
 import { IconCheck, IconLock } from '../ui/icons';
+import { Button } from '../ui/button';
 
 import Link from 'next/link';
 
@@ -25,8 +26,7 @@ const PASSWORD_RULES = [
 
 type Field = 'displayName' | 'email' | 'password' | 'confirmPassword';
 
-const INPUT_CLASS =
-  'w-full bg-slate-950/70 border p-2.5 rounded-xl text-xs text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-slate-700';
+const INPUT_CLASS = 'field';
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   initialTab = 'signin',
@@ -110,7 +110,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const touch = (f: Field) => setTouched((t) => ({ ...t, [f]: true }));
 
   const inputClass = (f: Field) =>
-    `${INPUT_CLASS} ${shownError(f) ? 'border-rose-500/60' : 'border-slate-800'}`;
+    `${INPUT_CLASS} ${shownError(f) ? '!border-[var(--danger-neutral)]' : ''}`;
 
   const resetFeedback = () => {
     setErrorMsg(null);
@@ -331,30 +331,32 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </div>
           )}
 
-          <button
+          <Button
             type="button"
+            variant="primary"
+            fullWidth
             onClick={handleResend}
             disabled={isResending || resendCooldown > 0}
-            className="w-full py-2.5 bg-slate-100 hover:bg-white text-slate-950 font-semibold text-xs rounded-xl transition-all disabled:opacity-50 cursor-pointer"
           >
             {isResending
               ? 'Sending...'
               : resendCooldown > 0
               ? `Resend confirmation email (${resendCooldown}s)`
               : 'Resend confirmation email'}
-          </button>
+          </Button>
 
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            fullWidth
             onClick={() => {
               setPendingEmail(null);
               setPassword('');
               switchTab('signin');
             }}
-            className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs rounded-xl transition-all cursor-pointer"
           >
             Return to sign in
-          </button>
+          </Button>
 
           {pendingReason === 'signup' && (
             <button
@@ -385,14 +387,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     >
       <div className="flex flex-col gap-4 font-sans text-xs">
         {/* Sign In vs Sign Up Tabs */}
-        <div className="flex bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+        <div role="tablist" aria-label="Sign in or create an account" className="flex gap-1 bg-[var(--surface-2)] p-1 rounded-lg border border-[var(--border-subtle)]">
           <button
             type="button"
             onClick={() => switchTab('signin')}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
+            className={`pressable flex-1 h-8 px-3 rounded-md text-xs font-semibold ${
               tab === 'signin'
-                ? 'bg-slate-800 text-slate-100 shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[var(--surface-hover)] text-[var(--text-primary)] shadow-[var(--edge-light),var(--shadow-1)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             Sign In
@@ -400,10 +402,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           <button
             type="button"
             onClick={() => switchTab('signup')}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
+            className={`pressable flex-1 h-8 px-3 rounded-md text-xs font-semibold ${
               tab === 'signup'
-                ? 'bg-slate-800 text-slate-100 shadow-xs'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'bg-[var(--surface-hover)] text-[var(--text-primary)] shadow-[var(--edge-light),var(--shadow-1)]'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             Create Account
@@ -412,11 +414,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
         {isSupabaseConfigured && (
           <>
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="lg"
+              fullWidth
               onClick={handleGoogleSignIn}
               disabled={isGoogleLoading || isSubmitting}
-              className="w-full py-2.5 px-4 bg-white hover:bg-slate-100 text-slate-900 font-semibold rounded-xl text-xs transition-all shadow-xs disabled:opacity-60 cursor-pointer flex items-center justify-center gap-2.5"
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" className="w-4 h-4 shrink-0">
                 <path fill="#4285F4" d="M23.5 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.45a5.51 5.51 0 0 1-2.39 3.62v3h3.87c2.27-2.09 3.57-5.17 3.57-8.81z" />
@@ -425,7 +429,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 <path fill="#EA4335" d="M12 4.77c1.76 0 3.35.61 4.6 1.8l3.43-3.43C17.95 1.19 15.24 0 12 0A12 12 0 0 0 1.27 6.64l4 3.09C6.22 6.88 8.87 4.77 12 4.77z" />
               </svg>
               <span>{isGoogleLoading ? 'Redirecting to Google...' : 'Continue with Google'}</span>
-            </button>
+            </Button>
 
             <div className="flex items-center gap-3 text-[11px] text-slate-500" role="separator">
               <span className="flex-1 h-px bg-slate-800" />
@@ -493,7 +497,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <div className="flex flex-col gap-1">
               <div className="flex items-center justify-between">
                 <label htmlFor="auth-phone" className="text-slate-300 font-semibold">Phone Number</label>
-                <span className="text-[10px] text-slate-500">(Optional for discovery)</span>
+                <span className="text-[10px] text-slate-500">(Optional, kept private)</span>
               </div>
               <input
                 id="auth-phone"
@@ -501,7 +505,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 placeholder="+1 555-0199"
                 value={phoneNumber}
                 onChange={(e) => setPhoneNumber(e.target.value)}
-                className={`${INPUT_CLASS} border-slate-800`}
+                className={INPUT_CLASS}
               />
             </div>
           )}
@@ -568,11 +572,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full py-3 px-4 bg-slate-100 hover:bg-white text-slate-950 font-semibold rounded-xl text-xs transition-all shadow-xs disabled:opacity-50 mt-2 cursor-pointer flex items-center justify-center gap-2"
-          >
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} className="mt-2">
             <IconLock className="w-3.5 h-3.5" />
             <span>
               {isSubmitting
@@ -583,7 +583,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 ? 'Create Account & Generate Keys'
                 : 'Sign In & Unlock Keys'}
             </span>
-          </button>
+          </Button>
 
           {/* Demo Mode Personas - Only shown when Supabase URL is placeholder */}
           {!isSupabaseConfigured && (
@@ -595,7 +595,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 <button
                   type="button"
                   onClick={() => handleQuickDemoLogin('usr-alice', 'alice@privatechat.internal')}
-                  className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-slate-200 text-xs transition-colors"
+                  className="pressable p-2 bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-lg text-left text-xs"
                 >
                   <div className="font-semibold text-white">Alice Vance</div>
                   <div className="text-[10px] text-slate-400">Admin</div>
@@ -603,7 +603,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                 <button
                   type="button"
                   onClick={() => handleQuickDemoLogin('usr-bob', 'bob@privatechat.internal')}
-                  className="p-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 rounded-lg text-left text-slate-200 text-xs transition-colors"
+                  className="pressable p-2 bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] border border-[var(--border-subtle)] rounded-lg text-left text-xs"
                 >
                   <div className="font-semibold text-white">Bob Miller</div>
                   <div className="text-[10px] text-slate-400">Member</div>

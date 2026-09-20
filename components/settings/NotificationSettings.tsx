@@ -24,7 +24,7 @@ export const NotificationSettings: React.FC = () => {
   };
 
   return (
-    <section aria-label="Notifications" className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col">
+    <section aria-label="Notifications" className="panel flex flex-col">
       <SettingRow title="Notify me about" description="Direct messages always alert you in &quot;Mentions only&quot;. Do Not Disturb and In a meeting silence everything.">
         <select
           aria-label="Notification level"

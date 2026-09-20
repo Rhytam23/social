@@ -16,8 +16,8 @@ export const MessageInfoModal: React.FC<MessageInfoModalProps> = ({
   if (!isOpen || !message) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-sm bg-[var(--surface-1)] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col p-6 gap-5">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-sm floating overflow-hidden flex flex-col p-6 gap-5">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-3">
           <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">

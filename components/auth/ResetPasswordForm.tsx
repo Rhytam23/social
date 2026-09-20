@@ -7,6 +7,7 @@ import { AuthLayout } from './AuthLayout';
 import { createClient } from '../../lib/supabase/client';
 import { IconCheck } from '../ui/icons';
 
+import { Button } from '../ui/button';
 export const ResetPasswordForm: React.FC = () => {
   const router = useRouter();
   const [password, setPassword] = useState('');
@@ -94,7 +95,7 @@ export const ResetPasswordForm: React.FC = () => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500/60 p-3 rounded-xl text-slate-100 text-xs focus:outline-none transition-all placeholder:text-slate-600"
+              className="field"
             />
           </div>
 
@@ -107,21 +108,13 @@ export const ResetPasswordForm: React.FC = () => {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500/60 p-3 rounded-xl text-slate-100 text-xs focus:outline-none transition-all placeholder:text-slate-600"
+              className="field"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting || !password || !confirmPassword}
-            className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 mt-1"
-          >
-            {isSubmitting ? (
-              <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <span>Save New Password</span>
-            )}
-          </button>
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} disabled={!password || !confirmPassword} className="mt-1">
+            Save new password
+          </Button>
         </form>
       )}
     </AuthLayout>

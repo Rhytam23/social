@@ -116,7 +116,7 @@ export class LiveChannels {
     this.typingConversation = conversationId;
     if (!conversationId) return;
     this.typingChannel = this.supabase
-      .channel(`pc-typing:${conversationId}`, { config: { broadcast: { self: false } } })
+      .channel(`pc-typing:${conversationId}`, { config: { broadcast: { self: false }, private: true } })
       .on('broadcast', { event: 'typing' }, ({ payload }) => {
         if (!getPreferences().privacy.typingIndicators) return;
         const uid = (payload as { userId?: string })?.userId;

@@ -114,7 +114,7 @@ export class CallManager {
   // ---- lifecycle ----
   start(): void {
     this.inbox = this.supabase
-      .channel(`pc-call:${this.myId}`, { config: { broadcast: { self: false } } })
+      .channel(`pc-call:${this.myId}`, { config: { broadcast: { self: false }, private: true } })
       .on('broadcast', { event: 'signal' }, ({ payload }) => void this.receive(payload as { from: string; body: { ciphertext: string; nonce: string; encryptionVersion: number } }))
       .subscribe();
   }
@@ -132,7 +132,7 @@ export class CallManager {
     let existing = this.outbox.get(peerId);
     if (!existing) {
       existing = new Promise<RealtimeChannel>((resolve, reject) => {
-        const ch = this.supabase.channel(`pc-call:${peerId}`, { config: { broadcast: { self: false } } });
+        const ch = this.supabase.channel(`pc-call:${peerId}`, { config: { broadcast: { self: false }, private: true } });
         const timeout = setTimeout(() => reject(new Error('Could not reach the call service')), 8000);
         ch.subscribe((status) => {
           if (status === 'SUBSCRIBED') {

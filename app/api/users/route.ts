@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { checkRateLimit } from '@/lib/rate-limit/rateLimiter';
+import { clientIp, serverError } from '@/lib/api/security';
 import { parseUsernameQuery } from '@/lib/people/username';
 
 /**
@@ -21,8 +22,7 @@ const BASE_COLUMNS = 'id, username, display_name, avatar_url, created_at';
 type Row = { id: string; username: string | null };
 
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
-  const rateLimit = await checkRateLimit(`user-search:${ip}`, { limit: 60, windowMs: 60 * 1000 });
+  const rateLimit = await checkRateLimit(`user-search:${clientIp(request)}`, { limit: 60, windowMs: 60 * 1000 });
   if (!rateLimit.success) {
     return NextResponse.json({ error: 'Search rate limit exceeded.' }, { status: 429 });
   }
@@ -57,7 +57,7 @@ async function lookupByUsername(supabase: Awaited<ReturnType<typeof createServer
 
   let { data, error } = await build(PROFILE_COLUMNS);
   if (error) ({ data, error } = await build(BASE_COLUMNS));
-  if (error) return NextResponse.json({ error: 'Search failed.' }, { status: 500 });
+  if (error) return serverError('users.lookup', error, 500, 'Search failed.');
 
   const rows = (data as unknown as Array<Row & Record<string, unknown>>) || [];
   const match = rows.find((r) => (r.username ?? '').toLowerCase() === parsed.value);
@@ -104,6 +104,6 @@ async function listKnownPeople(supabase: Awaited<ReturnType<typeof createServerC
   }
 
   const { data, error } = await fetchProfiles(ids);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError('users.list', error);
   return NextResponse.json(data || []);
 }

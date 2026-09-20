@@ -69,7 +69,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps & PartProps> = ({ pa
   };
 
   return (
-    <section aria-label="Privacy controls" className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col">
+    <section aria-label="Privacy controls" className="panel flex flex-col">
       {part === 'privacy' && (
         <>
       <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Who can find you</h3>

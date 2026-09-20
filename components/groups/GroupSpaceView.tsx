@@ -84,7 +84,7 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
 
   return (
     <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col h-full overflow-hidden p-4 sm:p-8 gap-6 font-sans max-w-5xl mx-auto w-full">
-      <div className="p-5 sm:p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="panel flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4 min-w-0">
           <Avatar name={group.title} size="lg" />
           <div className="flex flex-col gap-1 min-w-0">
@@ -130,13 +130,13 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
       <div className="flex-1 overflow-y-auto" role="tabpanel">
         {activeTab === 'overview' && (
           <div className="flex flex-col gap-4 text-xs">
-            <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-2">
+            <div className="panel flex flex-col gap-2">
               <h3 className="text-sm font-bold text-[var(--text-primary)]">About</h3>
               <p className="text-[var(--text-secondary)] leading-relaxed whitespace-pre-wrap">
                 {group.groupMeta?.description || 'No description yet.'}
               </p>
             </div>
-            <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
+            <div className="panel flex flex-col gap-3">
               <h3 className="text-sm font-bold text-[var(--text-primary)]">Recent activity</h3>
               {messages.length === 0 ? (
                 <span className="text-[var(--text-muted)]">No activity yet.</span>
@@ -276,7 +276,7 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
         )}
 
         {activeTab === 'settings' && mayEdit && (
-          <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-4 max-w-xl">
+          <div className="panel flex flex-col gap-4 max-w-xl">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="grp-name" className="text-xs font-semibold text-[var(--text-primary)]">Group name</label>
               <input id="grp-name" className={inputClass} value={name} maxLength={80} onChange={(e) => setName(e.target.value)} />
@@ -305,7 +305,7 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
 
         {activeTab === 'security' && (
           <div className="flex flex-col gap-4 text-xs">
-            <div className="p-5 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
+            <div className="panel flex flex-col gap-3">
               <span className="font-bold text-[var(--text-primary)] flex items-center gap-2">
                 <IconShield className="w-4 h-4 text-[var(--accent-text)]" />
                 How this group is encrypted

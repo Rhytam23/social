@@ -49,7 +49,7 @@ export const AdminReports: React.FC<{ nameOf: (userId: string) => string }> = ({
   };
 
   return (
-    <div className="p-6 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex flex-col gap-3">
+    <div className="panel flex flex-col gap-3">
       <h3 className="text-sm font-bold text-[var(--text-primary)]">Reports</h3>
       {note && <p className="text-xs text-[var(--text-muted)]">{note}</p>}
       {rows === null ? (

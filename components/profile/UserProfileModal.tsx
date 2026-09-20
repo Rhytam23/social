@@ -3,6 +3,7 @@ import { UserItem, ConversationItem } from '../../types/ui';
 import { IconShield, IconUsers, IconX } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
 
+import { Button } from '../ui/button';
 export interface UserProfileModalProps {
   user: UserItem | null;
   isOpen: boolean;
@@ -40,8 +41,8 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 font-sans">
-      <div className="w-full max-w-sm bg-[var(--surface-1)] border border-slate-800 rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-sm floating overflow-hidden flex flex-col">
         {/* Header Banner */}
         <div className="h-20 bg-gradient-to-r from-slate-900 to-slate-800 relative flex items-start justify-end p-3">
           <button
@@ -57,15 +58,16 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <div className="-mt-10 flex justify-between items-end">
             <Avatar name={user.name} src={user.avatarUrl} size="xl" presence={user.presence ?? 'offline'} className="ring-4 ring-[var(--surface-1)] rounded-full" />
 
-            <button
+            <Button
+              variant="primary"
+              size="sm"
               onClick={() => {
                 onStartChat(user);
                 onClose();
               }}
-              className="py-2 px-4 bg-slate-100 hover:bg-white text-slate-950 font-bold text-xs rounded-xl shadow-xs transition-all"
             >
-              Start Chat
-            </button>
+              Message
+            </Button>
           </div>
 
           {/* User Bio Details */}

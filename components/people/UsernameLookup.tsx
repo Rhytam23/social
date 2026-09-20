@@ -92,7 +92,7 @@ export const UsernameLookup: React.FC<UsernameLookupProps> = ({ onLookup, render
           </p>
         )}
         {view.kind === 'result' && view.outcome.status === 'found' && (
-          <div className="p-3 bg-[var(--surface-1)] border border-[var(--border-subtle)] rounded-2xl flex items-center justify-between gap-3">
+          <div className="panel p-3 flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <Avatar name={view.outcome.user.name} src={view.outcome.user.avatarUrl} size="md" />
               <div className="min-w-0">

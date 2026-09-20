@@ -6,6 +6,7 @@ import { AuthLayout } from './AuthLayout';
 import { createClient } from '../../lib/supabase/client';
 import { IconCheck } from '../ui/icons';
 
+import { Button } from '../ui/button';
 export const ForgotPasswordForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -85,21 +86,13 @@ export const ForgotPasswordForm: React.FC = () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full bg-slate-950/60 border border-slate-800 focus:border-emerald-500/60 p-3 rounded-xl text-slate-100 text-xs focus:outline-none transition-all placeholder:text-slate-600"
+              className="field"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isSubmitting || !email}
-            className="w-full py-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-all shadow-md shadow-emerald-500/10 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 mt-1"
-          >
-            {isSubmitting ? (
-              <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <span>Send Recovery Link</span>
-            )}
-          </button>
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} disabled={!email} className="mt-1">
+            Send recovery link
+          </Button>
 
           <div className="flex items-center justify-center gap-1.5 text-slate-400 text-[11px] mt-2">
             <span>Remembered your password?</span>

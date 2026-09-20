@@ -44,7 +44,8 @@ export async function checkRateLimit(
   // If Upstash Redis credentials are provided, use Upstash REST API
   if (upstashUrl && upstashToken && !upstashUrl.includes('placeholder')) {
     try {
-      const key = `ratelimit:${identifier}`;
+      // The identifier can contain caller-influenced text: keep it from altering the request path.
+      const key = `ratelimit:${identifier.slice(0, 200)}`;
       const res = await fetch(`${upstashUrl}/pipeline`, {
         method: 'POST',
         headers: {
@@ -64,7 +65,7 @@ export async function checkRateLimit(
 
         if (ttl === -1 || count === 1) {
           // Set expiry
-          await fetch(`${upstashUrl}/PEXPIRE/${key}/${options.windowMs}`, {
+          await fetch(`${upstashUrl}/PEXPIRE/${encodeURIComponent(key)}/${options.windowMs}`, {
             headers: { Authorization: `Bearer ${upstashToken}` },
           });
           ttl = options.windowMs;
@@ -85,6 +86,11 @@ export async function checkRateLimit(
 
   // Memory sliding-window fallback
   const now = Date.now();
+  // Bound memory: a flood of distinct identifiers must not grow the map without limit.
+  if (memoryStore.size > 20_000) {
+    for (const [k, r] of memoryStore) if (now > r.resetAt) memoryStore.delete(k);
+    if (memoryStore.size > 20_000) memoryStore.clear();
+  }
   const record = memoryStore.get(identifier);
 
   if (!record || now > record.resetAt) {
