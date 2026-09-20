@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { checkRateLimit } from '@/lib/rate-limit/rateLimiter';
+import { limitByIp } from '@/lib/api/security';
 
 export async function GET(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
-  const rateLimit = await checkRateLimit(`auth:${ip}`, { limit: 120, windowMs: 60 * 1000 });
-
-  if (!rateLimit.success) {
-    return NextResponse.json(
-      { error: 'Too many requests. Please try again later.' },
-      { status: 429 }
-    );
-  }
+  const limited = await limitByIp(request, 'auth', { limit: 120, windowMs: 60 * 1000 });
+  if (limited) return limited;
 
   const supabase = await createServerClient();
+  // getUser() asks Supabase to validate the token; getSession() alone would trust the cookie.
   const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
@@ -26,12 +20,8 @@ export async function GET(request: NextRequest) {
     .eq('id', user.id)
     .single();
 
-  return NextResponse.json({
-    authenticated: true,
-    user: {
-      id: user.id,
-      email: user.email,
-      profile: profile || null,
-    },
-  });
+  return NextResponse.json(
+    { authenticated: true, user: { id: user.id, email: user.email, profile: profile || null } },
+    { headers: { 'Cache-Control': 'no-store' } }
+  );
 }

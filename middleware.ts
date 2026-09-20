@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
   supabaseResponse.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   supabaseResponse.headers.set(
     "Permissions-Policy",
-    "camera=(self), microphone=(self), geolocation=()"
+    "camera=(self), microphone=(self), geolocation=(), payment=(), usb=(), interest-cohort=()"
   );
 
   if (!isSupabaseConfigured()) {

@@ -1,46 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
-import { checkRateLimit } from '@/lib/rate-limit/rateLimiter';
+import { isIsoDate, isUuid, limitByIp, limitByUser, readJson, rejectCrossSite, serverError } from '@/lib/api/security';
 import { Database } from '@/types/database';
 
-export async function GET(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
-  const rateLimit = await checkRateLimit(`msg-list:${ip}`, { limit: 120, windowMs: 60 * 1000 });
+// Ciphertext is base64 of an encrypted envelope. Attachments are separate files, so messages stay small.
+const MAX_CIPHERTEXT_CHARS = 200_000;
+const MAX_NONCE_CHARS = 128;
 
-  if (!rateLimit.success) {
-    return NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429 });
-  }
+type Supabase = Awaited<ReturnType<typeof createServerClient>>;
+
+/** Active membership check, the server-side answer to "may this user touch this conversation?". */
+async function isActiveMember(supabase: Supabase, conversationId: string, userId: string): Promise<boolean> {
+  const { data } = await supabase
+    .from('conversation_members')
+    .select('user_id')
+    .eq('conversation_id', conversationId)
+    .eq('user_id', userId)
+    .is('left_at', null)
+    .maybeSingle();
+  return !!data;
+}
+
+export async function GET(request: NextRequest) {
+  const limited = await limitByIp(request, 'msg-list', { limit: 240, windowMs: 60 * 1000 });
+  if (limited) return limited;
 
   const supabase = await createServerClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-
   if (authError || !user) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
 
   const conversationId = request.nextUrl.searchParams.get('conversationId');
-  if (!conversationId) {
-    return NextResponse.json({ error: 'conversationId parameter is required.' }, { status: 400 });
+  if (!isUuid(conversationId)) {
+    return NextResponse.json({ error: 'A valid conversationId parameter is required.' }, { status: 400 });
   }
-
   const limitParam = parseInt(request.nextUrl.searchParams.get('limit') || '100', 10);
   const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 200) : 100;
   const before = request.nextUrl.searchParams.get('before'); // ISO timestamp cursor for pagination
+  if (before !== null && !isIsoDate(before)) {
+    return NextResponse.json({ error: 'before must be an ISO date-time.' }, { status: 400 });
+  }
 
-  // IDOR Protection: Verify caller is an active member of this conversation
-  const { data: membership } = await supabase
-    .from('conversation_members')
-    .select('user_id')
-    .eq('conversation_id', conversationId)
-    .eq('user_id', user.id)
-    .is('left_at', null)
-    .maybeSingle();
-
-  if (!membership) {
-    return NextResponse.json(
-      { error: 'Forbidden. You are not a member of this conversation.' },
-      { status: 403 }
-    );
+  // IDOR protection: the caller must be an active member of this conversation.
+  if (!(await isActiveMember(supabase, conversationId, user.id))) {
+    return NextResponse.json({ error: 'Forbidden. You are not a member of this conversation.' }, { status: 403 });
   }
 
   // thread_root_id exists after migration 013; fall back to the older column list if it does not.
@@ -62,152 +66,135 @@ export async function GET(request: NextRequest) {
   if (msgError) {
     ({ data: messages, error: msgError } = await buildQuery(baseColumns));
   }
+  if (msgError) return serverError('messages.list', msgError);
 
-  if (msgError) {
-    return NextResponse.json({ error: msgError.message }, { status: 500 });
-  }
-
-  return NextResponse.json((messages || []).reverse());
+  return NextResponse.json((messages || []).reverse(), { headers: { 'Cache-Control': 'no-store' } });
 }
 
 export async function PATCH(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
-  const rateLimit = await checkRateLimit(`msg-edit:${ip}`, { limit: 60, windowMs: 60 * 1000 });
-
-  if (!rateLimit.success) {
-    return NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429 });
-  }
+  const cross = rejectCrossSite(request);
+  if (cross) return cross;
+  const limited = await limitByIp(request, 'msg-edit', { limit: 240, windowMs: 60 * 1000 });
+  if (limited) return limited;
 
   const supabase = await createServerClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-
   if (authError || !user) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
+  const userLimited = await limitByUser(user.id, 'msg-edit', { limit: 60, windowMs: 60 * 1000 });
+  if (userLimited) return userLimited;
 
-  try {
-    const body = await request.json();
-    const { messageId, ciphertext, nonce, encryptionVersion, deleted } = body;
+  const parsed = await readJson(request, 512 * 1024);
+  if (!parsed.ok) return parsed.response;
+  const { messageId, ciphertext, nonce, encryptionVersion, deleted } = parsed.body;
 
-    if (!messageId) {
-      return NextResponse.json({ error: 'messageId is required.' }, { status: 400 });
-    }
-
-    const update: Database['public']['Tables']['messages']['Update'] = deleted
-      ? { deleted_at: new Date().toISOString() }
-      : { ciphertext, nonce, encryption_version: encryptionVersion, edited_at: new Date().toISOString() };
-
-    if (!deleted && (!ciphertext || !nonce)) {
-      return NextResponse.json({ error: 'ciphertext and nonce are required for an edit.' }, { status: 400 });
-    }
-
-    // RLS (messages_update_policy) additionally enforces sender_id = auth.uid()
-    // and current conversation membership - this filter is defense in depth.
-    const { data: updated, error: updateError } = await supabase
-      .from('messages')
-      .update(update as unknown as never)
-      .eq('id', messageId)
-      .eq('sender_id', user.id)
-      .select('id, conversation_id, sender_id, ciphertext, nonce, encryption_version, edited_at, deleted_at')
-      .maybeSingle();
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 500 });
-    }
-    if (!updated) {
-      return NextResponse.json({ error: 'Message not found or you are not its sender.' }, { status: 404 });
-    }
-
-    return NextResponse.json(updated);
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Invalid request payload.';
-    return NextResponse.json({ error: message }, { status: 400 });
+  if (!isUuid(messageId)) {
+    return NextResponse.json({ error: 'A valid messageId is required.' }, { status: 400 });
   }
+  if (deleted !== undefined && typeof deleted !== 'boolean') {
+    return NextResponse.json({ error: 'deleted must be a boolean.' }, { status: 400 });
+  }
+
+  let update: Database['public']['Tables']['messages']['Update'];
+  if (deleted === true) {
+    update = { deleted_at: new Date().toISOString() };
+  } else {
+    if (typeof ciphertext !== 'string' || ciphertext.length === 0 || ciphertext.length > MAX_CIPHERTEXT_CHARS || typeof nonce !== 'string' || nonce.length === 0 || nonce.length > MAX_NONCE_CHARS) {
+      return NextResponse.json({ error: 'A valid ciphertext and nonce are required for an edit.' }, { status: 400 });
+    }
+    if (encryptionVersion !== undefined && !(Number.isInteger(encryptionVersion) && (encryptionVersion as number) >= 0 && (encryptionVersion as number) <= 10)) {
+      return NextResponse.json({ error: 'Invalid encryptionVersion.' }, { status: 400 });
+    }
+    // Only these columns can change; the sender and conversation never do.
+    update = { ciphertext, nonce, edited_at: new Date().toISOString() };
+    if (encryptionVersion !== undefined) update.encryption_version = encryptionVersion as number;
+  }
+
+  // RLS (messages_update_policy + the immutable-columns trigger from migration 017) also enforce
+  // sender and membership; these filters are defence in depth. A deleted message cannot be edited back to life.
+  const { data: updated, error: updateError } = await supabase
+    .from('messages')
+    .update(update as unknown as never)
+    .eq('id', messageId)
+    .eq('sender_id', user.id)
+    .is('deleted_at', null)
+    .select('id, conversation_id, sender_id, ciphertext, nonce, encryption_version, edited_at, deleted_at')
+    .maybeSingle();
+
+  if (updateError) return serverError('messages.update', updateError);
+  if (!updated) {
+    return NextResponse.json({ error: 'Message not found or you are not its sender.' }, { status: 404 });
+  }
+  return NextResponse.json(updated);
 }
 
 export async function POST(request: NextRequest) {
-  const ip = request.headers.get('x-forwarded-for') || '127.0.0.1';
-  const rateLimit = await checkRateLimit(`msg-send:${ip}`, { limit: 60, windowMs: 60 * 1000 });
-
-  if (!rateLimit.success) {
-    return NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429 });
-  }
+  const cross = rejectCrossSite(request);
+  if (cross) return cross;
+  const limited = await limitByIp(request, 'msg-send', { limit: 240, windowMs: 60 * 1000 });
+  if (limited) return limited;
 
   const supabase = await createServerClient();
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-
   if (authError || !user) {
     return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
   }
+  // A person cannot flood conversations by rotating addresses: the limit follows the account.
+  const userLimited = await limitByUser(user.id, 'msg-send', { limit: 60, windowMs: 60 * 1000 });
+  if (userLimited) return userLimited;
 
-  try {
-    const body = await request.json();
-    const { conversationId, ciphertext, nonce, encryptionVersion = 1, replyToMessageId, threadRootId } = body;
+  const parsed = await readJson(request, 512 * 1024);
+  if (!parsed.ok) return parsed.response;
+  const { conversationId, ciphertext, nonce, replyToMessageId, threadRootId } = parsed.body;
+  const encryptionVersion = parsed.body.encryptionVersion ?? 1;
 
-    if (!conversationId || !ciphertext || !nonce) {
-      return NextResponse.json(
-        { error: 'Missing required payload: conversationId, ciphertext, and nonce are required.' },
-        { status: 400 }
-      );
-    }
-
-    // IDOR Protection: Verify caller is an active member of this conversation
-    const { data: membership } = await supabase
-      .from('conversation_members')
-      .select('user_id')
-      .eq('conversation_id', conversationId)
-      .eq('user_id', user.id)
-      .is('left_at', null)
-      .maybeSingle();
-
-    if (!membership) {
-      return NextResponse.json(
-        { error: 'Forbidden. You cannot post messages to a conversation you do not belong to.' },
-        { status: 403 }
-      );
-    }
-
-    const insertData: Database['public']['Tables']['messages']['Insert'] = {
-      conversation_id: conversationId,
-      sender_id: user.id,
-      ciphertext,
-      nonce,
-      encryption_version: encryptionVersion,
-      reply_to_message_id: replyToMessageId || null,
-    };
-
-    if (threadRootId) {
-      // A thread reply must attach to a message in the same conversation.
-      const { data: root } = await supabase
-        .from('messages')
-        .select('id')
-        .eq('id', threadRootId)
-        .eq('conversation_id', conversationId)
-        .maybeSingle();
-      if (!root) {
-        return NextResponse.json({ error: 'The thread you are replying to was not found.' }, { status: 404 });
-      }
-      (insertData as Record<string, unknown>).thread_root_id = threadRootId;
-    }
-
-    const { data: newMsg, error: insertError } = await supabase
-      .from('messages')
-      .insert(insertData as unknown as never)
-      .select('id, conversation_id, sender_id, ciphertext, nonce, encryption_version, created_at')
-      .single();
-
-    if (insertError || !newMsg) {
-      // Row level security is what refuses a blocked sender; say so plainly instead of leaking policy text.
-      const denied = !!insertError && /row-level security/i.test(insertError.message);
-      return NextResponse.json(
-        { error: denied ? 'You cannot send messages to this conversation right now.' : insertError?.message || 'Failed to persist message.' },
-        { status: denied ? 403 : 500 }
-      );
-    }
-
-    return NextResponse.json(newMsg, { status: 201 });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Invalid request payload.';
-    return NextResponse.json({ error: message }, { status: 400 });
+  if (!isUuid(conversationId) || typeof ciphertext !== 'string' || typeof nonce !== 'string') {
+    return NextResponse.json({ error: 'conversationId, ciphertext and nonce are required.' }, { status: 400 });
   }
+  if (ciphertext.length === 0 || ciphertext.length > MAX_CIPHERTEXT_CHARS || nonce.length === 0 || nonce.length > MAX_NONCE_CHARS) {
+    return NextResponse.json({ error: 'The message is too large or malformed.' }, { status: 400 });
+  }
+  if (!(Number.isInteger(encryptionVersion) && (encryptionVersion as number) >= 0 && (encryptionVersion as number) <= 10)) {
+    return NextResponse.json({ error: 'Invalid encryptionVersion.' }, { status: 400 });
+  }
+  if ((replyToMessageId != null && !isUuid(replyToMessageId)) || (threadRootId != null && !isUuid(threadRootId))) {
+    return NextResponse.json({ error: 'Invalid reply or thread reference.' }, { status: 400 });
+  }
+
+  // IDOR protection: the caller must be an active member of this conversation.
+  if (!(await isActiveMember(supabase, conversationId, user.id))) {
+    return NextResponse.json({ error: 'Forbidden. You cannot post messages to a conversation you do not belong to.' }, { status: 403 });
+  }
+
+  // A reply or thread reference must point at a message in the SAME conversation, never another one.
+  for (const [ref, label] of [[replyToMessageId, 'reply'], [threadRootId, 'thread']] as const) {
+    if (!ref) continue;
+    const { data: target } = await supabase.from('messages').select('id').eq('id', ref as string).eq('conversation_id', conversationId).maybeSingle();
+    if (!target) return NextResponse.json({ error: `The ${label} target was not found in this conversation.` }, { status: 404 });
+  }
+
+  const insertData: Database['public']['Tables']['messages']['Insert'] = {
+    conversation_id: conversationId,
+    sender_id: user.id, // always the authenticated user, never taken from the request
+    ciphertext,
+    nonce,
+    encryption_version: encryptionVersion as number,
+    reply_to_message_id: (replyToMessageId as string | null | undefined) || null,
+  };
+  if (threadRootId) (insertData as Record<string, unknown>).thread_root_id = threadRootId;
+
+  const { data: newMsg, error: insertError } = await supabase
+    .from('messages')
+    .insert(insertData as unknown as never)
+    .select('id, conversation_id, sender_id, ciphertext, nonce, encryption_version, created_at')
+    .single();
+
+  if (insertError || !newMsg) {
+    // Row level security refuses blocked senders and admin-only channels; say so plainly.
+    const denied = !!insertError && /row-level security/i.test(insertError.message);
+    if (denied) return NextResponse.json({ error: 'You cannot send messages to this conversation right now.' }, { status: 403 });
+    return serverError('messages.insert', insertError);
+  }
+  return NextResponse.json(newMsg, { status: 201 });
 }

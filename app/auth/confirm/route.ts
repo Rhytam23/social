@@ -1,6 +1,8 @@
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { clientIp } from '@/lib/api/security';
+import { checkRateLimit } from '@/lib/rate-limit/rateLimiter';
 
 /**
  * Landing route for Supabase email links (signup confirmation and password
@@ -25,7 +27,8 @@ export async function GET(request: NextRequest) {
   const token_hash = searchParams.get('token_hash');
   const type = searchParams.get('type') as EmailOtpType | null;
   const rawNext = searchParams.get('next') || '/';
-  const next = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : '/';
+  // Same-site paths only: no scheme-relative (//), backslash or control-character tricks.
+  const next = /^\/(?![/\\])[^\u0000-\u001f\\]*$/.test(rawNext) ? rawNext : '/';
 
   // OAuth sign-ins (Google) pass provider=<name> in redirectTo so failures can
   // be reported as sign-in problems rather than email-confirmation problems.
@@ -41,6 +44,10 @@ export async function GET(request: NextRequest) {
     const detail = reason === failure ? searchParams.get('error_description') || linkErrorCode || linkError : null;
     return failureRedirect(origin, reason, detail);
   }
+
+  // Code exchange is cheap to attempt in bulk; bound it per address.
+  const limit = await checkRateLimit(`auth-confirm:${clientIp(request)}`, { limit: 30, windowMs: 60 * 1000 });
+  if (!limit.success) return failureRedirect(origin, failure, 'Too many attempts. Wait a minute and try again.');
 
   let detail: string | null = null;
   if (code || (token_hash && type)) {
