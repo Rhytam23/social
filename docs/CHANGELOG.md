@@ -4,6 +4,77 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Group invitations and private profiles (September 2026).** Needs migrations `027` and `028`. Deploy the app first, and have `SUPABASE_SERVICE_ROLE_KEY` set (search needs it).
+
+- **Group invitations (`027`).** Someone you know (a direct chat where you were answered, or a shared community) is added to a group at once; anyone else gets an invitation and joins only if they accept. Invitations show at the top of the chat list, last 14 days, stop working if the sender is no longer an admin of the group, and at most 30 wait for one person. Nobody can insert group members by writing the table any more. A person who blocked you is skipped without telling you. A new member reads the group once an admin's device shares the key.
+- **Private profiles (`028`).** A profile is now visible only to its owner, platform admins, people you share a conversation or community with (including people who left a chat with you) and people you blocked. Strangers can no longer be listed or looked up through the database API, and search runs in a function only the server can call, so its rate limits cannot be skipped. People search returns no platform admins or suspended accounts.
+- **Behaviour change.** A person you have never talked to is invisible until you find them by username or share a chat or community.
+
+**People search by the start of a username, and message requests (September 2026).** Needs migration `026`.
+
+- **Search.** Type 3 or more characters of a username and everyone whose username starts with it appears (at most 8, exact match first), live after a short pause in typing. Names, emails and phone numbers are still not searchable; platform admins still do not appear. Limits: 40 a minute and 1500 a day per account, so the directory cannot practically be listed.
+- **Message requests.** In a direct chat a person who has not been answered can send 3 messages; the 4th is refused until the other person sends anything. Kept on the conversation, so deleting messages or leaving does not reset it. Platform admins are exempt. Groups are not covered (see Security, known gaps).
+- **Known gap (closed by `027` and `028`, below).** Group adds needed no acceptance and any signed-in person could read the public columns of `profiles` through the database API.
+
+**Reports lead to warnings, bans and blocks (September 2026).** Needs migration `024` and the sign-up hook (see Setup); updates the privacy policy and terms.
+
+- **Levels.** Each different person who reports someone counts once (90 days; dismissed reports and accounts under 24 hours old do not count). 3 gives an in-app warning, 10 a 7-day ban (no sign-in, sessions ended, email and recorded network addresses blocked from creating new accounts for the same time), above 10 the person is shown in red in the admin queue, 20 a permanent block. Platform admins are never banned automatically, every action is audited, admins can ban or lift any ban. Thresholds live in the database and are mirrored in `lib/moderation.ts` (a test keeps them equal).
+- **Reports are stricter:** only about someone you share a conversation with, not yourself, not in a conversation you are not in.
+- **Network addresses** are recorded after sign-in (`POST /api/session/seen`, 20 per account, 180 days, admins only) and named in the privacy policy. The Admin safety queue shows how many accounts used a blocked address, because addresses are shared.
+- **No admin access to chats.** Messages stay end-to-end encrypted; evidence is the reports and the excerpts reporters choose to include.
+
+**Platform admins cannot be found (September 2026).** Needs migration `023`; try it on a staging project first.
+
+- The `profiles` read rule hides a platform admin from everyone except themselves, other admins, and people who share a conversation or community with them. Username search, listing the table and joins all follow it. Other people's profiles are unchanged.
+- Chats started by a platform admin are written to the activity log. Blocks still apply to admins.
+- Limit: not anonymous. Anyone the admin talks to knows who they are, and the admin's user id can appear (without a name) in the live presence list.
+
+**Two kinds of admin (September 2026).** Needs migration `025`; deploy the app first.
+
+- **Platform admin is made only in Supabase.** The in-app promote and demote button and `PATCH /api/admin/users` are gone, and `025` stops every API role, including the service role, from changing `profiles.is_admin`. A stolen admin session or a leaked service-role key can no longer create admins. Changes made in the dashboard are written to the activity log. See the maintainer guide, "Someone should become a platform admin".
+- **Group admins** (an ordinary user with a role inside one group or community) can make members admins; the owner still does everything else. They have no platform powers (tested). A community holds at most 10 channels. Roles are labelled "Group admin".
+- **Verified badge** for platform admins (a filled shield with a check), drawn only from the server-side flag, shown next to their name in chats, member lists and profiles. Names that look official ("admin", "staff", a check mark, reserved handles) are reserved for platform admins by the database, so nobody can pose as one.
+- Admin, People is now read-only.
+
+**Nook: name, logo, public site, support and landing animation (September 2026).** Needs migration `022` for the support inbox.
+
+- **Renamed to Nook** (was Private Chat). The name is `SITE_NAME` in `lib/site.ts`. Internal storage names (`private_chat_*` preferences, the `private-chat-keystore` IndexedDB name, `pc-*` channels) were deliberately **not** renamed: that would drop saved preferences and could orphan the browser-held encryption key. Trademark, domain and app-store availability of the name were not checked.
+- **Logo** (`components/brand/Logo.tsx`): a speech bubble with a keyhole cut out, plus the lowercase wordmark. Used in the public header and footer, sign-in screens, Settings, favicon, home-screen icon and the link-preview image.
+- **Public site.** Shared header (Features, Security, Help, Contact, Sign in, Create account, with a menu that works without JavaScript) and footer (Product, Support, Legal), used only on public pages: none inside the signed-in app. New pages `/features`, `/security`, `/help` (questions and answers written from the docs), `/contact`, a branded 404, all in the sitemap.
+- **Support.** The contact form (`POST /api/support`, no account needed) and **Settings, Report a problem** write to `support_requests` (`022`: admin-only reads, server-only writes, 90-day retention, at most 5 requests a day per email address, honeypot field). Admins read and resolve them under **Admin, Support**; resolving is audited.
+- **Landing animation.** Quiet entrance and scroll reveal for everyone (CSS plus a small observer; nothing hidden without JavaScript, off with reduced motion). **Computers only** (mouse and a screen at least 1024 px wide): a 3D scene of how a message travels, in its own chunk loaded after the page is idle. It never loads on phones, tablets, with reduced motion or data saver, without WebGL, or on weak devices, pauses off screen, and hands over to a still picture if it cannot keep up. The home page's first load stays about 110 kB.
+- **Bot check on sign-in** (optional, `lib/captcha.ts`): Cloudflare Turnstile on sign-up, sign-in and password reset when `NEXT_PUBLIC_TURNSTILE_SITE_KEY` is set and CAPTCHA protection is enabled in Supabase. Tighter per-address limit (60 a minute) on the sign-in, sign-up, reset and email-link pages.
+- **Bug fixed:** the pre-paint "signed in" hint (`data-session`) also matched the temporary cookies of a sign-in that had only started, so the landing page could load the whole app for nothing. It now matches only real session cookies.
+
+**Calmer chat interface (September 2026).** No database changes.
+
+- **Encryption is stated once**, in the chat header. Removed the repeated pill inside the conversation, the composer placeholder ("Write a message") and the sidebar footer.
+- **Chat header**: name, one status line, voice and video call, and one options menu (search in conversation, security details, notifications, disappearing messages). It replaces four separate buttons, including the labelled "Security Context" one (`components/chat/ChatHeaderMenu.tsx`; the old `NotifyMenu` and `DisappearMenu` popovers are gone).
+- **Messages**: consecutive messages from one person in the same minute share one name and photo; time shows on hover for the rest; delivery marks only appear on your own messages. The hover toolbar is three quick reactions, Reply and one "more" menu with labelled items (copy, forward, thread, pin, star, edit, info, report, delete on this device) instead of thirteen icons.
+- **Composer**: one row; the microphone shows when there is nothing to send and is replaced by Send when there is.
+- **Navigation**: the sidebar footer is gone, Settings sits at the bottom of the left rail (phones keep it in the bottom bar), and the meaningless "#registration number" under your name was removed. No feature was removed. The rail and the Chats, Groups, Saved, People and Admin tabs are unchanged for now.
+
+**Uploads fixed and limited (September 2026).** Needs migration `021` (deploy the app first).
+
+- **Bug fixed: attachments over 2 MB failed.** The request-size cap added to middleware in the security pass (2 MB on every `/api` route) also caught the upload route, which still advertised 25 MB, and serverless functions cannot take bodies over 4.5 MB anyway.
+- **New upload flow.** `POST /api/uploads/sign` decides (membership, size per kind, rate, daily quota) and returns a signed address; the browser uploads the encrypted file straight to Storage; `POST /api/uploads/complete` confirms the real size and deletes anything over its limit. The old `POST /api/uploads` route is removed. `021` removes the direct client upload policy so this is the only way in.
+- **Limits** (`lib/limits.ts`): images 10 MB, videos 100 MB, other files 25 MB, never above `NEXT_PUBLIC_STORAGE_MAX_FILE_MB` (default 50 for the free Supabase plan); 6 upload starts a minute, 30 an hour and 500 MB a day per account; profile photos 2 MB. No chunking: larger files are refused with a clear message. Files are encrypted, so the server cannot tell an image from a video; the deployment ceiling and the daily quota are the real cost bound.
+- **Stored names are opaque** (`<conversation>/<user id>_<random>`): the real file name only exists inside the encrypted message. Removed `sanitizeFileName`, which is no longer needed.
+- No byte-level progress bar: Supabase's official signed-upload call does not report progress, and it could not be tested against a live project here.
+
+**Production audit: design, performance and search (September 2026).** Migration `020` is optional.
+
+- **Landing page rebuilt as plain HTML.** The home page is now a server component that says only what the product does today: no invented conversations or screenshots, no 3D scene, no decorative effects. Buttons are real links to `/login` and `/signup`. Removed `three`, `@types/three` and the scene code. The old copy that said "one device per account" was wrong since multi-device linking and is fixed.
+- **Smaller first load.** The chat application (crypto, realtime, every screen) is a separate chunk, loaded only for visitors with a session (`components/app/HomeGate.tsx`, `AppRoot.tsx`). First load JS for `/` went from 433 kB to 108 kB, and for sign-in and sign-up from 362 kB to 182 kB. Real HTML for the landing page also means search engines and link previews can read it (before, the server sent only a loading spinner).
+- **Search and sharing.** `lib/site.ts` (address from `NEXT_PUBLIC_SITE_URL`, or the Vercel production domain), unique titles and descriptions per page, canonical links, Open Graph and Twitter cards with a generated preview image, `robots.txt`, `sitemap.xml`, web manifest, favicon, JSON-LD (`WebApplication`, no ratings or prices), `noindex` for sign-in, app, admin and API pages, `lang` and colour-scheme hints.
+- **One request instead of N for sidebar previews.** Loading the conversation list used one `/api/messages` request per conversation. `GET /api/messages/latest` and migration `020` (`get_latest_messages`) answer for all of them in a single query; without `020` the app falls back to the old behaviour.
+- **Fewer server round trips.** Middleware no longer asks Supabase Auth about the caller on public pages and API routes (each API route verifies the caller itself); the sitemap, robots, manifest and preview image bypass it entirely.
+- **Analytics only where it exists.** The Vercel analytics script is now loaded only on Vercel, so self-hosted and local production builds no longer log a failed request.
+- **Realtime filter** is dropped above 100 conversations (Supabase's limit for that filter); row level security still scopes the feed.
+- **Privacy and Terms rewritten as server pages.** They said the app used the Signal Double Ratchet (it does not), that it was "zero-knowledge", and that accounts could be deleted from Settings (there is no such feature). Now accurate.
+- **Interface clean-up.** Removed the film-grain overlay, radial glows, gradients on the composer, profile header and call controls, backdrop blur on headers and the mobile bar, the pinging recording dot and the always-on floating animation; text glyphs (checkmarks, crosses, a phone symbol) replaced by the icon set; avatars load lazily. Sign-in button text no longer says "Unlock Keys" and "Generate Keys". The `/design-system` preview pages answer 404 in production builds.
+- **Tests.** 306 (landing scene tests removed; new tests for the site address, the sign-in hint, the latest-message query and route).
+
 **Security hardening, multiple devices, flood protection and system theme (September 2026).** Needs migrations `017` and `018`. Full findings in [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md).
 
 - **Security fixes (`017`).** Blocking now works (the old rule could not see the `blocks` table); only group admins can create group key envelopes (any member could plant a key); a conversation's creator can no longer re-add themselves as owner; message and receipt identity columns cannot be rewritten; private Realtime channels with policies for typing and calls; avatar URLs restricted; storage buckets limited to 25 MB of `application/octet-stream`; invite lifetime and uses capped.

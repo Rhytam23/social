@@ -6,6 +6,7 @@ import { Badge, SettingRow, Switch } from '../ui/primitives';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 import { technicalNote } from '../../lib/ui/errors';
+import { VerifiedBadge } from '../brand/VerifiedBadge';
 import { ROLE_LABEL, canAddMembers, canChangeRole, canEditGroup, canRemoveMember, type GroupRole } from '../../lib/groups/roles';
 
 export interface GroupSpaceViewProps {
@@ -208,8 +209,9 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
                     <div className="flex items-center gap-3 min-w-0">
                       <Avatar name={m.name} src={m.avatarUrl} size="sm" presence={m.presence ?? 'offline'} />
                       <div className="flex flex-col min-w-0">
-                        <span className="font-semibold text-[var(--text-primary)] truncate">
+                        <span className="font-semibold text-[var(--text-primary)] truncate inline-flex items-center gap-1.5">
                           {m.name}
+                          {m.role === 'admin' && <VerifiedBadge />}
                           {isSelf ? ' (you)' : ''}
                         </span>
                         {role && <span className="text-[10px] text-[var(--text-muted)]">{ROLE_LABEL[role]}</span>}
@@ -294,7 +296,7 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
               </Button>
               {saved && <span role="status" className="text-xs text-[var(--accent-text)]">Saved</span>}
             </div>
-            <SettingRow title="Only admins can post" description="Members can still read and react. Enforced by the database, not just the app.">
+            <SettingRow title="Only admins can post" description="Members can still read and react. Enforced by the database.">
               <Switch
                 label="Only admins can post"
                 checked={!!group.groupMeta?.onlyAdminsPost}

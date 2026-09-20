@@ -18,11 +18,13 @@ Route handlers live in `app/api/**/route.ts`, plus `app/auth/confirm/route.ts`.
 
 The app reads the current session and its own conversations straight from Supabase, so there are no session, conversation-list or group-detail routes (`GET /api/auth`, `GET /api/conversations` and `GET /api/groups` were removed as unused).
 
-### `GET /api/users?username=` (60/min per address, 30/min per account)
-Find one person by **exact username**. This is the only way to discover someone you have not talked to. The value is trimmed, a leading `@` is dropped and it is lower-cased; it must be 3 to 30 letters, numbers, dots or underscores. Display name, email, phone number and bio are never searched.
+### `GET /api/users?username=` (60/min per address, 40/min and 1500/day per account)
+Find people whose username **starts with** the text ("ars" finds arsh and arsalan): at most 8, the exact match first. This is the only way to discover someone you have not talked to. The value is trimmed, a leading `@` is dropped and it is lower-cased; it must be 3 to 30 letters, numbers, dots or underscores. Display name, email, phone number and bio are never searched. Limited to 40 searches a minute and 1500 a day per account, because a prefix search can be walked to list people. Platform admins do not appear to people they have not talked to. The answer is `{ users: [...] }`, each with a `blocked` flag.
 - `200 { user: { id, username, display_name, avatar_url, created_at, bio?, pronouns?, timezone?, blocked } }` on a match, `200 { user: null }` when nobody has that username (you never get a partial match).
 - `blocked` is `true` when *you* blocked that person. Whether someone blocked *you* is not revealed.
 - `400 { error }` for an empty or invalid username (including email addresses and phone numbers). The caller is never returned.
+
+Search runs through `search_profiles_by_prefix`, a database function only the server key can call (migration `028`), so it needs `SUPABASE_SERVICE_ROLE_KEY` (`503` without it). Platform admins and suspended accounts are never returned.
 
 ### `GET /api/users` (60/min)
 People you already share a conversation with (used to fill the contacts list). Platform admins get the full list for the admin dashboard. The old free-text `q` parameter no longer does anything. `200` array of `{ id, username, display_name, avatar_url, created_at, bio?, pronouns?, timezone? }`.
@@ -34,10 +36,10 @@ Body: `{ type: "private" | "group", name?, participantIds: string[] }`. `name` i
 - `201 { id, type, name, created_at }` · `400` invalid input.
 
 ### `POST /api/groups` (20/min)
-Body: `{ name, memberIds: string[] }`. You are added automatically. `201 { id, type, name, created_at }`.
+Body: `{ name, memberIds: string[] }`. You are added automatically as owner. Each other person goes through `add_group_member`: someone you know (a direct chat where you were answered, or a shared community) is added at once, everyone else is sent an **invitation** and joins only if they accept. `201 { id, type, name, created_at, added: string[], invited: string[], failed: number }`. The app shares the group key with `added` only.
 
 ### `POST /api/groups/members` (30/min)
-Add a member. Body: `{ groupId, userId }`. Caller must be a group **admin or owner** (plain members are refused). Works only on plain groups, not direct chats or community channels. `201 { success: true }` · `403` not allowed · `404` group not found.
+Add a member. Body: `{ groupId, userId }`. Caller must be a group **admin or owner** (plain members are refused). Works only on plain groups, not direct chats or community channels. `201 { success: true, result: 'added' | 'invited' | 'already' }` (a person who blocked you also answers `invited`, so you cannot tell) · `403` not allowed · `404` group not found. A stranger becomes a member only when they accept the invitation (`respond_group_invite`).
 
 ### `DELETE /api/groups/members?groupId=&userId=` (30/min)
 Remove a member (a hard delete of the membership row). The caller must be an active member; you can remove yourself, or someone ranked below you (owner above admin above member). When the owner leaves, ownership first passes to the longest-serving admin (or member). Row level security checks the same rules again. The client then rotates the group key. `200 { success: true }` · `403` not allowed · `404` not a plain group or that person is not in it.
@@ -51,6 +53,11 @@ Body `{ groupId, userId, role }` where role is `owner`, `admin` or `member`. Own
 `POST /api/groups/members` now requires the caller to be a group admin or owner, and `DELETE` lets you remove yourself, or remove someone ranked below you. When the owner leaves, ownership passes to the longest-serving admin (or member) first.
 
 ## Messages
+
+### `GET /api/messages/latest` (120/min per address, 60/min per account)
+The newest message (ciphertext, same fields as the list below) of every conversation you are an active member of, in one request. The sidebar uses it for previews instead of one request per conversation. The conversation list comes from your own memberships, never from the request.
+- `200` array, one row per conversation that has messages.
+- `501` migration `020` is not applied (the app then falls back to one request per conversation) · `401` signed out.
 
 ### `GET /api/messages?conversationId=&limit=&before=` (120/min)
 History for an active member. `limit` defaults to 100 (1 to 200). `before` is an ISO timestamp; only older messages are returned.
@@ -76,7 +83,7 @@ Returns `{ iceServers, relayAvailable }` for a call. Signed-in users only. TURN 
 
 ## Database functions called from the browser
 
-Communities, disappearing messages and a few lookups are Postgres functions called with `supabase.rpc(...)`, each checking permissions itself: `create_community`, `create_channel`, `create_community_invite`, `join_community`, `leave_community`, `remove_community_member`, `set_community_role`, `set_disappearing`, `purge_expired_messages`, `get_unread_counts`, `get_my_contact`. (`find_profiles_by_contact` still exists but clients can no longer call it after `016`.) See [Database](DATABASE.md).
+Communities, disappearing messages and a few lookups are Postgres functions called with `supabase.rpc(...)`, each checking permissions itself: `add_group_member`, `my_group_invites`, `respond_group_invite`, `create_community`, `create_channel`, `create_community_invite`, `join_community`, `leave_community`, `remove_community_member`, `set_community_role`, `set_disappearing`, `purge_expired_messages`, `get_unread_counts`, `get_my_contact`. (`find_profiles_by_contact` still exists but clients can no longer call it after `016`.) See [Database](DATABASE.md).
 
 ## Error reports from the browser
 
@@ -85,16 +92,21 @@ Stores an error that happened in someone's browser in the admin error log. Signe
 
 ## Files
 
-### `POST /api/uploads` (20/min)
-`multipart/form-data` with `file` (already encrypted by the browser) and `conversationId`. Active members only. Maximum 25 MB. Stored in `encrypted_attachments` at `<conversationId>/<random uuid>_<safeName>` as `application/octet-stream`. The file name is reduced to safe characters (no path separators, no leading dot, at most 120 characters).
-- `201 { path, fileName, fileSize, uploadedAt }` · `413` too large · `403` not a member.
+### `POST /api/support` (5 per 10 minutes per address; 10 per hour per account)
+Body `{ topic, name?, email, message, website }`. The contact form and Settings, Report a problem. Works signed out. A signed-in caller is identified by the session (its own email and id are used and the body's are ignored). `topic` is one of `question`, `problem`, `account`, `abuse`, `other`; `message` is 10 to 2000 characters. `website` is a honeypot: filled in means a bot and the reply is a success that stores nothing. Stored by the server-only function `submit_support_request` (migration `022`).
+- `201 { ok: true }` · `400` invalid topic, message or email · `403` cross-site · `413` body too large · `429` rate limit, or 5 requests already today from that email · `503` server key not configured.
+
+### `POST /api/uploads/sign` (60/min per address; 6/min and 30/hour per account)
+Body `{ conversationId, kind: 'image' | 'video' | 'file', size }` (size in bytes of the already encrypted file). Active members only. Checks the size against the limit for the kind (image 10 MB, video 100 MB, other 25 MB, never above `NEXT_PUBLIC_STORAGE_MAX_FILE_MB`, default 50) and the account's daily quota (500 MB in 24 hours, from migration `021`). The file itself never passes through this server (serverless functions cannot take bodies over 4.5 MB): the reply is a one-file signed upload address and the browser uploads the ciphertext straight to Storage. The stored name is `<conversationId>/<your user id>_<random uuid>`; the real file name lives only inside the encrypted message.
+- `201 { path, token }` · `400` malformed · `401` · `403` not a member · `413` over the limit for its kind · `429` rate or daily quota · `503` server key not configured.
+
+### `POST /api/uploads/complete` (120/min)
+Body `{ path, kind }`, sent after the upload. Confirms the object exists, belongs to the caller and that its **real** size is within the limit for its kind; an oversized object is deleted, so a client that under-declared the size when signing stores nothing.
+- `200 { path, size }` · `400` path not one issued to this account · `404` not found · `413` too large (and removed).
 
 ## Admin
 
-### `PATCH /api/admin/users` (20/min)
-Admin only (checked against `profiles.is_admin`). Body: `{ userId, isAdmin: boolean }`. You cannot remove your own admin access. Uses the **service-role** client, and records the change in the admin activity log (`admin_audit_log`) and the server log. `200 { id, username, display_name, is_admin }`.
-
-The old `/api/invites` routes were removed; registration no longer uses invitations.
+There is no route to make someone a platform admin: that is done only in Supabase (see the maintainer guide). Group roles change through `PATCH /api/groups/members` (owner: any change; admin: member to admin only) and the community functions.
 
 ## Authentication redirects
 

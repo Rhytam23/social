@@ -1,83 +1,54 @@
-'use client';
+import type { Metadata } from 'next';
+import { LegalPage, LegalSection } from '../../components/landing/LegalPage';
 
-import React from 'react';
-import Link from 'next/link';
-import { IconLock, IconShield } from '../../components/ui/icons';
+export const metadata: Metadata = {
+  title: 'Terms of Service',
+  description: 'The rules for using Nook.',
+  alternates: { canonical: '/terms' },
+};
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen bg-[var(--canvas-bg)] text-slate-100 font-sans flex flex-col">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-[var(--canvas-bg)]/90 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-4xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5 text-white font-bold text-sm">
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <IconLock className="w-4 h-4" />
-            </div>
-            <span>Private Chat</span>
-          </Link>
-          <Link href="/" className="text-xs text-slate-400 hover:text-white transition-colors">
-            ← Back to Home
-          </Link>
-        </div>
-      </header>
+    <LegalPage title="Terms of Service" updated="September 20, 2026">
+      <LegalSection title="1. Acceptance">
+        <p>
+          By using the Nook web application you agree to these terms. If you do not agree, do not use the service.
+        </p>
+      </LegalSection>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-4xl mx-auto px-4 py-12 flex flex-col gap-8 text-xs leading-relaxed text-slate-300">
-        <div className="flex flex-col gap-2 border-b border-slate-800 pb-6">
-          <div className="inline-flex items-center gap-1.5 text-emerald-400 font-mono text-[11px]">
-            <IconShield className="w-3.5 h-3.5" />
-            <span>Encrypted Messaging Agreement</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">Terms of Service</h1>
-          <span className="text-slate-500 text-[11px]">Last Updated: September 18, 2026</span>
-        </div>
+      <LegalSection title="2. The service">
+        <p>
+          Nook provides end-to-end encrypted direct messages, groups, communities, voice notes, calls and file sharing.
+        </p>
+      </LegalSection>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold text-slate-100">1. Acceptance of Terms</h2>
-          <p>
-            By accessing or using the Private Chat web application, you agree to comply with and be bound by these Terms of Service. If you do not agree to these terms, please do not use the service.
-          </p>
-        </section>
+      <LegalSection title="3. Your keys">
+        <p>
+          Your encryption key is held in your browser, and the service cannot recover it for you. You are responsible for the security of your devices and of any passphrase backup you export. Without the key or a backup, encrypted messages cannot be read again.
+        </p>
+      </LegalSection>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold text-slate-100">2. Description of Service</h2>
-          <p>
-            Private Chat provides an end-to-end encrypted messaging service designed for direct communications, group collaborations, voice messaging, and secure file exchange.
-          </p>
-        </section>
+      <LegalSection title="4. Acceptable use">
+        <p>You agree not to use Nook to:</p>
+        <ul className="list-disc pl-5 flex flex-col gap-1.5">
+          <li>Break the law or send malicious code.</li>
+          <li>Disrupt, overload, probe or reverse-engineer the service infrastructure.</li>
+          <li>Impersonate another person or misrepresent your affiliation.</li>
+          <li>Harass other people. Reports you send are reviewed by the administrators of the deployment.</li>
+        </ul>
+      </LegalSection>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold text-slate-100">3. User Responsibility & Cryptographic Keys</h2>
-          <p>
-            Because Private Chat operates with zero-knowledge encryption, your cryptographic identity and session keys are held locally in your browser. You are solely responsible for maintaining the security of your device and any exported passphrase backups.
-          </p>
-        </section>
+      <LegalSection title="5. Warnings, suspension and blocks">
+        <p>
+          Accounts that many different people report can be warned, suspended or blocked, automatically or by an administrator, as described in the Privacy Policy. Suspended and blocked accounts, and the email addresses and network addresses tied to them, cannot be used to create new accounts. You can ask for a decision to be reviewed from the Contact page.
+        </p>
+      </LegalSection>
 
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold text-slate-100">4. Prohibited Conduct</h2>
-          <p>
-            You agree not to use Private Chat to:
-          </p>
-          <ul className="list-disc pl-5 flex flex-col gap-1.5 text-slate-400">
-            <li>Engage in illegal activities or transmit unauthorized malicious code.</li>
-            <li>Attempt to disrupt, overwhelm, or reverse-engineer the underlying service infrastructure.</li>
-            <li>Impersonate another individual or misrepresent your affiliation.</li>
-          </ul>
-        </section>
-
-        <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-bold text-slate-100">5. Disclaimer of Warranties</h2>
-          <p>
-            The service is provided on an &quot;as-is&quot; and &quot;as-available&quot; basis without warranties of any kind, whether express or implied.
-          </p>
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-900 py-6 text-center text-[11px] text-slate-600 bg-[var(--canvas-bg)]">
-        Private Chat V1 • Genuine Client-Side Privacy
-      </footer>
-    </div>
+      <LegalSection title="6. No warranty">
+        <p>
+          The service is provided &quot;as is&quot; and &quot;as available&quot;, without warranties of any kind, express or implied. It has not had an independent security audit and should not be relied on for information whose exposure could cause serious harm.
+        </p>
+      </LegalSection>
+    </LegalPage>
   );
 }

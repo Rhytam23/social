@@ -2,8 +2,8 @@ import React, { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { MessageData, ReplyReference } from '../../types/ui';
 import { IconFile, IconMic, IconPaperclip, IconSend, IconX } from '../ui/icons';
 import { wrapSelection } from '../../lib/messaging/richText';
+import { maxUploadBytes, uploadKindFor, uploadLimitMessage } from '../../lib/limits';
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
 
 export interface MessageComposerProps {
   onSendMessage: (content: string, replyToId?: string, attachmentFile?: File, voiceDurationMs?: number) => void;
@@ -110,8 +110,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > MAX_FILE_BYTES) {
-      setComposerError(`"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB - the limit is 25MB.`);
+    const kind = uploadKindFor(file.type || 'application/octet-stream');
+    if (file.size > maxUploadBytes(kind)) {
+      setComposerError(`"${file.name}": ${uploadLimitMessage(kind, file.size)}`);
       e.target.value = '';
       return;
     }
@@ -226,7 +227,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const canSend = (content.trim().length > 0 || selectedFile !== null || editingMessage !== undefined) && !disabled;
 
   return (
-    <div className="p-3 sm:p-4 bg-gradient-to-t from-[var(--canvas-bg)] to-transparent flex flex-col gap-2 font-sans shrink-0">
+    <div className="p-3 sm:p-4 bg-[var(--canvas-bg)] flex flex-col gap-2 font-sans shrink-0">
       <div className="panel p-2.5 flex flex-col gap-2 transition-[border-color,box-shadow] focus-within:border-[var(--accent-line)] focus-within:shadow-[0_0_0_3px_var(--accent-subtle)]">
 
         {composerError && (
@@ -284,7 +285,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               <div className="flex flex-col truncate">
                 <span className="font-medium text-slate-200 truncate text-xs">{selectedFile.name}</span>
                 <span className="text-[10px] text-slate-400 font-mono">
-                  {(selectedFile.size / 1024).toFixed(1)} KB • Encrypted attachment
+                  {selectedFile.size >= 1024 * 1024 ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB` : `${(selectedFile.size / 1024).toFixed(1)} KB`}
                 </span>
               </div>
             </div>
@@ -302,11 +303,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         {isRecordingVoice ? (
           <div className="flex items-center justify-between px-3 py-2 bg-rose-950/30 border border-rose-500/30 rounded-xl text-xs">
             <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
-              </span>
-              <span className="font-semibold text-rose-300">Recording Encrypted Voice Note...</span>
+              <span className="inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" aria-hidden="true"></span>
+              <span className="font-semibold text-rose-300">Recording voice note</span>
               <span className="font-mono text-slate-300">{Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, '0')}</span>
             </div>
 
@@ -344,20 +342,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
               className="p-2.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-all disabled:opacity-40 shrink-0"
-              title="Attach encrypted document or image"
+              title="Attach a file" aria-label="Attach a file"
             >
               <IconPaperclip className="w-5 h-5" />
-            </button>
-
-            {/* Record Voice Note Button */}
-            <button
-              type="button"
-              onClick={handleStartVoiceRecord}
-              disabled={disabled}
-              className="p-2.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-all disabled:opacity-40 shrink-0"
-              title="Record encrypted voice note"
-            >
-              <IconMic className="w-5 h-5" />
             </button>
 
             {/* Text Area */}
@@ -392,7 +379,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                   setMentionIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder={editingMessage ? 'Edit message...' : 'Write an encrypted message...'}
+                placeholder={editingMessage ? 'Edit message' : 'Write a message'}
                 aria-label="Message"
                 disabled={disabled}
                 rows={1}
@@ -400,7 +387,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               />
             </div>
 
-            {/* Send Button */}
+            {/* Send when there is something to send, otherwise record a voice note */}
+            {canSend ? (
             <button
               type="button"
               onClick={handleSend}
@@ -415,6 +403,17 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             >
               <IconSend className="w-4 h-4 translate-x-[0.5px]" />
             </button>
+            ) : (
+            <button
+              type="button"
+              onClick={handleStartVoiceRecord}
+              disabled={disabled}
+              className="p-2.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-all disabled:opacity-40 shrink-0"
+              title="Record a voice note" aria-label="Record a voice note"
+            >
+              <IconMic className="w-5 h-5" />
+            </button>
+            )}
           </div>
         )}
       </div>

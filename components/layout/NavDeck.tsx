@@ -7,17 +7,16 @@ import {
   IconPin,
   IconPlus,
   IconSearch,
-  IconSettings,
-  IconShield,
 } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
 import { StatusMenu } from './StatusMenu';
 import { NotificationCenter } from '../notifications/NotificationCenter';
+import { GroupInvites } from '../groups/GroupInvites';
+import type { GroupInviteItem } from '../../lib/groups/invites';
 import { CountBadge, ConversationListSkeleton } from '../ui/primitives';
 
 export interface NavDeckProps {
   currentUserName: string;
-  currentUserRegistrationId: number;
   userRole: 'admin' | 'member';
   activeCategory: ViewCategory;
   onSelectCategory: (cat: ViewCategory) => void;
@@ -28,7 +27,9 @@ export interface NavDeckProps {
   onNewMessage: () => void;
   /** Create or join a group (Groups). */
   onNewGroup?: () => void;
-  onOpenSettings?: () => void;
+  /** Group invitations waiting for an answer, and how to answer one. */
+  groupInvites?: GroupInviteItem[];
+  onRespondGroupInvite?: (inviteId: string, accept: boolean) => void;
   /** Unread in direct chats. */
   unreadTotal: number;
   /** Unread in groups. */
@@ -48,7 +49,6 @@ export interface NavDeckProps {
 
 export const NavDeck: React.FC<NavDeckProps> = ({
   currentUserName,
-  currentUserRegistrationId,
   userRole,
   activeCategory,
   onSelectCategory,
@@ -57,7 +57,8 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   onSelectConversation,
   onNewMessage,
   onNewGroup,
-  onOpenSettings,
+  groupInvites = [],
+  onRespondGroupInvite,
   unreadTotal,
   groupUnreadTotal = 0,
   isLoading,
@@ -118,10 +119,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
       <div className="h-16 px-4 bg-slate-950/40 border-b border-[var(--border-subtle)] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <StatusMenu name={currentUserName} onChanged={onStatusChanged} />
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-slate-100 leading-tight">{currentUserName}</span>
-            <span className="text-[10px] font-mono text-slate-400">#{currentUserRegistrationId}</span>
-          </div>
+          <span className="text-sm font-semibold text-[var(--text-primary)] leading-tight truncate">{currentUserName}</span>
         </div>
 
         <div className="flex items-center gap-1">
@@ -157,7 +155,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
               onSelectCategory(cat.key);
               if (showArchived) setShowArchived(false);
             }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 [@media(pointer:coarse)]:min-h-11 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
               activeCategory === cat.key && !showArchived
                 ? 'bg-slate-800 text-slate-100 border border-slate-700/80 shadow-xs'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -175,7 +173,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
         {archivedCount > 0 && (
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 [@media(pointer:coarse)]:min-h-11 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
               showArchived
                 ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -186,6 +184,8 @@ export const NavDeck: React.FC<NavDeckProps> = ({
           </button>
         )}
       </div>
+
+      {onRespondGroupInvite && <GroupInvites invites={groupInvites} onRespond={onRespondGroupInvite} />}
 
       {/* 3. Search Bar */}
       <div className="p-3 border-b border-[var(--border-subtle)]">
@@ -201,7 +201,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
           {onGlobalSearchTrigger && (
             <button
               onClick={onGlobalSearchTrigger}
-              className="absolute right-2.5 font-mono text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 hover:text-white"
+              className="absolute right-2.5 [@media(pointer:coarse)]:hidden font-mono text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 hover:text-white"
               title="Global search (Ctrl+K)"
             >
               Ctrl+K
@@ -364,27 +364,6 @@ export const NavDeck: React.FC<NavDeckProps> = ({
         )}
       </div>
 
-      {/* Footer: Settings, plus the encryption note */}
-      <div className="p-2 border-t border-[var(--border-subtle)] bg-slate-950/30 flex items-center justify-between gap-2 shrink-0">
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            aria-current={activeCategory === 'settings' ? 'page' : undefined}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
-              activeCategory === 'settings'
-                ? 'bg-slate-800 text-slate-100'
-                : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-            }`}
-          >
-            <IconSettings className="w-4 h-4" />
-            Settings
-          </button>
-        )}
-        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 pr-2">
-          <IconShield className="w-3.5 h-3.5 text-emerald-400" />
-          End-to-end encrypted
-        </span>
-      </div>
     </nav>
   );
 };

@@ -1,6 +1,6 @@
 # Setup
 
-How to get Private Chat running against your own Supabase project. Plan on about 15 minutes, plus 10 more if you add Google sign-in.
+How to get Nook running against your own Supabase project. Plan on about 15 minutes, plus 10 more if you add Google sign-in.
 
 You need Node.js 20+, npm, and a Supabase account. Google Cloud (for Google sign-in) and Upstash (rate limiting across servers) are optional.
 
@@ -18,6 +18,8 @@ cp .env.example .env.local
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+# Production only: the public address of the site (canonical links, sitemap, link previews)
+# NEXT_PUBLIC_SITE_URL=https://chat.example.com
 SUPABASE_SERVICE_ROLE_KEY=<service_role key>
 
 # Optional: shared rate limiting across several server instances
@@ -55,8 +57,17 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 017 | `017_security_hardening.sql` | Security fixes: blocking that works, group key envelopes only from admins, membership and message integrity guards, storage limits, realtime authorization. **Required for the security fixes to take effect.** |
 | 018 | `018_devices_and_flood_limits.sql` | At most 3 registered device identities per account, and per-account write limits (messages, reactions, new conversations) enforced in the database. |
 | 019 | `019_admin_logs.sql` | The admin error log and admin activity log (Admin, Errors and Activity), so admins can see problems without Supabase access. |
+| 024 | `024_moderation.sql` | Warnings, temporary bans and blocks from repeated reports; the Admin safety queue. Then enable the sign-up hook (below). |
+| 023 | `023_hide_platform_admins.sql` | Platform admins cannot be found in search or by listing profiles; only people who share a chat or community with them can see them. |
+| 025 | `025_admin_lock_and_roles.sql` | Platform admins can only be made from Supabase; group admins can promote members; 10 channels per community; official-looking names are reserved. **Deploy the matching app first** (it removes the in-app promote button). |
+| 026 | `026_message_requests.sql` | A person you have never talked to can send 3 messages until you reply. |
+| 027 | `027_group_invites.sql` | People you do not know must accept an invitation to join a group. **Deploy the app first, then run this straight away:** the old app cannot create groups after it, and the new app cannot add people before it. |
+| 028 | `028_profile_visibility.sql` | Strangers can no longer read profiles; search runs on the server. **Deploy the app first, and have `SUPABASE_SERVICE_ROLE_KEY` set** or search stops working. |
+| 022 | `022_support_requests.sql` | The support inbox behind the Contact page and Settings, Report a problem (Admin, Support). |
+| 021 | `021_upload_limits.sql` | Attachments can only be uploaded through the server's signed addresses; per-account daily upload quota; bucket and avatar limits. Deploy the matching app first, then run it. |
+| 020 | `020_latest_messages.sql` | One query for the newest message of every conversation (sidebar previews). Optional: without it the app makes one request per conversation. |
 
-Migrations 011 to 019 are safe to re-run. **Each one needs the ones before it**: running `017` on a project that is missing `013` fails with `function public.is_group_admin(uuid) does not exist`. Run them strictly in order, once each. The app keeps working if some late ones are missing: each feature that needs one says so instead of failing, but **`017` and `018` carry security fixes and should always be applied.**
+Migrations 011 to 022 are safe to re-run. **Each one needs the ones before it**: running `017` on a project that is missing `013` fails with `function public.is_group_admin(uuid) does not exist`. Run them strictly in order, once each. The app keeps working if some late ones are missing: each feature that needs one says so instead of failing, but **`017` and `018` carry security fixes and should always be applied.**
 
 To confirm the later migrations took effect, run this read-only check (all `true`):
 
@@ -71,7 +82,16 @@ select
   exists (select 1 from pg_trigger where tgname = 'trigger_limit_devices_per_user') as m018_device_cap,
   exists (select 1 from pg_trigger where tgname = 'trigger_rate_messages')      as m018_write_limits,
   to_regclass('public.error_logs') is not null                                  as m019_error_logs,
-  to_regclass('public.admin_audit_log') is not null                             as m019_audit_log;
+  to_regclass('public.admin_audit_log') is not null                             as m019_audit_log,
+  to_regprocedure('public.get_latest_messages(uuid[])') is not null            as m020_latest_messages,
+  to_regprocedure('public.uploaded_bytes_last_day(uuid)') is not null           as m021_upload_quota,
+  to_regclass('public.support_requests') is not null                            as m022_support,
+  to_regprocedure('public.shares_community_with(uuid)') is not null            as m023_hidden_admins,
+  to_regprocedure('public.hook_before_user_created(jsonb)') is not null        as m024_moderation,
+  exists (select 1 from pg_trigger where tgname = 'trigger_audit_profile_admin_change') as m025_admin_lock,
+  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'conversations' and column_name = 'intro_count') as m026_message_requests,
+  to_regprocedure('public.add_group_member(uuid,uuid)') is not null            as m027_group_invites,
+  to_regprocedure('public.search_profiles_by_prefix(uuid,text,integer)') is not null as m028_profile_visibility;
 ```
 
 **Do not re-run old migrations on an existing project.** `002` and `003` are not re-runnable: `002` refers to a column that `003` removes, so running it again fails with `column "role" does not exist`. If you are unsure what has been applied, run this read-only check and only run what is missing:
@@ -138,3 +158,13 @@ All of a person's devices share one encryption key. To add one:
 2. On the new device: sign in. The app shows **Link this device**; choose the backup file and type the passphrase. Conversations and history then work exactly as on the first device.
 
 Do not choose "Start fresh" unless you mean to: it replaces the account key, old messages become unreadable, and your contacts will see a "security code changed" warning. An account can hold at most 3 registered keys. See [E2EE](E2EE.md#keys-and-linking-devices) for the trade-offs.
+
+## Blocking new accounts from banned people (migration 024)
+
+Banned accounts are refused by Supabase Auth on their own. To also refuse **new accounts** from a banned person's email or network address, switch on the hook once:
+
+1. Supabase dashboard, **Authentication**, **Hooks**, **Before User Created**.
+2. Choose **Postgres function** and select `public.hook_before_user_created`.
+3. Save. Test it by blocking a throwaway email (Admin, Safety queue, or `insert into public.blocked_identities (kind, value) values ('email', 'test@example.com');` in the SQL editor) and trying to sign up with it: you should see "This email address or network cannot be used to create an account".
+
+The hook reads the caller's address from the hook payload (`metadata.ip_address`). If your Supabase version does not include it, email blocking still works and address blocking silently does nothing: check with a test address on a staging project before relying on it. Without the hook, nothing is blocked at sign-up (bans on existing accounts still work).

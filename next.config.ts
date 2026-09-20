@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
@@ -22,12 +23,14 @@ function supabaseOrigins(): { https: string; wss: string } | null {
  */
 function contentSecurityPolicy(): string {
   const supa = supabaseOrigins();
-  const connect = ["'self'", ...(supa ? [supa.https, supa.wss] : []), ...(isProd ? [] : ["ws:", "http://localhost:*"])];
+  // The optional bot check (lib/captcha.ts) loads a script, a frame and a few requests from Cloudflare, only when it is switched on.
+  const captcha = /^[0-9A-Za-z_-]{6,64}$/.test(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "") ? ["https://challenges.cloudflare.com"] : [];
+  const connect = ["'self'", ...(supa ? [supa.https, supa.wss] : []), ...captcha, ...(isProd ? [] : ["ws:", "http://localhost:*"])];
   // Profile photos come from Supabase Storage or Google sign-in only, never from arbitrary hosts.
   const img = ["'self'", "data:", "blob:", ...(supa ? [supa.https] : []), "https://*.googleusercontent.com"];
   const directives: Record<string, string[]> = {
     "default-src": ["'self'"],
-    "script-src": ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'", ...(isProd ? [] : ["'unsafe-eval'"])],
+    "script-src": ["'self'", "'unsafe-inline'", "'wasm-unsafe-eval'", ...captcha, ...(isProd ? [] : ["'unsafe-eval'"])],
     "style-src": ["'self'", "'unsafe-inline'"],
     "img-src": img,
     "font-src": ["'self'", "data:"],
@@ -38,7 +41,7 @@ function contentSecurityPolicy(): string {
     "base-uri": ["'self'"],
     "form-action": ["'self'"],
     "frame-ancestors": ["'none'"],
-    "frame-src": ["'none'"],
+    "frame-src": captcha.length ? captcha : ["'none'"],
   };
   const parts = Object.entries(directives).map(([k, v]) => `${k} ${v.join(" ")}`);
   if (isProd) parts.push("upgrade-insecure-requests");
@@ -46,6 +49,8 @@ function contentSecurityPolicy(): string {
 }
 
 const nextConfig: NextConfig = {
+  // Pin the project root so a lockfile elsewhere on the machine is never picked as the workspace root.
+  outputFileTracingRoot: path.join(__dirname),
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
   async headers() {
@@ -66,7 +71,10 @@ const nextConfig: NextConfig = {
       {
         // API responses carry per-user data: never cache them in a browser or shared cache.
         source: "/api/:path*",
-        headers: [{ key: "Cache-Control", value: "no-store, max-age=0" }],
+        headers: [
+          { key: "Cache-Control", value: "no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
       },
     ];
   },

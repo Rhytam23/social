@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Avatar, PRESENCE_COLOR } from '../ui/avatar';
+import { IconCheck } from '../ui/icons';
 import { updatePreferences, usePreferences, type StatusChoice } from '../../lib/prefs/preferences';
 
 const OPTIONS: { value: StatusChoice; label: string; hint: string; color: string }[] = [
@@ -79,7 +80,7 @@ export const StatusMenu: React.FC<{ name: string; avatarUrl?: string; onChanged?
                 <span className="block text-xs font-semibold text-[var(--text-primary)]">{o.label}</span>
                 <span className="block text-[10px] text-[var(--text-muted)]">{o.hint}</span>
               </span>
-              {o.value === current.value && <span className="text-[var(--accent-text)] text-xs">✓</span>}
+              {o.value === current.value && <IconCheck className="w-3.5 h-3.5 text-[var(--accent-text)]" />}
             </button>
           ))}
           <div className="border-t border-[var(--border-subtle)] mt-1 pt-2 px-2 pb-1">

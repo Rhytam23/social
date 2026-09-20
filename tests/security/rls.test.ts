@@ -26,16 +26,27 @@ async function seedUsers(db: PGlite) {
   }
 }
 
-/** Creates a conversation the way the API does: creator inserts it, then every member row in ONE statement. */
+/**
+ * Creates a conversation the way the API does. A direct chat: the creator inserts both member rows in ONE statement.
+ * A group: the creator takes their own seat, and the other members are set up directly (in the app they arrive through
+ * add_group_member or an invitation, tested in groupInvites.test.ts; from 027 the creator can no longer insert them).
+ */
 async function createConversation(db: PGlite, owner: string, type: 'private' | 'group', members: string[]): Promise<string> {
-  return asUser(db, owner, async (q) => {
+  const id = await asUser(db, owner, async (q) => {
     const conv = await q(`INSERT INTO public.conversations (type, name, created_by) VALUES ($1, $2, $3) RETURNING id`, [type, type === 'group' ? 'team' : null, owner]);
-    const id = conv.rows[0].id as string;
-    const all = [owner, ...members];
-    const rows = all.map((u, i) => `($1, $${i + 2}${type === 'group' && u === owner ? `, 'owner'` : ''})`).join(',');
-    await q(`INSERT INTO public.conversation_members (conversation_id, user_id${type === 'group' ? ', role' : ''}) VALUES ${type === 'group' ? all.map((u, i) => `($1, $${i + 2}, '${u === owner ? 'owner' : 'member'}')`).join(',') : rows}`, [id, ...all]);
-    return id;
+    const convId = conv.rows[0].id as string;
+    if (type === 'group') {
+      await q(`INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'owner')`, [convId, owner]);
+    } else {
+      const all = [owner, ...members];
+      await q(`INSERT INTO public.conversation_members (conversation_id, user_id) VALUES ${all.map((_, i) => `($1, $${i + 2})`).join(',')}`, [convId, ...all]);
+    }
+    return convId;
   });
+  if (type === 'group') {
+    for (const m of members) await seed(db, `INSERT INTO public.conversation_members (conversation_id, user_id, role) VALUES ($1, $2, 'member')`, [id, m]);
+  }
+  return id;
 }
 
 async function sendMessage(db: PGlite, sender: string, conv: string, text = 'ciphertext') {
@@ -65,6 +76,8 @@ describe('row level security, current schema (001 to 017)', () => {
     ab = await createConversation(db, A, 'private', [B]);
     group = await createConversation(db, A, 'group', [B]);
     await sendMessage(db, A, ab, 'secret from A');
+    // B answers, so this is a normal conversation and the tests below are not held to the 3-message limit for strangers (026).
+    await sendMessage(db, B, ab, 'reply from B');
     await sendMessage(db, B, group, 'group note');
   }, 120000);
 
@@ -94,7 +107,7 @@ describe('row level security, current schema (001 to 017)', () => {
     });
 
     it('members do see them', async () => {
-      expect(await asUser(db, B, (q) => count(q, `SELECT 1 FROM public.messages WHERE conversation_id = $1`, [ab]))).toBe(1);
+      expect(await asUser(db, B, (q) => count(q, `SELECT 1 FROM public.messages WHERE conversation_id = $1`, [ab]))).toBe(2);
     });
 
     it('outsider C cannot see the conversation or its members', async () => {
@@ -188,10 +201,10 @@ describe('row level security, current schema (001 to 017)', () => {
       expect(r.ok).toBe(false);
     });
 
-    it('the owner can add people', async () => {
+    it('even the owner cannot put people in by writing the table: only add_group_member and an invitation can (027)', async () => {
       const g = await createConversation(db, A, 'group', [B]);
       const r = await attempt(() => asUser(db, A, (q) => q(`INSERT INTO public.conversation_members (conversation_id, user_id) VALUES ($1, $2)`, [g, D])));
-      expect(r.ok).toBe(true);
+      expect(r.ok).toBe(false);
     });
 
     it('a member cannot promote themselves or anyone', async () => {
@@ -326,9 +339,9 @@ describe('row level security, current schema (001 to 017)', () => {
       }
     });
 
-    it('members can upload into their own conversation, and users into their own folder', async () => {
-      expect((await attempt(() => asUser(db, B, (q) => q(`INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('encrypted_attachments', $1, $2)`, [`${ab}/2_ok.bin`, B])))).ok).toBe(true);
-      expect((await attempt(() => asUser(db, C, (q) => q(`INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('encrypted_attachments', $1, $2)`, [`${C}/mine.bin`, C])))).ok).toBe(true);
+    it('since 021 nobody can upload directly: not a member into the conversation, not a user into their own folder', async () => {
+      expect((await attempt(() => asUser(db, B, (q) => q(`INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('encrypted_attachments', $1, $2)`, [`${ab}/2_ok.bin`, B])))).ok).toBe(false);
+      expect((await attempt(() => asUser(db, C, (q) => q(`INSERT INTO storage.objects (bucket_id, name, owner) VALUES ('encrypted_attachments', $1, $2)`, [`${C}/mine.bin`, C])))).ok).toBe(false);
     });
 
     it('only the owner of a folder (or an admin) can delete', async () => {
@@ -337,12 +350,11 @@ describe('row level security, current schema (001 to 017)', () => {
     });
 
     it('the buckets carry their own size and type limits', async () => {
-      const r = await seed(db, `SELECT id, file_size_limit, allowed_mime_types FROM storage.buckets WHERE id IN ('encrypted_attachments','attachments')`);
+      const r = await seed(db, `SELECT id, file_size_limit, allowed_mime_types FROM storage.buckets WHERE id IN ('encrypted_attachments','attachments') ORDER BY id`);
       expect(r.rows).toHaveLength(2);
-      for (const row of r.rows) {
-        expect(Number(row.file_size_limit)).toBe(26214400);
-        expect(row.allowed_mime_types).toEqual(['application/octet-stream']);
-      }
+      const limits = Object.fromEntries(r.rows.map((row) => [row.id as string, Number(row.file_size_limit)]));
+      expect(limits).toEqual({ attachments: 26214400, encrypted_attachments: 104857600 });
+      for (const row of r.rows) expect(row.allowed_mime_types).toEqual(['application/octet-stream']);
     });
   });
 

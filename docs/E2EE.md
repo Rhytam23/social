@@ -73,7 +73,7 @@ The plaintext is a JSON envelope (`lib/messaging/envelope.ts`): the text, or for
 
 ## Attachments
 
-The browser encrypts the file with a fresh AES-256-GCM key and IV, uploads only ciphertext to a private bucket (stored as `application/octet-stream` at `<conversationId>/<random uuid>_<safe name>`, at most 25 MB), and puts the key inside the encrypted message. Recipients download the ciphertext and decrypt locally. Voice notes are the same, with a duration.
+The browser encrypts the file with a fresh AES-256-GCM key and IV, uploads only ciphertext to a private bucket (stored as `application/octet-stream` at `<conversationId>/<user id>_<random uuid>`, images up to 10 MB, videos up to 100 MB, other files up to 25 MB, never above the deployment ceiling), and puts the key inside the encrypted message. Recipients download the ciphertext and decrypt locally. Voice notes are the same, with a duration.
 
 ## Key backup
 

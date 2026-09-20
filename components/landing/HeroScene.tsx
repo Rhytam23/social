@@ -1,49 +1,47 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   AmbientLight,
-  CanvasTexture,
+  BoxGeometry,
+  Color,
   DirectionalLight,
-  DoubleSide,
+  DynamicDrawUsage,
   Group,
-  HemisphereLight,
+  InstancedMesh,
   Mesh,
-  MeshBasicMaterial,
   MeshStandardMaterial,
-  PCFShadowMap,
+  Object3D,
   PerspectiveCamera,
-  PlaneGeometry,
-  PointLight,
   Scene,
-  ShadowMaterial,
-  SRGBColorSpace,
-  Vector3,
+  TorusGeometry,
   WebGLRenderer,
 } from 'three';
-import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import { CARDS } from './sceneContent';
-import { poseAt } from './sceneMath';
-import { paintCard } from './paintCards';
-
-export interface HeroSceneProps {
-  /** Scroll position through the story, 0 to 1. Written by the page, read every frame. */
-  progressRef: React.MutableRefObject<number>;
-  /** Pointer position, -1 to 1 on both axes. */
-  pointerRef: React.MutableRefObject<{ x: number; y: number }>;
-  onReady: () => void;
-  onError: () => void;
-}
-
-const DEPTH = 0.08;
-const damp = (current: number, target: number, rate: number, dt: number) => current + (target - current) * (1 - Math.exp(-rate * dt));
 
 /**
- * The landing scene: the product's own objects (messages, a profile, a
- * channel list, an envelope that shows what the server really stores)
- * floating in soft light. Plain three.js, loaded only on the landing page.
+ * The 3D hero, for computers only (HeroVisual decides). It shows how a message travels: readable blocks
+ * leave one device, are scrambled as they pass the lock, and become readable again on the other device.
+ * Abstract shapes only: no people, chats or screenshots. It is careful with the machine: it renders only
+ * while visible, caps the pixel ratio, measures its own frame time and hands over to the still picture if
+ * it cannot keep up (or if WebGL is lost).
  */
-export default function HeroScene({ progressRef, pointerRef, onReady, onError }: HeroSceneProps) {
+
+const BLOCKS = 16;
+const smooth = (a: number, b: number, x: number) => {
+  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return t * t * (3 - 2 * t);
+};
+
+function cssColor(name: string, fallback: string): Color {
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  try {
+    return new Color(value || fallback);
+  } catch {
+    return new Color(fallback);
+  }
+}
+
+export default function HeroScene({ onReady, onError }: { onReady: () => void; onError: () => void }) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,246 +50,214 @@ export default function HeroScene({ progressRef, pointerRef, onReady, onError }:
 
     let renderer: WebGLRenderer;
     try {
-      renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      renderer = new WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'low-power' });
     } catch {
       onError();
       return;
     }
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-    renderer.setPixelRatio(dpr);
-    renderer.outputColorSpace = SRGBColorSpace;
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = PCFShadowMap;
-    renderer.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;';
-    renderer.domElement.setAttribute('aria-hidden', 'true');
-    host.appendChild(renderer.domElement);
+    let disposed = false;
+    let raf = 0;
+    let running = false;
+    let visible = true;
+    let reportedReady = false;
+    let pixelRatioCap = 1.5;
+    let frames = 0;
+    let frameSum = 0;
+    let last = 0;
+
+    const canvas = renderer.domElement;
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block';
+    host.appendChild(canvas);
 
     const scene = new Scene();
-    const camera = new PerspectiveCamera(35, 1, 0.1, 60);
-    camera.position.set(0, 0.6, 9.2);
-    camera.lookAt(0, -0.1, 0);
-
-    // Light from above-left, a cool rim from behind, and a little fill. No colour beyond that.
-    scene.add(new HemisphereLight(0xb7c4d6, 0x0a0b0d, 0.9));
-    scene.add(new AmbientLight(0xffffff, 0.15));
-    const key = new DirectionalLight(0xffffff, 2.1);
-    key.position.set(-4, 7, 6);
-    key.castShadow = true;
-    key.shadow.mapSize.set(768, 768);
-    key.shadow.bias = -0.0004;
-    Object.assign(key.shadow.camera, { left: -9, right: 9, top: 9, bottom: -9, near: 1, far: 26 });
+    const camera = new PerspectiveCamera(32, 1, 0.1, 60);
+    camera.position.set(0, 0, 12.6);
+    scene.add(new AmbientLight(0xffffff, 1.15));
+    const key = new DirectionalLight(0xffffff, 1.7);
+    key.position.set(3, 5, 6);
     scene.add(key);
-    const rim = new PointLight(0x7cc3e8, 14, 22, 2);
-    rim.position.set(4, 2, -5);
-    scene.add(rim);
 
-    const root = new Group();
-    scene.add(root);
-
-    const floor = new Mesh(new PlaneGeometry(40, 40), new ShadowMaterial({ opacity: 0.38 }));
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -3.1;
-    floor.receiveShadow = true;
-    root.add(floor);
-
-    const font =
-      getComputedStyle(document.documentElement).getPropertyValue('--font-geist-sans').trim() ||
-      'ui-sans-serif, system-ui, sans-serif';
-    const maxAniso = renderer.capabilities.getMaxAnisotropy();
-    const disposables: Array<{ dispose: () => void }> = [renderer, floor.geometry, floor.material as ShadowMaterial];
-
-    const texture = (canvas: HTMLCanvasElement) => {
-      const t = new CanvasTexture(canvas);
-      t.colorSpace = SRGBColorSpace;
-      t.anisotropy = Math.min(8, maxAniso);
-      disposables.push(t);
-      return t;
+    const colors = {
+      surface: cssColor('--surface-2', '#181b20'),
+      line: cssColor('--text-secondary', '#9aa1ad'),
+      accent: cssColor('--accent-primary', '#4ba3d3'),
+      plain: cssColor('--text-primary', '#e9ebef'),
     };
+    const frameMat = new MeshStandardMaterial({ color: colors.surface, roughness: 0.7, metalness: 0.05 });
+    const lineMat = new MeshStandardMaterial({ color: colors.line, roughness: 0.8 });
+    const accentMat = new MeshStandardMaterial({ color: colors.accent, roughness: 0.45, metalness: 0.2 });
+    const blockMat = new MeshStandardMaterial({ color: 0xffffff, roughness: 0.55 });
 
-    interface Item {
-      group: Group;
-      mats: Array<MeshStandardMaterial | MeshBasicMaterial>;
-      index: number;
-      cur: { x: number; y: number; z: number; rx: number; ry: number; rz: number; s: number; o: number };
-    }
-    const items: Item[] = [];
+    const geometries: Array<{ dispose(): void }> = [];
+    const geo = <T extends { dispose(): void }>(g: T): T => (geometries.push(g), g);
 
-    const build = () => {
-      CARDS.forEach((spec, index) => {
-        const group = new Group();
-        const slabGeo = new RoundedBoxGeometry(spec.w, spec.h, DEPTH, 3, 0.14);
-        const slabMat = new MeshStandardMaterial({ color: 0x1b2027, roughness: 0.5, metalness: 0.25, transparent: true });
-        const slab = new Mesh(slabGeo, slabMat);
-        slab.castShadow = true;
-        group.add(slab);
-
-        const faceGeo = new PlaneGeometry(spec.w, spec.h);
-        const faceMat = new MeshBasicMaterial({ map: texture(paintCard(spec, font)), transparent: true, toneMapped: false });
-        const face = new Mesh(faceGeo, faceMat);
-        face.position.z = DEPTH / 2 + 0.002;
-        group.add(face);
-        const mats: Item['mats'] = [slabMat, faceMat];
-
-        if (spec.kind === 'envelope') {
-          const backMat = new MeshBasicMaterial({ map: texture(paintCard(spec, font, true)), transparent: true, toneMapped: false, side: DoubleSide });
-          const back = new Mesh(faceGeo, backMat);
-          back.position.z = -DEPTH / 2 - 0.002;
-          back.rotation.y = Math.PI;
-          group.add(back);
-          mats.push(backMat);
-          disposables.push(backMat);
-        }
-
-        disposables.push(slabGeo, slabMat, faceGeo, faceMat);
-        const start = spec.poses[0];
-        const item: Item = {
-          group,
-          mats,
-          index,
-          cur: { x: start.p[0], y: start.p[1], z: start.p[2], rx: start.r[0], ry: start.r[1], rz: start.r[2], s: start.s, o: start.o },
-        };
-        root.add(group);
-        items.push(item);
-      });
+    const device = (x: number, rotationY: number) => {
+      const g = new Group();
+      g.add(new Mesh(geo(new BoxGeometry(2.3, 3.5, 0.14)), frameMat));
+      for (let i = 0; i < 5; i++) {
+        const w = i % 2 ? 1.2 : 1.6;
+        const line = new Mesh(geo(new BoxGeometry(w, 0.1, 0.05)), lineMat);
+        line.position.set((w - 1.6) / 2 - 0.05, 0.95 - i * 0.42, 0.1);
+        g.add(line);
+      }
+      g.position.set(x, 0, 0);
+      g.rotation.y = rotationY;
+      return g;
     };
-    build();
+    scene.add(device(-3.05, 0.38), device(3.05, -0.38));
 
-    // Fit the scene to the window: to the right of the text on wide screens, above it on phones.
-    const layout = { scale: 0.8, x: 1.7, y: 0 };
+    const lock = new Group();
+    const lockBody = new Mesh(geo(new BoxGeometry(0.95, 0.78, 0.36)), accentMat);
+    lockBody.position.y = -0.2;
+    const shackle = new Mesh(geo(new TorusGeometry(0.32, 0.075, 12, 28, Math.PI)), accentMat);
+    shackle.position.y = 0.2;
+    lock.add(lockBody, shackle);
+    scene.add(lock);
+
+    const blocks = new InstancedMesh(geo(new BoxGeometry(0.42, 0.16, 0.1)), blockMat, BLOCKS);
+    blocks.instanceMatrix.setUsage(DynamicDrawUsage);
+    scene.add(blocks);
+    const dummy = new Object3D();
+    const tint = new Color();
+
+    const applyTheme = () => {
+      colors.surface.copy(cssColor('--surface-2', '#181b20'));
+      colors.line.copy(cssColor('--text-secondary', '#9aa1ad'));
+      colors.accent.copy(cssColor('--accent-primary', '#4ba3d3'));
+      colors.plain.copy(cssColor('--text-primary', '#e9ebef'));
+      frameMat.color.copy(colors.surface);
+      lineMat.color.copy(colors.line);
+      accentMat.color.copy(colors.accent);
+    };
+    const themeObserver = new MutationObserver(applyTheme);
+    themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    const scheme = window.matchMedia('(prefers-color-scheme: light)');
+    scheme.addEventListener('change', applyTheme);
+
+    const pointer = { x: 0, y: 0 };
+    const onPointer = (e: PointerEvent) => {
+      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = (e.clientY / window.innerHeight) * 2 - 1;
+    };
+    window.addEventListener('pointermove', onPointer, { passive: true });
+
     const resize = () => {
-      const w = host.clientWidth || 1;
-      const h = host.clientHeight || 1;
+      const w = Math.max(1, host.clientWidth);
+      const h = Math.max(1, host.clientHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, pixelRatioCap));
       renderer.setSize(w, h, false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
-      const a = w / h;
-      if (a >= 1.2) {
-        layout.scale = 0.74;
-        layout.x = (1.35 * Math.min(a, 1.9)) / 1.78;
-        layout.y = 0;
-      } else {
-        layout.scale = Math.min(0.62, Math.max(0.36, a * 0.9));
-        layout.x = 0;
-        layout.y = 1.15;
-      }
     };
+    const resizeObserver = new ResizeObserver(resize);
+    resizeObserver.observe(host);
     resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(host);
 
-    let visible = true;
-    const io = new IntersectionObserver(([entry]) => (visible = entry.isIntersecting), { threshold: 0 });
-    io.observe(host);
-
-    const rootState = { yaw: 0, pitch: 0, progress: progressRef.current };
-    const v = new Vector3();
-    let last = performance.now();
-    let announced = false;
-
-    // Quality governor: if frames are slow, drop shadows and resolution first, and if that is not
-    // enough hand over to the still version. A smooth page matters more than the scene.
-    let warm = 0;
-    let samples = 0;
-    let total = 0;
-    let tier = 0;
-    const degrade = () => {
-      tier = 1;
-      renderer.setPixelRatio(1);
-      renderer.setSize(host.clientWidth || 1, host.clientHeight || 1, false);
-      renderer.shadowMap.enabled = false;
-      key.castShadow = false;
-      floor.visible = false;
-      items.forEach((it) => it.mats.forEach((m) => (m.needsUpdate = true)));
+    const teardown = () => {
+      if (disposed) return;
+      disposed = true;
+      running = false;
+      cancelAnimationFrame(raf);
+      themeObserver.disconnect();
+      scheme.removeEventListener('change', applyTheme);
+      window.removeEventListener('pointermove', onPointer);
+      resizeObserver.disconnect();
+      visibility.disconnect();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      canvas.removeEventListener('webglcontextlost', onContextLost);
+      geometries.forEach((g) => g.dispose());
+      [frameMat, lineMat, accentMat, blockMat].forEach((m) => m.dispose());
+      blocks.dispose();
+      renderer.dispose();
+      renderer.forceContextLoss();
+      canvas.remove();
     };
 
-    const frame = (now: number) => {
-      const raw = (now - last) / 1000;
-      const dt = Math.min(0.05, raw);
-      last = now;
-      if (!visible || document.hidden) {
-        warm = 0;
-        return;
-      }
-      if (raw < 0.25 && ++warm > 24) {
-        total += raw;
-        if (++samples === 60) {
-          const avg = total / samples;
-          if (avg > 0.05 && tier === 1) {
-            if (process.env.NODE_ENV !== 'production') console.info(`landing scene: ${Math.round(avg * 1000)}ms per frame, showing the still version`);
-            onError();
-            return;
+    const fail = () => {
+      teardown();
+      onError();
+    };
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      fail();
+    };
+    canvas.addEventListener('webglcontextlost', onContextLost);
+
+    const tick = (now: number) => {
+      if (disposed || !running) return;
+      raf = requestAnimationFrame(tick);
+
+      // Measure our own cost: lower the resolution once, then give up if it is still slow.
+      if (last) {
+        frameSum += now - last;
+        frames++;
+        if (frames === 90) {
+          const avg = frameSum / frames;
+          if (avg > 50 && pixelRatioCap === 1) return fail();
+          if (avg > 38 && pixelRatioCap > 1) {
+            pixelRatioCap = 1;
+            resize();
           }
-          if (avg > 0.034 && tier === 0) {
-            if (process.env.NODE_ENV !== 'production') console.info(`landing scene: ${Math.round(avg * 1000)}ms per frame, reducing quality`);
-            degrade();
-          }
-          samples = 0;
-          total = 0;
+          frames = 0;
+          frameSum = 0;
         }
       }
-      const t = now / 1000;
-      const px = pointerRef.current.x;
-      const py = pointerRef.current.y;
+      last = now;
 
-      rootState.progress = damp(rootState.progress, progressRef.current, 5, dt);
-      rootState.yaw = damp(rootState.yaw, px * 0.1, 3, dt);
-      rootState.pitch = damp(rootState.pitch, -py * 0.05, 3, dt);
-      root.rotation.set(rootState.pitch, rootState.yaw, 0);
-      root.position.set(layout.x, layout.y, 0);
-      root.scale.setScalar(layout.scale);
-
-      for (const item of items) {
-        const spec = CARDS[item.index];
-        const pose = poseAt(spec.poses, rootState.progress);
-
-        // The card nearest the pointer lifts a little toward the viewer.
-        v.set(pose.p[0], pose.p[1], pose.p[2]).applyMatrix4(root.matrixWorld).project(camera);
-        const near = Math.max(0, 1 - Math.hypot(v.x - px, v.y - py) / 0.45);
-        const float = Math.sin(t * 0.7 + item.index * 1.7) * 0.07;
-
-        const c = item.cur;
-        c.x = damp(c.x, pose.p[0] + px * (pose.p[2] + 3) * 0.05, 6, dt);
-        c.y = damp(c.y, pose.p[1] + float, 6, dt);
-        c.z = damp(c.z, pose.p[2] + near * 0.35, 6, dt);
-        c.rx = damp(c.rx, pose.r[0] - py * 0.03, 6, dt);
-        c.ry = damp(c.ry, pose.r[1] + px * 0.06, 6, dt);
-        c.rz = damp(c.rz, pose.r[2], 6, dt);
-        c.s = damp(c.s, pose.s * (1 + near * 0.035), 6, dt);
-        c.o = damp(c.o, pose.o, 6, dt);
-
-        item.group.visible = c.o > 0.02;
-        if (!item.group.visible) continue;
-        item.group.position.set(c.x, c.y, c.z);
-        item.group.rotation.set(c.rx, c.ry, c.rz);
-        item.group.scale.setScalar(Math.max(0.001, c.s));
-        for (const m of item.mats) m.opacity = c.o;
+      const time = now;
+      for (let i = 0; i < BLOCKS; i++) {
+        const t = (time * 0.00012 + i / BLOCKS) % 1;
+        const cipher = smooth(0.4, 0.52, t) * (1 - smooth(0.8, 0.92, t));
+        const squash = 1 - 0.35 * Math.exp(-(((t - 0.46) / 0.05) ** 2));
+        dummy.position.set(-1.75 + t * 3.5, Math.sin(t * 6.283 + i) * 0.12 + ((i % 4) - 1.5) * 0.3, 0.25 * Math.sin(t * Math.PI));
+        dummy.rotation.set(cipher * time * 0.0015 * (1 + (i % 3)), cipher * time * 0.0012 * (1 + (i % 2)), 0);
+        dummy.scale.setScalar(squash);
+        dummy.updateMatrix();
+        blocks.setMatrixAt(i, dummy.matrix);
+        blocks.setColorAt(i, tint.copy(colors.plain).lerp(colors.accent, cipher));
       }
+      blocks.instanceMatrix.needsUpdate = true;
+      if (blocks.instanceColor) blocks.instanceColor.needsUpdate = true;
+
+      lock.rotation.y = Math.sin(time * 0.0007) * 0.35;
+      lock.position.y = Math.sin(time * 0.0011) * 0.06;
+
+      // Pointer and scroll move the camera a little.
+      camera.position.x += (pointer.x * 0.7 - camera.position.x) * 0.05;
+      camera.position.y += (-pointer.y * 0.35 - Math.min(window.scrollY, 600) * 0.002 - camera.position.y) * 0.05;
+      camera.lookAt(0, 0, 0);
 
       renderer.render(scene, camera);
-      if (!announced) {
-        announced = true;
+      if (!reportedReady) {
+        reportedReady = true;
         onReady();
       }
     };
-    renderer.setAnimationLoop(frame);
 
-    const onLost = (e: Event) => {
-      e.preventDefault();
-      onError();
+    const start = () => {
+      if (running || disposed || !visible || document.hidden) return;
+      running = true;
+      last = 0;
+      raf = requestAnimationFrame(tick);
     };
-    renderer.domElement.addEventListener('webglcontextlost', onLost);
+    const stop = () => {
+      running = false;
+      cancelAnimationFrame(raf);
+    };
 
-    return () => {
-      renderer.setAnimationLoop(null);
-      renderer.domElement.removeEventListener('webglcontextlost', onLost);
-      ro.disconnect();
-      io.disconnect();
-      disposables.forEach((d) => d.dispose());
-      renderer.forceContextLoss();
-      renderer.domElement.remove();
-    };
-    // The refs are stable; the callbacks are only invoked, never re-subscribed.
+    const visibility = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      if (visible) start();
+      else stop();
+    });
+    visibility.observe(host);
+    const onVisibilityChange = () => (document.hidden ? stop() : start());
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    start();
+    return teardown;
+    // The callbacks are stable in HeroVisual; the scene is created once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

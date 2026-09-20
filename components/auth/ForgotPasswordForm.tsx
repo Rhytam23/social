@@ -1,21 +1,36 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import Link from 'next/link';
 import { AuthLayout } from './AuthLayout';
 import { createClient } from '../../lib/supabase/client';
 import { IconCheck } from '../ui/icons';
 
 import { Button } from '../ui/button';
+import { TurnstileWidget, type TurnstileHandle } from './TurnstileWidget';
+import { captchaEnabled } from '../../lib/captcha';
+import { isSupabaseConfigured } from '../../lib/supabase/env';
 export const ForgotPasswordForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
+  const needsCaptcha = isSupabaseConfigured() && captchaEnabled();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
+    if (needsCaptcha && !captchaToken) {
+      setErrorMsg('Please complete the security check first.');
+      return;
+    }
+    const token = captchaToken ?? undefined;
+    if (needsCaptcha) {
+      setCaptchaToken(null);
+      captchaRef.current?.reset();
+    }
 
     setIsSubmitting(true);
     setErrorMsg(null);
@@ -30,6 +45,7 @@ export const ForgotPasswordForm: React.FC = () => {
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo,
+        captchaToken: token,
       });
 
       if (error) {
@@ -90,7 +106,9 @@ export const ForgotPasswordForm: React.FC = () => {
             />
           </div>
 
-          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} disabled={!email} className="mt-1">
+          {needsCaptcha && <TurnstileWidget ref={captchaRef} onToken={setCaptchaToken} onUnavailable={() => setErrorMsg('The security check could not be loaded. Check your connection and reload the page.')} />}
+
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} disabled={!email || (needsCaptcha && !captchaToken)} className="mt-1">
             Send recovery link
           </Button>
 

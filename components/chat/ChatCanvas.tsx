@@ -2,11 +2,11 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ConversationItem, MessageData, ReplyReference } from '../../types/ui';
 import { MessageItem } from '../messages/MessageItem';
 import { MessageComposer } from '../messages/MessageComposer';
-import { IconChevronDown, IconLock, IconPin, IconSearch, IconShield, IconX } from '../ui/icons';
+import { IconChevronDown, IconLock, IconPin, IconSearch, IconX } from '../ui/icons';
 import { PRESENCE_LABEL } from '../ui/avatar';
 import { MessageListSkeleton, TypingDots } from '../ui/primitives';
-import { NotifyMenu } from '../notifications/NotifyMenu';
-import { DisappearMenu } from '../privacy/DisappearMenu';
+import { ChatHeaderMenu } from './ChatHeaderMenu';
+import { VerifiedBadge } from '../brand/VerifiedBadge';
 
 export interface ChatCanvasProps {
   conversation: ConversationItem;
@@ -45,6 +45,8 @@ export interface ChatCanvasProps {
   onReportMessage?: (msg: MessageData) => void;
   /** Start a voice (false) or video (true) call with the other person (direct chats only). */
   onStartCall?: (video: boolean) => void;
+  /** Ids of platform admins: their messages and the chat title carry the verified badge. */
+  platformAdminIds?: string[];
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -58,6 +60,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   onDownloadAttachment,
   onRetryFailedMessage,
   onToggleInspector,
+  platformAdminIds = [],
   onEditMessage,
   onDeleteMessage,
   onForwardMessage,
@@ -146,7 +149,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
     >
       {/* Drag Over Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-40 bg-emerald-950/80 backdrop-blur-xs border-2 border-dashed border-emerald-400 flex flex-col items-center justify-center text-emerald-300 font-sans gap-2">
+        <div className="absolute inset-0 z-40 bg-[var(--surface-1)]/90 border-2 border-dashed border-[var(--accent-primary)] flex flex-col items-center justify-center text-[var(--accent-text)] font-sans gap-2">
           <IconLock className="w-8 h-8 text-emerald-400" />
           <span className="font-bold text-base">Drop File to Encrypt & Attach</span>
           <span className="text-xs text-emerald-400">File will be encrypted client-side before upload</span>
@@ -154,7 +157,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
       )}
 
       {/* Header Bar */}
-      <div className="h-14 bg-[var(--surface-1)]/90 backdrop-blur-md border-b border-[var(--border-subtle)] px-4 sm:px-6 flex items-center justify-between shrink-0 z-10">
+      <div className="h-14 bg-[var(--surface-1)] border-b border-[var(--border-subtle)] px-4 sm:px-6 flex items-center justify-between shrink-0 z-10">
         <div className="flex items-center gap-3 truncate">
           {onBackToList && (
             <button
@@ -172,6 +175,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
               <h2 className="text-sm font-bold text-slate-100 truncate font-sans">
                 {conversation.communityId ? `# ${conversation.title}` : conversation.title}
               </h2>
+              {conversation.type === 'direct' && conversation.recipientUser && platformAdminIds.includes(conversation.recipientUser.id) && <VerifiedBadge />}
               {conversation.isMuted && (
                 <span className="text-[10px] text-slate-500">Muted</span>
               )}
@@ -218,29 +222,14 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
               </button>
             </>
           )}
-          {onSetDisappear && <DisappearMenu current={conversation.disappearAfter} onChange={onSetDisappear} />}
-          {onSetNotify && <NotifyMenu conversation={conversation} onChange={onSetNotify} />}
-          <button
-            onClick={() => setShowInChatSearch(!showInChatSearch)}
-            className={`p-2 rounded-xl transition-colors ${
-              showInChatSearch
-                ? 'bg-slate-800 text-white'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
-            }`}
-            title="Search in conversation"
-          >
-            <IconSearch className="w-4 h-4" />
-          </button>
-
-          {onToggleInspector && (
-            <button
-              onClick={onToggleInspector}
-              className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5"
-            >
-              <IconShield className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Security Context</span>
-            </button>
-          )}
+          <ChatHeaderMenu
+            conversation={conversation}
+            searchOpen={showInChatSearch}
+            onToggleSearch={() => setShowInChatSearch(!showInChatSearch)}
+            onOpenSecurity={onToggleInspector}
+            onSetNotify={onSetNotify}
+            onSetDisappear={onSetDisappear}
+          />
         </div>
       </div>
 
@@ -305,15 +294,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-3 relative"
       >
-        <div className="w-full max-w-4xl mx-auto flex flex-col gap-2">
-          {/* Security Badge Pill */}
-          <div className="py-1.5 px-3 my-2 bg-slate-900/60 border border-slate-800/80 rounded-full text-xs text-center flex items-center justify-center gap-2 max-w-fit mx-auto shadow-xs text-slate-400">
-            <IconLock className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[11px] font-medium text-slate-300">
-              End-to-End Encrypted via {conversation.type === 'group' ? 'Per-Device Group Key Distribution' : 'X25519 Authenticated Encryption'}
-            </span>
-          </div>
-
+        <div className="w-full max-w-4xl mx-auto flex flex-col">
           {canLoadOlder && !inChatSearchQuery && (
             <button
               onClick={onLoadOlder}
@@ -330,11 +311,14 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
             <div className="my-auto text-center text-xs text-slate-500 p-12">
               {inChatSearchQuery
                 ? `No messages in this chat match "${inChatSearchQuery}"`
-                : 'No messages in this conversation yet. Send a message to establish session ratchet.'}
+                : 'No messages yet. Say hello.'}
             </div>
           ) : (
             displayedMessages.map((msg, index) => {
               const isFirstUnread = conversation.unreadCount > 0 && index === displayedMessages.length - conversation.unreadCount;
+              const prev = displayedMessages[index - 1];
+              // Same person, same minute, nothing in between: the name and photo are not repeated.
+              const continuation = !!prev && !isFirstUnread && !prev.isDeletedLocally && prev.senderId === msg.senderId && prev.isSelf === msg.isSelf && prev.timestamp === msg.timestamp;
               return (
                 <React.Fragment key={msg.id}>
                   {isFirstUnread && (
@@ -360,6 +344,8 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                     onOpenThread={onOpenThread}
                     onReportMessage={onReportMessage}
                     threadReplyCount={threadCounts.get(msg.id) ?? 0}
+                    continuation={continuation}
+                    senderVerified={platformAdminIds.includes(msg.senderId)}
                   />
                 </React.Fragment>
               );
@@ -388,7 +374,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
       {showScrollBottomBtn && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-20 right-6 p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white shadow-xl border border-slate-700 transition-all z-20"
+          className="absolute bottom-20 right-6 p-2.5 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] shadow-[var(--shadow-2)] border border-[var(--border-strong)] transition-all z-20"
           title="Scroll to bottom"
         >
           <IconChevronDown className="w-4 h-4" />

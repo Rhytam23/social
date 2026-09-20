@@ -4,6 +4,7 @@ import { IconShield, IconUsers, IconX } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
 
 import { Button } from '../ui/button';
+import { VerifiedBadge } from '../brand/VerifiedBadge';
 export interface UserProfileModalProps {
   user: UserItem | null;
   isOpen: boolean;
@@ -44,7 +45,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 font-sans">
       <div className="w-full max-w-sm floating overflow-hidden flex flex-col">
         {/* Header Banner */}
-        <div className="h-20 bg-gradient-to-r from-slate-900 to-slate-800 relative flex items-start justify-end p-3">
+        <div className="h-20 bg-[var(--surface-2)] relative flex items-start justify-end p-3">
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-white rounded-full bg-slate-900/60 border border-slate-700/60 transition-colors"
@@ -74,11 +75,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-slate-100">{user.name}</h2>
-              {user.role === 'admin' && (
-                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-semibold uppercase">
-                  Admin
-                </span>
-              )}
+              {user.role === 'admin' && <VerifiedBadge className="w-5 h-5" />}
             </div>
             <span className="text-xs text-slate-400">
               {user.username ? `@${user.username}` : ''}

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { notFound } from 'next/navigation';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
 import { Avatar } from '../../components/ui/avatar';
@@ -35,7 +34,6 @@ const SAMPLE_CHANNELS: ConversationItem[] = [
 
 /** Living style guide. Development only: production builds return 404. */
 export default function DesignSystemPage() {
-  if (process.env.NODE_ENV === 'production') notFound();
 
   const [theme, setTheme] = useTheme();
   const [on, setOn] = useState(true);

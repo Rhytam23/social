@@ -18,13 +18,14 @@ import { CommunitySidebar } from '../community/CommunitySidebar';
 import { CreateChannelDialog, CommunitySettingsDialog } from '../community/CommunityDialogs';
 import { GroupsDialog } from '../groups/GroupsDialog';
 import type { LookupOutcome } from '../../lib/people/lookup';
+import type { GroupInviteItem } from '../../lib/groups/invites';
 import { isGroupManager, type GroupRole } from '../../lib/groups/roles';
 import { setTheme, effectiveTheme } from '../../lib/ui/theme';
 import { toast } from '../../lib/ui/toastStore';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { GroupSpaceView } from '../groups/GroupSpaceView';
 import { ForwardMessageModal } from '../messages/ForwardMessageModal';
-import { IconLock, IconPlus } from '../ui/icons';
+import { IconLock, IconPlus, IconX } from '../ui/icons';
 import { Button } from '../ui/button';
 
 export interface AppShellProps {
@@ -53,7 +54,6 @@ export interface AppShellProps {
 
   devices: DeviceItem[];
   users: UserItem[];
-  onToggleUserRole: (userId: string, currentRole: 'admin' | 'member') => void;
 
   onExportKeyBackup: (passphrase: string) => Promise<void>;
   onRestoreKeyBackup: (passphrase: string, backupJson: string) => Promise<void>;
@@ -62,7 +62,7 @@ export interface AppShellProps {
   onNewMessage: () => void;
   /** Starts (or opens) a direct chat with someone, including people found by username. */
   onStartDirectChat?: (user: UserItem) => void | Promise<void>;
-  /** Finds one person by exact username. The only way to discover new people. */
+  /** Finds people whose username starts with the text. The only way to discover new people. */
   onLookupUser: (raw: string) => Promise<LookupOutcome>;
   onCreateGroup?: (name: string, memberIds: string[]) => Promise<boolean>;
 
@@ -106,6 +106,9 @@ export interface AppShellProps {
 
   // Privacy
   blockedIds?: string[];
+  /** Group invitations waiting for an answer, and how to answer one. */
+  groupInvites?: GroupInviteItem[];
+  onRespondGroupInvite?: (inviteId: string, accept: boolean) => void;
   onBlockUser?: (userId: string) => void;
   onUnblockUser?: (userId: string) => void;
   onReportMessage?: (messageId: string, reason: string, includeText: boolean) => Promise<boolean>;
@@ -141,7 +144,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   onRemoveGroupMember,
   devices,
   users,
-  onToggleUserRole,
   onExportKeyBackup,
   onRestoreKeyBackup,
   onRevokeDevice,
@@ -182,6 +184,8 @@ export const AppShell: React.FC<AppShellProps> = ({
   onLeaveCommunity,
   currentUser,
   blockedIds = [],
+  groupInvites,
+  onRespondGroupInvite,
   onBlockUser,
   onUnblockUser,
   onReportMessage,
@@ -354,6 +358,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             onSelectHome={selectHome}
             onSelectCommunity={selectCommunity}
             onAdd={() => setGroupsDialogOpen(true)}
+            onOpenSettings={() => setActiveCategory('settings')}
           />
         </div>
       )}
@@ -386,7 +391,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           ) : (
           <NavDeck
             currentUserName={currentUserName}
-            currentUserRegistrationId={currentUserRegistrationId}
             userRole={currentUserRole}
             activeCategory={activeCategory}
             onSelectCategory={(cat) => {
@@ -404,7 +408,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
             onNewMessage={onNewMessage}
             onNewGroup={() => setGroupsDialogOpen(true)}
-            onOpenSettings={() => setActiveCategory('settings')}
+            groupInvites={groupInvites}
+            onRespondGroupInvite={onRespondGroupInvite}
             unreadTotal={unreadTotal}
             groupUnreadTotal={groupUnreadTotal}
             isLoading={isLoading}
@@ -433,6 +438,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             <>
               <ChatCanvas
                 conversation={activeConversation}
+                platformAdminIds={users.filter((u) => u.role === 'admin').map((u) => u.id)}
                 messages={shownMessages}
                 onSendMessage={onSendMessage}
                 replyTarget={
@@ -511,14 +517,15 @@ export const AppShell: React.FC<AppShellProps> = ({
 
               {/* Context Inspector Deck (Desktop slide-over) */}
               {showInspector && (
-                <div className="absolute top-0 right-0 bottom-0 w-80 lg:w-96 bg-[var(--surface-1)] border-l border-[var(--border-subtle)] shadow-2xl z-30 flex flex-col animate-in slide-in-from-right duration-200">
+                <div className="absolute top-0 right-0 bottom-0 w-80 lg:w-96 bg-[var(--surface-1)] border-l border-[var(--border-subtle)] shadow-[var(--shadow-pop)] z-30 flex flex-col animate-in slide-in-from-right duration-200">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] bg-slate-950/40">
                     <span className="text-xs font-bold text-slate-100">Conversation Details</span>
                     <button
                       onClick={() => setShowInspector(false)}
-                      className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                      aria-label="Close details"
+                      className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-2)]"
                     >
-                      ✕
+                      <IconX className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="flex-1 overflow-y-auto">
@@ -544,7 +551,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               </div>
               <h3 className="text-base font-bold text-slate-100 mb-1">No chats yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">
-                Your messages are end-to-end encrypted. Find someone by their exact username to start a private conversation.
+                Your messages are end-to-end encrypted. Find someone by their username to start a private conversation.
               </p>
               <Button variant="primary" size="md" onClick={onNewMessage} className="gap-2">
                 <IconPlus className="w-4 h-4" />
@@ -640,7 +647,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           {activeCategory === 'admin' && currentUserRole === 'admin' && (
             <AdminDashboard
               users={users}
-              onToggleUserRole={onToggleUserRole}
             />
           )}
         </main>

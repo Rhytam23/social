@@ -1,12 +1,14 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AuthLayout } from './AuthLayout';
 import { createClient } from '../../lib/supabase/client';
-import { getChatStore } from '../../lib/store/chatStore';
 import { isSupabaseConfigured as checkSupabaseConfigured } from '../../lib/supabase/env';
-import { IconCheck, IconLock } from '../ui/icons';
+import { IconCheck, IconLock, IconX } from '../ui/icons';
 import { Button } from '../ui/button';
+import { TurnstileWidget, type TurnstileHandle } from './TurnstileWidget';
+import { captchaEnabled } from '../../lib/captcha';
+import { reservedNameMessage } from '../../lib/profile/names';
 
 import Link from 'next/link';
 
@@ -40,6 +42,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [confirmPassword, setConfirmPassword] = useState('');
   const [touched, setTouched] = useState<Partial<Record<Field, boolean>>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<TurnstileHandle>(null);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [showAlreadyRegistered, setShowAlreadyRegistered] = useState(false);
@@ -52,6 +56,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [resendResult, setResendResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const isSupabaseConfigured = checkSupabaseConfigured();
+  const needsCaptcha = isSupabaseConfigured && captchaEnabled();
 
   // Surface failures from the /auth/confirm redirect (?error=...).
   useEffect(() => {
@@ -95,6 +100,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   const fieldErrors: Partial<Record<Field, string>> = {};
   if (isSignup && !displayName.trim()) fieldErrors.displayName = 'Please enter your display name.';
+  else if (isSignup && reservedNameMessage(displayName)) fieldErrors.displayName = reservedNameMessage(displayName) ?? undefined;
   if (!email.trim()) fieldErrors.email = 'Please enter your email address.';
   else if (!EMAIL_RE.test(email.trim())) fieldErrors.email = 'Enter a valid email address.';
   if (!password) fieldErrors.password = isSignup ? 'Please choose a password.' : 'Please enter your password.';
@@ -138,10 +144,20 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     e.preventDefault();
     setTouched({ displayName: true, email: true, password: true, confirmPassword: true });
     if (Object.keys(fieldErrors).length > 0) return;
+    if (needsCaptcha && !captchaToken) {
+      setErrorMsg('Please complete the security check first.');
+      return;
+    }
 
     setIsSubmitting(true);
     resetFeedback();
     const normalizedEmail = email.trim();
+    // A check token works once: use it now and ask for a fresh one for any next attempt.
+    const token = captchaToken ?? undefined;
+    if (needsCaptcha) {
+      setCaptchaToken(null);
+      captchaRef.current?.reset();
+    }
 
     try {
       if (isSupabaseConfigured) {
@@ -152,6 +168,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             email: normalizedEmail,
             password,
             options: {
+              captchaToken: token,
               emailRedirectTo: emailRedirectTo(),
               data: {
                 display_name: displayName.trim(),
@@ -197,6 +214,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           const { error } = await supabase.auth.signInWithPassword({
             email: normalizedEmail,
             password,
+            options: { captchaToken: token },
           });
 
           if (error) {
@@ -204,6 +222,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
               showConfirmationPending(normalizedEmail, 'unconfirmed');
             } else if (error.code === 'invalid_credentials') {
               setErrorMsg('Invalid email or password. Please check your details.');
+            } else if (error.code === 'user_banned') {
+              setErrorMsg('This account is suspended. If you think this is a mistake, contact support from the Contact page.');
             } else {
               setErrorMsg(error.message);
             }
@@ -212,7 +232,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           }
         }
       } else {
-        // Local mode fallback
+        // Local mode fallback (development only). The store is loaded on demand so real sign-in never pays for it.
+        const { getChatStore } = await import('../../lib/store/chatStore');
         const store = getChatStore();
         const users = store.getState().allUsers;
         const matched = users.find(
@@ -290,7 +311,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     }
   };
 
-  const handleQuickDemoLogin = (userId: string, userEmail: string) => {
+  const handleQuickDemoLogin = async (userId: string, userEmail: string) => {
+    const { getChatStore } = await import('../../lib/store/chatStore');
     const store = getChatStore();
     store.switchDemoUser(userId);
     if (onLoginSuccess) onLoginSuccess(userEmail);
@@ -378,7 +400,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   return (
     <AuthLayout
-      title={tab === 'signin' ? 'Sign In to Private Chat' : 'Create Your Account'}
+      title={tab === 'signin' ? 'Sign In to Nook' : 'Create Your Account'}
       subtitle={
         tab === 'signin'
           ? 'Enter your credentials to unlock your end-to-end encrypted messaging keys.'
@@ -442,7 +464,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3.5">
           {errorMsg && (
             <div role="alert" className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl leading-relaxed">
-              ✕ {errorMsg}
+              <span className="inline-flex items-start gap-2"><IconX className="w-3.5 h-3.5 mt-0.5 shrink-0" />{errorMsg}</span>
             </div>
           )}
 
@@ -543,7 +565,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                       key={rule.id}
                       className={`text-[11px] flex items-center gap-1.5 ${met ? 'text-emerald-400' : 'text-slate-500'}`}
                     >
-                      <span aria-hidden="true">{met ? '✓' : '○'}</span>
+                      <span aria-hidden="true" className="w-3.5 h-3.5 inline-flex items-center justify-center">{met ? <IconCheck className="w-3 h-3" /> : <span className="w-1.5 h-1.5 rounded-full border border-current" />}</span>
                       <span>{rule.label}</span>
                     </li>
                   );
@@ -572,16 +594,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             </div>
           )}
 
-          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} className="mt-2">
+          {needsCaptcha && <TurnstileWidget ref={captchaRef} onToken={setCaptchaToken} onUnavailable={() => setErrorMsg('The security check could not be loaded. Check your connection and reload the page.')} />}
+
+          <Button type="submit" variant="primary" size="lg" fullWidth loading={isSubmitting} disabled={needsCaptcha && !captchaToken} className="mt-2">
             <IconLock className="w-3.5 h-3.5" />
             <span>
               {isSubmitting
                 ? tab === 'signup'
-                  ? 'Creating Cryptographic Identity...'
-                  : 'Unlocking Key Store...'
+                  ? 'Creating your account'
+                  : 'Signing in'
                 : tab === 'signup'
-                ? 'Create Account & Generate Keys'
-                : 'Sign In & Unlock Keys'}
+                ? 'Create account'
+                : 'Sign in'}
             </span>
           </Button>
 

@@ -4,15 +4,17 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { ConversationItem, MessageData, UserItem, DeviceItem, UserPresence, CommunityItem, CommunityMemberItem } from '../../types/ui';
 import { getPreferences } from '../prefs/preferences';
 import { isGroupRole } from '../groups/roles';
+import { describeAddResult, describeGroupCreated, invitesFromRows, type GroupInviteItem } from '../groups/invites';
 import { extractMentionIds } from '../notifications/rules';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
-import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
-import { uploadEncryptedAttachment, downloadAndDecryptAttachment, MAX_ATTACHMENT_BYTES } from '../messaging/attachments';
+import { fetchConversations, fetchLatestMessages, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
+import { uploadEncryptedAttachment, downloadAndDecryptAttachment } from '../messaging/attachments';
 import type { MessageEnvelope, CallOutcome } from '../messaging/envelope';
 import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } from '../messaging/envelopeDisplay';
 import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
-import { userError, adminDetail, technicalNote } from '../ui/errors';
+import { userError, adminDetail, technicalNote, UserMessageError } from '../ui/errors';
+import { toast } from '../ui/toastStore';
 
 type StoreMode = 'connected' | 'demo';
 
@@ -50,6 +52,8 @@ export interface ChatStoreState {
   communityMembers: Record<string, CommunityMemberItem[]>;
   /** User ids you have blocked. */
   blocked: string[];
+  /** Groups you were invited to and have not answered. */
+  groupInvites: GroupInviteItem[];
   error: string | null;
 }
 
@@ -80,7 +84,7 @@ const DEMO_USERS: UserItem[] = [
 const DEMO_CONVERSATIONS: ConversationItem[] = [
   {
     id: 'conv-alice-bob', title: 'Bob Miller', type: 'direct', unreadCount: 0, isPinned: true,
-    lastMessage: { snippet: 'Welcome to Private Chat! (demo data)', timestamp: '10:30 AM', status: 'read' },
+    lastMessage: { snippet: 'Welcome to Nook! (demo data)', timestamp: '10:30 AM', status: 'read' },
     recipientUser: { id: 'usr-bob', name: 'Bob Miller', registrationId: 10482, identityFingerprint: '992A-44B1-0081-F09C-1192-33E4-AA11-22BB', isVerified: true, presence: 'online' },
   },
   {
@@ -93,7 +97,7 @@ const DEMO_CONVERSATIONS: ConversationItem[] = [
 const DEMO_MESSAGES: Record<string, MessageData[]> = {
   'conv-alice-bob': [
     { id: 'msg-init-1', conversationId: 'conv-alice-bob', senderId: 'usr-bob', senderName: 'Bob Miller', isSelf: false, content: 'Hey Alice! This is local demo mode - nothing here is sent to a server.', timestamp: '10:28 AM', status: 'read', reactions: [{ emoji: '👋', count: 1, userReacted: true }], encryptionVersion: 0 },
-    { id: 'msg-init-2', conversationId: 'conv-alice-bob', senderId: 'usr-alice', senderName: 'Alice Vance', isSelf: true, content: 'Welcome to Private Chat! (demo data, not encrypted)', timestamp: '10:30 AM', status: 'read', replyTo: { id: 'msg-init-1', senderName: 'Bob Miller', snippet: 'Hey Alice! This is local demo mode - nothing here is sent to a server.' }, reactions: [{ emoji: '🔒', count: 1, userReacted: false }], encryptionVersion: 0 },
+    { id: 'msg-init-2', conversationId: 'conv-alice-bob', senderId: 'usr-alice', senderName: 'Alice Vance', isSelf: true, content: 'Welcome to Nook! (demo data, not encrypted)', timestamp: '10:30 AM', status: 'read', replyTo: { id: 'msg-init-1', senderName: 'Bob Miller', snippet: 'Hey Alice! This is local demo mode - nothing here is sent to a server.' }, reactions: [{ emoji: '🔒', count: 1, userReacted: false }], encryptionVersion: 0 },
   ],
   'conv-security-team': [
     { id: 'gmsg-init-1', conversationId: 'conv-security-team', senderId: 'usr-alice', senderName: 'Alice Vance', isSelf: true, content: 'This is local demo data, not a real conversation.', timestamp: '09:15 AM', status: 'read', reactions: [{ emoji: '🚀', count: 3, userReacted: true }], encryptionVersion: 0 },
@@ -218,6 +222,7 @@ export class ChatStore {
       communities: [],
       communityMembers: {},
       blocked: [],
+      groupInvites: [],
       error: null,
     };
   }
@@ -395,26 +400,33 @@ export class ChatStore {
       this.notify();
     }
 
-    // Best-effort last-message preview for each conversation.
-    await Promise.all(
-      summaries.map(async (s) => {
-        try {
-          const history = await fetchMessageHistory(this.crypto!, s, 1);
-          const last = history[history.length - 1];
-          if (!last) return;
-          const lastVisible = [...history].reverse().find((m) => !isHiddenEnvelope(m.envelope));
-          if (!lastVisible) return;
-          const { snippet } = envelopeToDisplay(lastVisible.envelope, lastVisible.decryptError);
-          this.state.conversations = this.state.conversations.map((c) =>
-            c.id === s.id
-              ? { ...c, lastMessage: { snippet, timestamp: new Date(lastVisible.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } }
-              : c
-          );
-        } catch {
-          // Preview is best-effort only; leave the default snippet.
-        }
-      })
-    );
+    // Best-effort last-message preview for each conversation: one request for all of them, or (until
+    // migration 020 is applied) one per conversation.
+    const applyPreview = (conversationId: string, message: DecryptedMessageRow | undefined) => {
+      if (!message || isHiddenEnvelope(message.envelope)) return;
+      const { snippet } = envelopeToDisplay(message.envelope, message.decryptError);
+      const timestamp = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, lastMessage: { snippet, timestamp } } : c));
+    };
+    try {
+      const latest = await fetchLatestMessages(this.crypto!, summaries);
+      if (latest) {
+        for (const [conversationId, message] of latest) applyPreview(conversationId, message);
+      } else {
+        await Promise.all(
+          summaries.map(async (s) => {
+            try {
+              const history = await fetchMessageHistory(this.crypto!, s, 1);
+              applyPreview(s.id, history[history.length - 1]);
+            } catch {
+              // Preview is best-effort only; leave the default snippet.
+            }
+          })
+        );
+      }
+    } catch {
+      // Preview is best-effort only; leave the default snippet.
+    }
     this.notify();
     void this.loadUnreadCounts();
   }
@@ -430,21 +442,23 @@ export class ChatStore {
     this.setState({ allUsers: [...known, ...foundEarlier] });
   }
 
-  /** Finds one person by exact username (demo mode searches the sample users). */
+  /** Finds people whose username starts with the text (demo mode searches the sample users). */
   public async lookupUsername(raw: string): Promise<LookupOutcome> {
     const parsed = parseUsernameQuery(raw);
     if (!parsed.ok) return { status: 'invalid', message: parsed.error };
 
     if (this.state.mode === 'demo') {
-      const match = this.state.allUsers.find((u) => u.id !== this.state.currentUser.id && (u.username ?? '').toLowerCase() === parsed.value);
-      if (!match) return { status: 'none' };
-      return { status: 'found', user: match, blocked: this.state.blocked.includes(match.id) };
+      const found = this.state.allUsers
+        .filter((u) => u.id !== this.state.currentUser.id && (u.username ?? '').toLowerCase().startsWith(parsed.value))
+        .slice(0, 8);
+      if (found.length === 0) return { status: 'none' };
+      return { status: 'found', matches: found.map((user) => ({ user, blocked: this.state.blocked.includes(user.id) })) };
     }
 
     const outcome = await lookupUsernameRemote(raw);
     if (outcome.status !== 'found') return outcome;
-    this.rememberUser(outcome.user);
-    return { ...outcome, blocked: outcome.blocked || this.state.blocked.includes(outcome.user.id) };
+    for (const m of outcome.matches) this.rememberUser(m.user);
+    return { status: 'found', matches: outcome.matches.map((m) => ({ user: m.user, blocked: m.blocked || this.state.blocked.includes(m.user.id) })) };
   }
 
   /** Keeps a person found by username so groups and chats can use them straight away. */
@@ -677,9 +691,6 @@ export class ChatStore {
     try {
       let envelope: MessageEnvelope;
       if (attachmentFile) {
-        if (attachmentFile.size > MAX_ATTACHMENT_BYTES) {
-          throw new Error('File exceeds the 25MB limit');
-        }
         const attachmentEnvelope = await uploadEncryptedAttachment(conversationId, attachmentFile);
         envelope = isVoice
           ? { v: 1, kind: 'voice', attachment: attachmentEnvelope, durationMs: voiceDurationMs || 0 }
@@ -703,6 +714,12 @@ export class ChatStore {
       );
       this.notify();
     } catch (err) {
+      if (err instanceof UserMessageError) {
+        // The limit for someone who has not replied: retrying cannot help, so drop the message and say why.
+        this.state.messagesMap = { ...this.state.messagesMap, [conversationId]: (this.state.messagesMap[conversationId] || []).filter((m) => m.id !== localId) };
+        this.setState({ error: err.message });
+        return;
+      }
       this.updateMessage(conversationId, localId, { status: 'failed' });
       this.setState({ error: userError(err, 'Failed to send message') });
     }
@@ -877,7 +894,13 @@ export class ChatStore {
     }
     const group = await res.json();
 
-    await this.distributeNewGroupKey(group.id, [this.state.currentUser.id, ...memberUserIds], 1);
+    // Only people the creator knows are members straight away. Everyone else was sent an invitation and gets the
+    // group key from an admin once they accept (see the rotation in refresh).
+    const added: string[] = Array.isArray(group.added) ? group.added : [];
+    for (const id of added) this.handledJoins.add(`${group.id}:${id}`);
+    await this.distributeNewGroupKey(group.id, [this.state.currentUser.id, ...added], 1);
+    const note = describeGroupCreated(Array.isArray(group.invited) ? group.invited.length : 0, typeof group.failed === 'number' ? group.failed : 0);
+    if (note) toast(note, { kind: 'info', ms: 7000 });
     await this.loadConversationsReal();
     this.selectConversation(group.id);
     return group.id;
@@ -923,6 +946,14 @@ export class ChatStore {
       return;
     }
 
+    const outcome = (await res.json().catch(() => ({}))) as { result?: 'added' | 'invited' | 'already' };
+    if (outcome.result !== 'added') {
+      // An invitation (or nothing to do): no key is shared until the person accepts and joins.
+      toast(describeAddResult(outcome.result === 'already' ? 'already' : 'invited', this.nameOf(userId)), { kind: 'info', ms: 6000 });
+      return;
+    }
+    this.handledJoins.add(`${groupId}:${userId}`);
+
     const { data: members } = await this.supabase.from('conversation_members').select('user_id').eq('conversation_id', groupId).is('left_at', null);
     const nextVersion = ((await this.crypto?.ensureGroupKey(groupId))?.version || 0) + 1;
     await this.distributeNewGroupKey(groupId, (members || []).map((m) => m.user_id), nextVersion);
@@ -947,22 +978,6 @@ export class ChatStore {
     await this.distributeNewGroupKey(groupId, (members || []).map((m) => m.user_id), nextVersion);
     await this.loadConversationsReal();
     void this.sendSystemNote(groupId, `${this.state.currentUser.name} removed ${this.nameOf(userId)}`);
-  }
-
-  public async toggleUserRole(userId: string, currentRole: 'admin' | 'member'): Promise<void> {
-    if (this.state.mode === 'demo') return this.toggleUserRoleDemo(userId, currentRole);
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, isAdmin: currentRole !== 'admin' }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      this.setState({ error: body.error || 'Failed to update role' });
-      return;
-    }
-    this.state.allUsers = this.state.allUsers.map((u) => (u.id === userId ? { ...u, role: currentRole === 'admin' ? 'member' : 'admin' } : u));
-    this.notify();
   }
 
   public async revokeDevice(deviceId: string): Promise<void> {
@@ -1365,8 +1380,9 @@ export class ChatStore {
       this.lastMemberIds.set(summary.id, summary.memberIds);
       if (!prev || !summary.roles) continue;
       const someoneLeft = prev.some((id) => !summary.memberIds.includes(id));
-      // Group adds rotate immediately in addGroupMember; channel joins happen inside a database function, so a manager does it here.
-      const someoneJoined = !!summary.communityId && summary.memberIds.some((id) => !prev.includes(id));
+      // Direct adds rotate immediately in addGroupMember. Channel joins and accepted invitations happen inside a
+      // database function, so a manager's device rotates the key here (once, for people not already handled).
+      const someoneJoined = summary.memberIds.some((id) => !prev.includes(id) && !this.handledJoins.has(`${summary.id}:${id}`));
       if (!someoneLeft && !someoneJoined) continue;
       const managers = summary.memberIds.filter((id) => summary.roles![id] === 'owner' || summary.roles![id] === 'admin').sort();
       if (managers[0] !== me) continue; // exactly one manager rotates, to avoid racing key versions
@@ -1587,6 +1603,35 @@ export class ChatStore {
     }
   }
 
+  /** People this device already shared a group key with (added directly), so the rotation above does not repeat it. */
+  private handledJoins = new Set<string>();
+
+  /** Fetches the invitations waiting for this person. Quiet on failure (migration 027 may not be applied yet). */
+  public async loadGroupInvites(): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    const { data, error } = await this.raw.rpc('my_group_invites' as never);
+    if (error) return;
+    this.setState({ groupInvites: invitesFromRows(data) });
+  }
+
+  /** Accepts or declines an invitation. Accepting joins the group; an admin's device then shares the group key. */
+  public async respondToGroupInvite(inviteId: string, accept: boolean): Promise<void> {
+    if (this.state.mode !== 'connected' || !this.raw) return;
+    const invite = this.state.groupInvites.find((i) => i.id === inviteId);
+    const { data, error } = await this.raw.rpc('respond_group_invite' as never, { p_invite: inviteId, p_accept: accept } as never);
+    if (error) {
+      // Expired, withdrawn or the group is full: the invitation is gone either way.
+      this.setState({ groupInvites: this.state.groupInvites.filter((i) => i.id !== inviteId) });
+      toast('That invitation is no longer valid.', { kind: 'error', ms: 6000 });
+      return;
+    }
+    this.setState({ groupInvites: this.state.groupInvites.filter((i) => i.id !== inviteId) });
+    if (!accept) return;
+    await this.loadConversationsReal();
+    if (typeof data === 'string') this.selectConversation(data);
+    toast(`You joined ${invite?.groupName ?? 'the group'}. Messages appear once an admin's device shares the group key with you, which can take a moment.`, { kind: 'success', ms: 8000 });
+  }
+
   public async loadBlocked(): Promise<void> {
     if (this.state.mode !== 'connected' || !this.raw) return;
     const { data, error } = await this.raw.from('blocks').select('blocked_id');
@@ -1750,6 +1795,7 @@ export class ChatStore {
       communities: [],
       communityMembers: {},
       blocked: [],
+      groupInvites: [],
       error: null,
     });
   }
@@ -1811,6 +1857,7 @@ export class ChatStore {
       communities: [],
       communityMembers: {},
       blocked: [],
+      groupInvites: [],
       error: null,
     };
     this.notify();
@@ -1958,11 +2005,6 @@ export class ChatStore {
     return newId;
   }
 
-  private toggleUserRoleDemo(userId: string, currentRole: 'admin' | 'member') {
-    this.state.allUsers = this.state.allUsers.map((u) => (u.id === userId ? { ...u, role: currentRole === 'admin' ? 'member' : 'admin' } : u));
-    this.persistDemo();
-    this.notify();
-  }
 
   private revokeDeviceDemo(deviceId: string) {
     this.state.devices = this.state.devices.filter((d) => d.id !== deviceId);
