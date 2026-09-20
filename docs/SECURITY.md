@@ -40,6 +40,11 @@ What the app protects, what it deliberately does not, the rules contributors mus
 - **Errors shown on the login page are length-capped and rendered as plain text.**
 - **Technical error detail is for admins only.** People see a short friendly message; platform admins also see the technical detail (database messages, migration hints, decrypt reasons) after it. Implemented in `lib/ui/errors.ts` (`userError`, `technicalNote`, `adminDetail`, `UserMessageError`); the viewer's admin status is set at sign-in from `profiles.is_admin`. **This is a display rule, not an access control:** calls the browser makes straight to Supabase carry the database's own message, which someone inspecting the network tab can still read. The real protection is the database rules; the API routes already return only generic errors.
 
+**Admin error and activity log** (`019`)
+- Admins can see server and browser errors and what other admins did inside the app (Admin, Errors and Activity), so 3 or 4 admins do not need Supabase or hosting access. Readable by **admins only, enforced by row level security**; clients cannot write to the tables at all (ingest is by server-only functions), and the audit log is append-only.
+- **What is never recorded:** message content, keys, tokens, passwords, email addresses, request bodies. Text is scrubbed (`lib/logging/scrub.ts`), length-capped, and shown as plain text. Entries are kept 30 days and the table is capped at 5,000 rows.
+- The browser reporting route is authenticated, rate limited and size limited, and the affected user comes from the session, never from the request body.
+
 **Browser hardening** (`next.config.ts`)
 - **Content-Security-Policy**: scripts, styles, images, fonts, connections and frames limited to this site and the Supabase project; `frame-ancestors 'none'`; `object-src 'none'`; `upgrade-insecure-requests` in production.
 - HSTS (2 years, preload), `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` `same-origin`, `X-Content-Type-Options`, `Referrer-Policy`, a restrictive `Permissions-Policy` (camera and microphone for this site only), no `X-Powered-By`.
@@ -76,6 +81,7 @@ Weak points: in-memory limits are per server instance (on serverless they are we
 9. **Schema changes go through a new migration**, with matching updates to `types/database.ts` and tests.
 10. **New API routes use `lib/api/security.ts`** (auth, validation, limits, origin check, generic errors) and get a test in `tests/security/apiSecurity.test.ts`.
 11. **Never put secrets, keys or private data in URLs, logs or client storage used as a security control.**
+13. **Never write message content, keys, tokens, passwords or request bodies to the error log or to `console`.** Log through `serverError()` (server) or `userError()`/`reportClientError()` (browser); they scrub and cap the text.
 12. **Never show a raw exception, database or migration message to a user.** Wrap it: `userError(err, 'Friendly sentence.')`, `technicalNote(detail, generic)` or `adminDetail(err, fallback)` from `lib/ui/errors.ts`. Throw `UserMessageError` only for messages written for people (for example "Use 4 to 8 digits").
 
 ## Known gaps
@@ -94,7 +100,8 @@ Ordered roughly by importance. Also tracked in the [Roadmap](ROADMAP.md).
 10. **No audit log** of admin actions beyond a server log line.
 11. **No CI**: nothing forces the checks to run before a merge.
 12. **Argon2id and key generation run on the main thread** and can briefly freeze the interface.
-13. **Live Supabase behaviour is unverified by automated tests.** RLS is tested on real Postgres with an emulated Supabase, not on a Supabase project. Use the [manual checklist](TESTING.md#manual-checklist).
+13. **The error log accepts reports from any signed-in user.** A malicious user could send junk entries; this is bounded by the per-account rate limit, the once-a-minute de-duplication and the 5,000-row cap, but it can push real entries out. Browser errors that happen before sign-in are not captured (server errors always are).
+14. **Live Supabase behaviour is unverified by automated tests.** RLS is tested on real Postgres with an emulated Supabase, not on a Supabase project. Use the [manual checklist](TESTING.md#manual-checklist).
 
 **Fixed and kept here so nobody reintroduces them:** blocking that did nothing; any member planting group keys; a creator re-adding themselves as owner; rewriting message columns; rate limits keyed on a spoofable header; no CSP; open realtime channels; unrestricted avatar URLs; missing storage limits; database error text returned to clients; vulnerable `postcss` and `vitest`; a second browser silently replacing the account key. Details and tests are in [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md).
 

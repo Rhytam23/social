@@ -85,3 +85,10 @@ The main architectural choices, why they were made, and where they stand. New de
 - **Status:** Accepted (September 2026).
 - **Decision:** The app limits cheap floods (per-address limit in middleware before any Supabase call, per-route and per-account limits, body caps, database write limits). Volumetric attacks must be absorbed by a firewall or CDN in front of the app, and sign-up abuse by Supabase's rate limits and, if needed, a CAPTCHA. These are documented as deployment steps ([Security](SECURITY.md#denial-of-service)) because they cannot be done from this repository.
 - **Consequences:** in-memory limits are per server instance unless Upstash is configured; they are a safety net, not a shield.
+
+## ADR 014: Admins get an in-app error and activity log
+
+- **Status:** Accepted (September 2026).
+- **Context:** Technical error detail is shown only to admins, but the only place server errors were visible was the hosting and database dashboards, which the owner does not want to share with every admin.
+- **Decision:** Keep an error log and an append-only admin activity log in the database, readable only by admins through row level security and shown in the Admin area. Writes go only through server-only database functions (nobody can write to the tables directly), the browser reports through an authenticated, rate-limited route, and all text is scrubbed of secrets and personal data first. Same problem = one row with a counter. Retention 30 days plus a 5,000-row cap. The affected user is recorded (agreed with the owner) so admins can help that person.
+- **Consequences:** admins can work without Supabase or Vercel access. The log is only as complete as what is reported: errors before sign-in are not captured from the browser, and a signed-in user can send junk entries within the limits. It is not a replacement for real monitoring at scale.

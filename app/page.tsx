@@ -28,7 +28,8 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { Button } from '../components/ui/button';
 import { LinkDevice } from '../components/auth/LinkDevice';
-import { setErrorViewer, userError } from '../lib/ui/errors';
+import { setErrorReporter, setErrorViewer, userError } from '../lib/ui/errors';
+import { reportClientError, startClientLogging, stopClientLogging } from '../lib/logging/clientLogger';
 export default function HomePage() {
   const [state, store] = useChatStore();
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
@@ -138,6 +139,8 @@ export default function HomePage() {
 
       const profile = await loadOwnProfile(supabase, user);
       setErrorViewer(profile?.is_admin === true);
+      startClientLogging();
+      setErrorReporter((err, friendly) => reportClientError(`ui: ${friendly}`, err));
       initPreferences(user.id, profile?.preferences, (prefs: Preferences) => {
         void saveOwnProfile(supabase, user.id, { preferences: prefs as unknown as Record<string, unknown> }).catch(() => {});
       });
@@ -464,6 +467,8 @@ export default function HomePage() {
       }
     }
     setErrorViewer(false);
+    setErrorReporter(null);
+    stopClientLogging();
     cryptoRef.current = null;
     liveRef.current?.stop();
     liveRef.current = null;

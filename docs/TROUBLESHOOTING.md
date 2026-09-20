@@ -110,6 +110,10 @@ The message was encrypted for a different key than the one this browser holds. T
 
 This browser has no encryption key, but your account already has one on another device. The app deliberately does not create a second key (that would cut your first device off). Choose the backup file you exported on the first device (Settings, Security, Export backup) and type its passphrase. If you have no backup, "Start fresh" creates a new key but your old messages become unreadable and your contacts see a "security code changed" warning. See [E2EE](E2EE.md#keys-and-linking-devices).
 
+## Admin, Errors says "not available right now" (or is always empty)
+
+Migration `019_admin_logs.sql` has not been applied, so the tables `error_logs` and `admin_audit_log` do not exist. Run it after `001` to `018`, then reload. If it is applied but stays empty: nothing has failed yet, the app is running in demo mode (nothing is collected without Supabase), or `SUPABASE_SERVICE_ROLE_KEY` is not set on the server (the server needs it to write the log). Only platform admins can see the tab.
+
 ## `device_limit_reached`
 
 An account can register at most 3 keys (migration `018`). This appears if something repeatedly created new keys. In the SQL editor, `select device_id, last_seen_at from user_devices where user_id = '<id>';` shows them; delete the stale ones you do not use, then link with the backup instead of creating new keys.

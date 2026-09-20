@@ -29,6 +29,14 @@ export function setErrorViewer(isAdmin: boolean): void {
   viewerIsAdmin = isAdmin;
 }
 
+type ErrorReporter = (err: unknown, friendly: string) => void;
+let reporter: ErrorReporter | null = null;
+
+/** Registers where handled errors are sent for the admin error log (set once signed in, cleared on sign-out). */
+export function setErrorReporter(fn: ErrorReporter | null): void {
+  reporter = fn;
+}
+
 export function canSeeErrorDetail(): boolean {
   return viewerIsAdmin;
 }
@@ -51,6 +59,12 @@ const MAX_DETAIL = 300;
  */
 export function userError(err: unknown, friendly: string = GENERIC_ERROR): string {
   if (err instanceof UserMessageError) return err.message;
+  // Every handled error passes through here, so this is the one place they reach the admin error log.
+  try {
+    reporter?.(err, friendly);
+  } catch {
+    // reporting must never break the interface
+  }
   if (!viewerIsAdmin) return friendly;
   const detail = errorDetail(err).trim().slice(0, MAX_DETAIL);
   return detail && detail !== friendly ? `${friendly} [Admin detail: ${detail}]` : friendly;

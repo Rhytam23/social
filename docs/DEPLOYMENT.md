@@ -56,7 +56,7 @@ Preview deployments use whatever variables are set for the Preview environment. 
 - [ ] No secrets in git (`.env*` files are ignored except `.env.example`; the service-role key is only in host settings). If a secret was ever committed, it must be **rotated**: removing it from the code does not remove it from git history
 
 **Database and Supabase**
-- [ ] All migrations `001` to `018` applied in order (run the check queries in [Setup](SETUP.md#3-run-the-database-migrations)); `017` and `018` carry security fixes
+- [ ] All migrations `001` to `019` applied in order (run the check queries in [Setup](SETUP.md#3-run-the-database-migrations)); `017` and `018` carry security fixes, `019` powers the admin error log
 - [ ] Realtime is on for `messages`, and Realtime Authorization is set up so the private typing and call channels work
 - [ ] `select username, is_admin from profiles;` shows only the people who should be admin (the first account created is admin)
 - [ ] Storage buckets exist; `encrypted_attachments` is private

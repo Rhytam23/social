@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     .insert(insertData as unknown as never)
     .select('id, type, name, created_at')
     .single();
-  if (createError || !group) return serverError('groups.create', createError);
+  if (createError || !group) return serverError('groups.create', createError, 500, undefined, user.id);
 
   const createdGroup = group as { id: string; type: string; name: string | null; created_at: string };
   const memberRows: Database['public']['Tables']['conversation_members']['Insert'][] = [user.id, ...others].map((uid) => ({
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
   if (membersError && /role/i.test(membersError.message)) {
     ({ error: membersError } = await supabase.from('conversation_members').insert(memberRows as unknown as never));
   }
-  if (membersError) return serverError('groups.create.members', membersError, 400, 'Could not add those people.');
+  if (membersError) return serverError('groups.create.members', membersError, 400, 'Could not add those people.', user.id);
 
   return NextResponse.json(createdGroup, { status: 201 });
 }
@@ -153,7 +153,7 @@ export async function PATCH(request: NextRequest) {
     .eq('type', 'group')
     .select('id')
     .maybeSingle();
-  if (error) return serverError('groups.update', error);
+  if (error) return serverError('groups.update', error, 500, undefined, user.id);
   if (!data) {
     return NextResponse.json({ error: 'Group not found, or only group admins can change its settings.' }, { status: 403 });
   }

@@ -57,7 +57,7 @@ async function lookupByUsername(supabase: Awaited<ReturnType<typeof createServer
 
   let { data, error } = await build(PROFILE_COLUMNS);
   if (error) ({ data, error } = await build(BASE_COLUMNS));
-  if (error) return serverError('users.lookup', error, 500, 'Search failed.');
+  if (error) return serverError('users.lookup', error, 500, 'Search failed.', myId);
 
   const rows = (data as unknown as Array<Row & Record<string, unknown>>) || [];
   const match = rows.find((r) => (r.username ?? '').toLowerCase() === parsed.value);
@@ -104,6 +104,6 @@ async function listKnownPeople(supabase: Awaited<ReturnType<typeof createServerC
   }
 
   const { data, error } = await fetchProfiles(ids);
-  if (error) return serverError('users.list', error);
+  if (error) return serverError('users.list', error, 500, undefined, myId);
   return NextResponse.json(data || []);
 }

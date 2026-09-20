@@ -36,9 +36,9 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 - Find people by exact username (names, email addresses and phone numbers are not searchable and email/phone are never returned)
 - Create groups, add and remove members, group key rotation on every change
 - Profile photo upload, notification permission, key backup and device list
-- Admin dashboard for roles
+- Admin dashboard: roles, reports, the error log and admin activity
 
-**Platform features** (need migrations 011 to 018; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
+**Platform features** (need migrations 011 to 019; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
 - Themes: **follows the device's light or dark setting by default**, or choose Dark or Light; quick switcher (Ctrl+K), keyboard shortcuts, accessible dialogs
 - Profiles with bio, pronouns and time zone; presence statuses; typing indicators; read receipts
 - Group roles, admin-only posting, threads, saved messages, @mentions, message formatting
@@ -50,6 +50,7 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 - Row level security on every table, integrity triggers, a Content-Security-Policy and other headers, private Realtime channels
 - Rate limits per address and per account, request size caps, cross-site request checks, database write limits, a cap of 3 registered keys per account
 - A test suite that runs the real migrations on an in-process Postgres and attacks them as different users
+- **An admin error and activity log inside the app** (Admin, Errors and Activity): server and browser errors and admin actions, readable by admins only, so admins need no Supabase or hosting access
 
 **Local demo mode**: run the UI with no backend for development (see [Demo mode](#demo-mode)). It can never run in a production build.
 
@@ -67,7 +68,7 @@ cp .env.example .env.local     # then fill in the three Supabase values
 ```
 
 1. Create a Supabase project and copy the **Project URL**, **anon key** and **service_role key** (Project Settings → API) into `.env.local`.
-2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in strict numeric order** (`001` to `018`). Each needs the ones before it. `017` and `018` carry security fixes.
+2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in strict numeric order** (`001` to `019`). Each needs the ones before it. `017` and `018` carry security fixes.
 3. In Supabase → Authentication, turn on **Confirm email** and add `http://localhost:3000/auth/confirm` to the Redirect URLs. Make sure Realtime Authorization is set up so typing indicators and calls work (see [Setup](docs/SETUP.md#6-verify-the-storage-buckets-and-realtime)).
 4. Start the app:
 
@@ -135,7 +136,7 @@ components/   UI by area: auth, chat, messages, groups, community, calls, settin
 crypto/       Browser encryption: keys, 1:1, groups, attachments, backup (libsodium, WebCrypto)
 lib/          store/ (ChatStore), messaging/ (crypto orchestration, envelopes), api/ (shared route security helpers),
               rate-limit/, supabase/, auth/, calls/, realtime/, ui/ (theme)
-database/     SQL migrations 001-018: the only definition of the schema
+database/     SQL migrations 001-019: the only definition of the schema
 docs/         Documentation (start at docs/README.md or docs/MAINTAINER_GUIDE.md)
 hooks/        React hooks
 tests/        Vitest suites (tests/security runs the real migrations on an in-process Postgres)
@@ -150,7 +151,7 @@ types/        Shared TypeScript types, database types
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-253 automated tests (at the time of writing) cover the encryption layer, the database security rules (the real migrations run on an in-process Postgres and attacked as several users), API route security, device linking, flood limits, the message store and the UI logic. They do **not** cover the UI in a real browser, two real browsers linking a device, or anything that needs a live Supabase project (Realtime delivery, real email, Realtime Authorization). [`docs/TESTING.md`](docs/TESTING.md) has manual checklists for those.
+302 automated tests (at the time of writing) cover the encryption layer, the database security rules (the real migrations run on an in-process Postgres and attacked as several users), API route security, device linking, flood limits, the message store and the UI logic. They do **not** cover the UI in a real browser, two real browsers linking a device, or anything that needs a live Supabase project (Realtime delivery, real email, Realtime Authorization). [`docs/TESTING.md`](docs/TESTING.md) has manual checklists for those.
 
 ---
 

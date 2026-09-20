@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
       contentType: 'application/octet-stream', // always stored as an opaque encrypted payload, never as a renderable type
       upsert: false,
     });
-  if (uploadError || !uploadData) return serverError('uploads.store', uploadError);
+  if (uploadError || !uploadData) return serverError('uploads.store', uploadError, 500, undefined, user.id);
 
   return NextResponse.json(
     { path: uploadData.path, fileName: safeFileName, fileSize: file.size, uploadedAt: new Date().toISOString() },

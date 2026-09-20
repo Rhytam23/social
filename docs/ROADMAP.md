@@ -16,10 +16,11 @@ What is done, what is planned, and what is known to be missing. Each phase ships
 | Settings area, Chat/Groups split, username-only people search | PR #13 |
 | Unified design system and 3D landing page | PR #13 |
 | Security hardening, several devices, flood protection, system theme, documentation | September 2026 (`SECURITY_AUDIT.md`) |
+| Admin error log and activity log (Admin, Errors and Activity) | September 2026 (migration `019`) |
 
 ## What is verified
 
-Everything passes type checking, lint, the production build, `npm audit` and 253 automated tests. The **database rules** (migrations `001` to `018`) are tested by running the real migrations on an in-process Postgres and attacking them as different users. The interface was exercised in local demo mode. **Not verified against a live Supabase project:** real sign-in and email, real Realtime delivery and Realtime Authorization, real Storage, communities end to end, key rotation on departure, disappearing messages, calls, and linking a second device in two real browsers. Migrations `013` to `017` were applied by the project owner to a live project in September 2026 and the presence of `017`'s objects was confirmed with check queries (`018` was added afterwards and its application has not been confirmed here); the behaviours above were not walked through. Use the checklists in [Testing](TESTING.md).
+Everything passes type checking, lint, the production build, `npm audit` and 302 automated tests. The **database rules** (migrations `001` to `018`) are tested by running the real migrations on an in-process Postgres and attacking them as different users. The interface was exercised in local demo mode. **Not verified against a live Supabase project:** real sign-in and email, real Realtime delivery and Realtime Authorization, real Storage, communities end to end, key rotation on departure, disappearing messages, calls, and linking a second device in two real browsers. Migrations `013` to `017` were applied by the project owner to a live project in September 2026 and the presence of `017`'s objects was confirmed with check queries (`018` was added afterwards and its application has not been confirmed here); the behaviours above were not walked through. Use the checklists in [Testing](TESTING.md).
 
 ## Planned next
 
@@ -45,7 +46,7 @@ Fixed in September 2026 (see [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md)): profi
 4. Move Argon2id and key generation to a Web Worker
 5. Put security headers on redirects and error responses
 6. Drop the unused `invites` table and `consume_invite()` function in a migration
-7. Add an admin audit log table
+7. Alert admins when a new error appears (email or push); the in-app log itself was added in `019`
 8. Rate limit direct Storage uploads
 9. Tighten `profiles` reads to contacts (touches every screen that shows a name)
 

@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 018**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 019**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -26,6 +26,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `016_username_only_discovery.sql` | Revokes client access to `find_profiles_by_contact()` (people are found by exact username only) | Yes |
 | `017_security_hardening.sql` | Security fixes from the September 2026 audit: `conversation_has_members()`, creator-only-while-empty membership insert, `guard_membership_identity`, group key envelopes only from group admins, `is_blocked_in_conversation()` and a working blocking rule, `guard_message_columns` and `guard_receipt_identity` triggers, storage size and type limits, invite caps, an avatar URL allow-list, and Realtime Authorization policies for the typing and call channels | Yes |
 | `018_devices_and_flood_limits.sql` | At most 3 registered device keys per account (`limit_devices_per_user`); per-account write limits inside the database (`enforce_write_rate`: 120 messages and 200 reactions per minute, 30 new conversations per hour) | Yes |
+| `019_admin_logs.sql` | The admin error log and admin activity log: tables `error_logs` and `admin_audit_log` (readable by platform admins only), the server-only ingest functions `log_error()` and `log_admin_action()`, and the admin actions `admin_set_error_status()` and `admin_clear_errors()`. 30-day retention and a 5,000-row cap | Yes |
 | `functions/atomic_invite_consumption.sql` | `consume_invite` (unused; the invite feature was removed from the app) | Yes. Not numbered; skip on new installs |
 
 ## Tables
@@ -47,6 +48,8 @@ All tables have row level security enabled.
 | `saved_messages` | (`012`) A user's bookmarks: message ids only |
 | `communities`, `community_members`, `community_invites` | (`014`) Communities and their members; invites are stored hashed. Channels are `conversations` rows of type `channel` |
 | `blocks`, `reports` | (`015`) Who blocked whom (visible only to the blocker); message reports (readable only by platform admins) |
+| `error_logs` | (`019`) One row per distinct error, server or browser, with an occurrence counter, who was affected, and open/resolved status. Fingerprint is unique so a repeated error is one row. Readable by admins only |
+| `admin_audit_log` | (`019`) Append-only record of admin actions (who promoted whom, who resolved or cleared errors). Readable by admins only; nobody can edit or delete it through the API |
 
 A private conversation can have at most two active members (trigger from `006`, on insert only).
 
@@ -81,6 +84,7 @@ All are `SECURITY DEFINER` with a fixed `search_path`; helpers are executable by
 | `message_reactions` | Members | Insert as yourself if a member; delete your own |
 | `message_receipts` | Members | Insert and update your own |
 | `user_devices` | Yourself, and people you share a conversation with | Insert, update, delete your own |
+| `error_logs`, `admin_audit_log` | Platform admins only | **No client writes at all.** Rows are created by server-only functions and changed only by two admin functions that check `is_admin()` and write an audit row |
 | `group_key_envelopes` | Your own rows, if a member | Insert **only by a group owner or admin** for a valid recipient device (`017`) |
 | `presence` | Yourself, and people you share a conversation with | Insert and update your own |
 
@@ -128,3 +132,13 @@ Migration `008` puts `messages`, `message_reactions`, `message_receipts`, `conve
 - **Invites are bounded**: at most 720 hours and 250 uses.
 - **Avatar URLs** must point at the project's own Supabase avatars bucket or Google's image host, so a profile photo cannot be used to make every viewer's browser fetch a tracking URL.
 - **Device cap and write limits** (`018`) are database triggers, so they apply even to someone who calls Supabase directly and skips the API. They do not apply when there is no signed-in user (the SQL editor, the service role).
+
+## Added by migration 019 (admin logs)
+
+Admins do not have Supabase or Vercel access, so the app keeps its own record of problems and admin actions.
+
+- **`error_logs`**: written only by `log_error()`, which is executable by `service_role` (the server) and revoked from everyone else. It upserts by a fingerprint (a hash of source, area and a normalised message with ids and numbers removed), so the same problem is one row whose `occurrences` counter rises; a resolved error that happens again is reopened. Every call also deletes rows not seen for 30 days and trims the table to 5,000 rows, oldest first.
+- **`admin_audit_log`**: written by `log_admin_action()` (server only, used by the admin role route) and by the two admin functions below. There are no update or delete grants, so it is append-only.
+- **`admin_set_error_status(id, status)`** and **`admin_clear_errors(only_resolved)`**: callable by signed-in users but each starts with `is_admin()` and raises `forbidden` otherwise; each writes an audit row naming the admin.
+- Table privileges are also revoked from `anon` and (for writes) `authenticated`, so a future policy mistake could not open the tables.
+- **What is stored, and what never is:** error text, the area of the app, the first lines of a stack, the page path (no query string), a short browser string, the release, and the affected user id. Never message content, keys, tokens, passwords, email addresses or request bodies; the text is scrubbed before it reaches the database (`lib/logging/scrub.ts`).

@@ -60,6 +60,7 @@ Write what the code does, not what it is meant to do. If something is unverified
 - Read the relevant code before changing it; do not trust documentation over the source.
 - Run the four checks after every change.
 - Do not commit or push unless asked, and do not skip hooks.
+- Server errors go through `serverError()`, browser errors through `userError()` or `reportClientError()`: that is what feeds the admin error log. Never write message content, keys, tokens or request bodies to logs or `console`.
 - Never show raw error text to users: use `lib/ui/errors.ts` (see [Security](SECURITY.md#rules-for-contributors)).
 - Never claim the application is "completely secure" or that something is tested when it was not.
 - Never log or print decrypted message content, keys or secrets.

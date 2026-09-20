@@ -1,13 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { UserItem } from '../../types/ui';
 import { AdminReports } from './AdminReports';
+import { AdminErrors } from './AdminErrors';
+import { AdminActivity } from './AdminActivity';
+import { Button } from '../ui/button';
 
 export interface AdminDashboardProps {
   users: UserItem[];
   onToggleUserRole: (userId: string, currentRole: 'admin' | 'member') => void;
 }
 
+type AdminTab = 'people' | 'errors' | 'activity';
+
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, onToggleUserRole }) => {
+  const [tab, setTab] = useState<AdminTab>('people');
+  const nameOf = (id: string) => users.find((u) => u.id === id)?.name ?? 'A member';
   return (
     <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col h-full overflow-y-auto p-6 sm:p-8 gap-6 font-sans max-w-5xl mx-auto w-full">
       {/* Page Header */}
@@ -21,9 +28,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, onToggleU
           </span>
         </div>
         <p className="text-xs text-slate-400 font-sans">
-          Manage member security privileges.
+          Manage member privileges, review reports, and see what is going wrong without needing access to the hosting or database dashboards.
         </p>
+        <div className="flex gap-1.5 mt-3" role="tablist" aria-label="Admin sections">
+          {([
+            ['people', 'People and reports'],
+            ['errors', 'Errors'],
+            ['activity', 'Activity'],
+          ] as Array<[AdminTab, string]>).map(([id, label]) => (
+            <Button key={id} size="sm" role="tab" aria-selected={tab === id} variant={tab === id ? 'primary' : 'tertiary'} onClick={() => setTab(id)}>
+              {label}
+            </Button>
+          ))}
+        </div>
       </div>
+
+      {tab === 'errors' && <AdminErrors nameOf={nameOf} />}
+      {tab === 'activity' && <AdminActivity nameOf={nameOf} />}
+      {tab === 'people' && (
+        <>
 
       {/* Member Permissions Table */}
       <div className="panel flex flex-col gap-4 shadow-xs">
@@ -72,7 +95,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ users, onToggleU
         </div>
       </div>
 
-      <AdminReports nameOf={(id) => users.find((u) => u.id === id)?.name ?? 'A member'} />
+      <AdminReports nameOf={nameOf} />
+        </>
+      )}
     </div>
   );
 };

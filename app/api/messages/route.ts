@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   if (msgError) {
     ({ data: messages, error: msgError } = await buildQuery(baseColumns));
   }
-  if (msgError) return serverError('messages.list', msgError);
+  if (msgError) return serverError('messages.list', msgError, 500, undefined, user.id);
 
   return NextResponse.json((messages || []).reverse(), { headers: { 'Cache-Control': 'no-store' } });
 }
@@ -122,7 +122,7 @@ export async function PATCH(request: NextRequest) {
     .select('id, conversation_id, sender_id, ciphertext, nonce, encryption_version, edited_at, deleted_at')
     .maybeSingle();
 
-  if (updateError) return serverError('messages.update', updateError);
+  if (updateError) return serverError('messages.update', updateError, 500, undefined, user.id);
   if (!updated) {
     return NextResponse.json({ error: 'Message not found or you are not its sender.' }, { status: 404 });
   }
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
     // Row level security refuses blocked senders and admin-only channels; say so plainly.
     const denied = !!insertError && /row-level security/i.test(insertError.message);
     if (denied) return NextResponse.json({ error: 'You cannot send messages to this conversation right now.' }, { status: 403 });
-    return serverError('messages.insert', insertError);
+    return serverError('messages.insert', insertError, 500, undefined, user.id);
   }
   return NextResponse.json(newMsg, { status: 201 });
 }

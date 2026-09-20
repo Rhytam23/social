@@ -13,12 +13,14 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **253 tests in 22 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **302 tests in 25 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
 | `tests/security/rls.test.ts` | 56 | **The project's real migrations `001` to `018` executed on an in-process Postgres (PGlite), then attacked with the API role as separate identities**: A and B (participants), C (outsider), an admin, and others. Unauthenticated access, reading and writing across users, forged senders, role and admin escalation, membership and group-key abuse, message and receipt tampering, blocking, storage, communities and invites, reports, avatar URLs, realtime policies. A second block runs the schema *before* `017` and shows the old vulnerabilities working, which proves each fix matters |
 | `tests/security/apiSecurity.test.ts` | 22 | The real route handlers with a stub database: 401s, forged tokens, cross-conversation replies, admin route, injection-shaped ids, malformed and oversized bodies, type confusion, mass assignment, error leakage, per-account rate limits with spoofed headers, cross-site requests, upload file names |
+| `tests/security/adminLogs.test.ts` | 17 | Migration `019` on real Postgres: only admins can read the error and audit logs; nobody (even an admin) can write, edit or delete them directly; ingest functions are not callable by signed-in users; de-duplication and reopening; admin actions refuse non-admins and write audit rows; 30-day retention and the 5,000-row cap |
+| `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
 | `tests/security/floodAndDevices.test.ts` | 8 | Migration `018` on real Postgres: the 3-key cap, per-account write limits, server writes not limited |
 | `tests/security/deviceLinking.test.ts` | 6 | A new browser links instead of creating a key; failed checks refuse to continue; restore gives the same key; wrong passphrase and empty backup refused. Uses a stubbed database |
 | `tests/security/authorization.test.ts` | 16 | Static checks of the SQL text of early migrations (`001`, `003`, `004`) |
@@ -27,7 +29,7 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/integration/apiRoutes.test.ts` | 9 | Every data route returns `401` when signed out |
 | `tests/integration/userSearch.test.ts` | 14 | Username-only lookup rules |
 | `tests/chat/chatStore.test.ts`, `envelopeDisplay.test.ts` | 8 + 8 | The store in demo mode; how message payloads become text |
-| `tests/ui/*.test.ts` | 93 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the landing scene's maths and fallbacks, that the default theme follows the device, and that technical error detail is shown only to admins (`errorVisibility.test.ts`) |
+| `tests/ui/*.test.ts` | 112 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the landing scene's maths and fallbacks, that the default theme follows the device, that technical error detail is shown only to admins (`errorVisibility.test.ts`), and the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`) |
 
 `tests/security/pgHarness.ts` is the test database: it creates the Supabase roles (`anon`, `authenticated`, `service_role`), `auth.uid()` and the storage and realtime tables the migrations expect, then runs every migration. **When Supabase changes how any of those work, this file is where to update the emulation.**
 
@@ -159,6 +161,19 @@ Run after applying `017` and `018` to a real project. Use accounts A, B, C (outs
 - [ ] Response headers on the live site include `Content-Security-Policy` and `Strict-Transport-Security`; `/api/auth` has `Cache-Control: no-store`.
 - [ ] Errors: as an ordinary user, cause a failure (for example save a profile before migration `011` is applied, or block the network) and confirm the message is a plain sentence with no database or migration text; as an admin the same failure also shows an "Admin detail" part.
 - [ ] Theme: with no saved choice, a light-mode device shows the light theme and a dark-mode device the dark theme, and switching the device setting changes the app without reloading. Choosing Dark or Light in Settings sticks.
+
+## Checklist for the admin error log (migration 019)
+
+Run after applying `019`. Use an admin account and an ordinary account.
+
+- [ ] As the admin, Admin, Errors and Activity open without an error note (if you see "not available", `019` is missing).
+- [ ] As an ordinary user cause a failure (for example turn off the network and send a message, or save a profile before `011` is applied). Within a minute the admin sees it under Errors, marked Browser, with the user's name and no message text, keys or email addresses.
+- [ ] Repeat the same failure: the row's count goes up and no second row appears.
+- [ ] Mark it resolved, then cause it again: it reopens. Activity shows who resolved it.
+- [ ] Promote another account to admin: Activity shows who did it. That new admin can read Errors without any Supabase access.
+- [ ] As the ordinary user, open the Admin area (or query `error_logs` with the API): nothing is returned.
+- [ ] Clear resolved removes only resolved entries and is recorded in Activity.
+- [ ] Force a server error (for example upload with the Storage bucket missing) and confirm it appears as Server.
 
 ## Not yet done
 

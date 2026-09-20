@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     .select('conversation_id')
     .eq('user_id', user.id)
     .is('left_at', null);
-  if (memberError) return serverError('conversations.list.members', memberError);
+  if (memberError) return serverError('conversations.list.members', memberError, 500, undefined, user.id);
 
   const conversationIds = (memberships as Array<{ conversation_id: string }> | null)?.map((m) => m.conversation_id) || [];
   if (conversationIds.length === 0) return NextResponse.json([]);
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     .select('id, type, name, avatar_url, created_at, updated_at')
     .in('id', conversationIds)
     .order('updated_at', { ascending: false });
-  if (convError) return serverError('conversations.list', convError);
+  if (convError) return serverError('conversations.list', convError, 500, undefined, user.id);
 
   return NextResponse.json(conversations);
 }
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     .insert(insertData as unknown as never)
     .select('id, type, name, created_at')
     .single();
-  if (insertError || !conv) return serverError('conversations.create', insertError);
+  if (insertError || !conv) return serverError('conversations.create', insertError, 500, undefined, user.id);
 
   const createdConv = conv as { id: string; type: string; name: string | null; created_at: string };
   const memberRows: Database['public']['Tables']['conversation_members']['Insert'][] = [user.id, ...others].map((uid) => ({
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     user_id: uid,
   }));
   const { error: membersInsertError } = await supabase.from('conversation_members').insert(memberRows as unknown as never);
-  if (membersInsertError) return serverError('conversations.create.members', membersInsertError, 400, 'Could not add those people.');
+  if (membersInsertError) return serverError('conversations.create.members', membersInsertError, 400, 'Could not add those people.', user.id);
 
   return NextResponse.json(createdConv, { status: 201 });
 }

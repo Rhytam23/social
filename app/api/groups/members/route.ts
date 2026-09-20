@@ -91,7 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       user_id: userId,
     };
     const { error: insertError } = await supabase.from('conversation_members').insert(insertData as unknown as never);
-    if (insertError) return serverError('groups.members.add', insertError, 400, 'Could not add that person.');
+    if (insertError) return serverError('groups.members.add', insertError, 400, 'Could not add that person.', user.id);
     return NextResponse.json({ success: true }, { status: 201 });
   }
 }
@@ -149,13 +149,13 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
           .update({ role: 'owner' } as never)
           .eq('conversation_id', groupId)
           .eq('user_id', successor);
-        if (promoteError) return serverError('groups.members.transfer', promoteError, 500, 'Could not transfer ownership.');
+        if (promoteError) return serverError('groups.members.transfer', promoteError, 500, 'Could not transfer ownership.', user.id);
       }
     }
   }
 
   const { error: deleteError } = await supabase.from('conversation_members').delete().eq('conversation_id', groupId).eq('user_id', userId);
-  if (deleteError) return serverError('groups.members.remove', deleteError);
+  if (deleteError) return serverError('groups.members.remove', deleteError, 500, undefined, user.id);
   return NextResponse.json({ success: true });
 }
 
@@ -199,7 +199,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       .update({ role } as never)
       .eq('conversation_id', groupId)
       .eq('user_id', userId);
-    if (updateError) return serverError('groups.members.role', updateError);
+    if (updateError) return serverError('groups.members.role', updateError, 500, undefined, user.id);
 
     if (role === 'owner') {
       const { error: demoteError } = await supabase
@@ -207,7 +207,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
         .update({ role: 'admin' } as never)
         .eq('conversation_id', groupId)
         .eq('user_id', user.id);
-      if (demoteError) return serverError('groups.members.demote', demoteError);
+      if (demoteError) return serverError('groups.members.demote', demoteError, 500, undefined, user.id);
     }
     return NextResponse.json({ success: true });
   }

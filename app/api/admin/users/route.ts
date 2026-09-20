@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { writeAdminAction } from '@/lib/logging/errorLog';
 import { createServerClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isUserAdmin } from '@/lib/auth/roles';
@@ -49,8 +50,10 @@ export async function PATCH(request: NextRequest) {
     .select('id, username, display_name, is_admin')
     .maybeSingle();
 
-  if (updateError) return serverError('admin.users.update', updateError);
+  if (updateError) return serverError('admin.users.update', updateError, 500, undefined, user.id);
   if (!updated) return NextResponse.json({ error: 'User not found.' }, { status: 404 });
   console.info(`[audit] admin ${user.id} set is_admin=${nextIsAdmin} on ${targetId}`);
+  // The same fact goes to the admin activity log, so other admins can see who changed whose privileges.
+  await writeAdminAction(user.id, nextIsAdmin ? 'promote_admin' : 'demote_admin', 'user', targetId, `${updated.username ?? 'a user'}`);
   return NextResponse.json(updated);
 }

@@ -8,7 +8,7 @@ Route handlers live in `app/api/**/route.ts`, plus `app/auth/confirm/route.ts`.
 - **Rate limits** are per address *and* per signed-in account per 60 seconds (the numbers below are the per-account limit; the per-address limit is looser). Going over returns `429 { "error": "Rate limit exceeded." }` with a `Retry-After` header. `middleware.ts` also applies a coarse per-address limit to everything before any route runs (300 requests a minute for `/api` and `/auth`, 600 for pages) and rejects `/api` bodies over 2 MB with `413`. The client address comes from the platform's trusted header (`x-vercel-forwarded-for`, `x-real-ip`), never the first, forgeable, `X-Forwarded-For` entry. Without Upstash configured, limits are per server instance. See [Security](SECURITY.md#denial-of-service).
 - **Cross-site protection.** Every state-changing request (`POST`, `PATCH`, `DELETE`) must have an `Origin` header matching the host; otherwise `403`. Browsers add it automatically.
 - **Ids are validated.** Every id in a query string or body must be a UUID, otherwise `400`. Bodies must be JSON objects within a size cap (4 KB for small routes, 512 KB for messages).
-- **Errors are generic.** A database failure returns a short, fixed message (for example `Could not send the message.`); the details are logged on the server and never sent to the client.
+- **Errors are generic.** A database failure returns a short, fixed message (for example `Could not send the message.`); the details are never sent to the client. They are written to the console and to the admin error log (Admin, Errors) so admins can read them without hosting access.
 - **Nothing is cached.** All `/api/*` responses carry `Cache-Control: no-store`.
 - The shared helpers are in `lib/api/security.ts`. A new route must use them.
 - Routes use the caller's own session, so row level security applies. The service-role client is used only where marked.
@@ -89,6 +89,11 @@ Returns `{ iceServers, relayAvailable }` for a call. Signed-in users only. TURN 
 
 Communities, disappearing messages and a few lookups are Postgres functions called with `supabase.rpc(...)`, each checking permissions itself: `create_community`, `create_channel`, `create_community_invite`, `join_community`, `leave_community`, `remove_community_member`, `set_community_role`, `set_disappearing`, `purge_expired_messages`, `get_unread_counts`, `get_my_contact`. (`find_profiles_by_contact` still exists but clients can no longer call it after `016`.) See [Database](DATABASE.md).
 
+## Error reports from the browser
+
+### `POST /api/logs/client` (20/min per account)
+Stores an error that happened in someone's browser in the admin error log. Signed-in users only; cross-site requests are refused; body at most 8 KB. Body: `{ area: string (1-120), message: string (1-2000), detail?: string (<= 4000, top of a stack), level?: "error" | "warn", path?: string (<= 300) }`. The affected user is always the session's user and the source is always `client`; anything the body says about either is ignored. Text is scrubbed of tokens, emails and long secrets before storage. `202 { ok: true }` · `400` malformed · `401` · `403` cross-site · `413` too large · `429`. The browser sends at most 10 reports a minute and each distinct error once a minute (`lib/logging/clientLogger.ts`).
+
 ## Files
 
 ### `POST /api/uploads` (20/min)
@@ -98,7 +103,7 @@ Communities, disappearing messages and a few lookups are Postgres functions call
 ## Admin
 
 ### `PATCH /api/admin/users` (20/min)
-Admin only (checked against `profiles.is_admin`). Body: `{ userId, isAdmin: boolean }`. You cannot remove your own admin access. Uses the **service-role** client, and writes an audit line to the server log. `200 { id, username, display_name, is_admin }`.
+Admin only (checked against `profiles.is_admin`). Body: `{ userId, isAdmin: boolean }`. You cannot remove your own admin access. Uses the **service-role** client, and records the change in the admin activity log (`admin_audit_log`) and the server log. `200 { id, username, display_name, is_admin }`.
 
 The old `/api/invites` routes were removed; registration no longer uses invitations.
 
