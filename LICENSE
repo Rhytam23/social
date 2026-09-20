@@ -1,0 +1,116 @@
+Private Chat Non-Commercial Learning License
+Copyright (c) 2026 Rhytam23 (rhytam.biswas0823@gmail.com)
+All rights reserved, except for the limited permissions granted below.
+
+This is NOT an open-source license. The source code is made visible so that people
+can learn from it. It is not free for every use.
+
+1. WHAT YOU MAY DO
+
+   You may clone, download, run, read, study and modify this software, on your own
+   computer, for your own personal, non-commercial learning, testing and
+   understanding of how it works. Keeping your own private copy for that purpose is
+   permitted.
+
+2. WHAT YOU MAY NOT DO
+
+   Without the written permission of the copyright holder, you may not:
+
+   a. Use the software, or any part of it, for any commercial purpose. This includes
+      selling it, offering it as or inside a paid product or service, using it to
+      earn money or advertising revenue, or using it inside a business.
+
+   b. Use the software, or any part of it, in a hackathon, competition, contest,
+      challenge, jam, or any similar event, whether to build, submit, present,
+      demonstrate or be judged on a project, and whether or not there is a prize.
+
+   c. Run it as a service for other people, or make it available to the public or
+      to any third party (for example by hosting a copy that others can use).
+
+   d. Publish, distribute, share or sublicense the software or any modified version
+      of it. This includes putting a copy in a public repository. (Using GitHub's
+      own fork feature on the official repository, only to view the code or to
+      send changes back to it, is fine.)
+
+   e. Present the software, or a modified version of it, as your own work, or
+      remove or change this license or any copyright notice.
+
+3. ENFORCEMENT
+
+   If you use the software in a way this license does not allow, your permission to
+   use it ends immediately and automatically. The copyright holder may then take
+   whatever action the law and the rules of the relevant platform or event allow.
+   This can include takedown requests, reporting the use to the organisers of an
+   event, and legal action.
+
+4. OTHER USES
+
+   For any use that this license does not allow, including commercial use, use in
+   a competition, or use by an organisation, ask first. Email:
+
+       rhytam.biswas0823@gmail.com
+
+   Permission is only valid if given in writing by the copyright holder.
+
+5. THIRD-PARTY SOFTWARE
+
+   This project uses other open-source software (see package.json and
+   package-lock.json). Each of those components is under its own license, and this
+   license does not change or replace them.
+
+6. NO WARRANTY, LIMITATION OF LIABILITY
+
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+   FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE COPYRIGHT
+   HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+   OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. THIS SOFTWARE HAS NOT HAD
+   AN INDEPENDENT SECURITY AUDIT AND SHOULD NOT BE RELIED ON TO PROTECT SENSITIVE
+   INFORMATION.
+
+7. CONTRIBUTIONS
+
+   If you send a contribution (for example a pull request), you confirm that you
+   have the right to do so and you allow the copyright holder to use, change and
+   distribute it as part of this project under any license the copyright holder
+   chooses.
+
+8. SECURITY AND RESPONSIBLE USE
+
+   Because the source code is public, anyone can read how it works. That is for
+   learning. It is not permission to attack anything. Without the written
+   permission of the copyright holder, you may not:
+
+   a. Use the software, or anything you learn from reading it (including any bug,
+      weakness or vulnerability), to attack, probe, disrupt, gain access to, or
+      harm any system, service, account or person. This includes a deployment run
+      by the copyright holder or by anyone else.
+
+   b. Test for vulnerabilities on any deployment that you do not own and run
+      yourself. Security testing is allowed only on your own private copy, running
+      on your own computer, with your own accounts and your own data.
+
+   c. Access, copy, change or delete data that belongs to other people, run
+      denial-of-service or flooding attacks, or try to get around access limits,
+      rate limits or authentication on someone else's deployment.
+
+   d. Use, publish or sell a working exploit, or a detailed description of how to
+      exploit a weakness, in a way that puts users of a real deployment at risk.
+
+   e. Use automated tools, scripts or AI agents to do any of the things in this
+      section on your behalf. You are responsible for what a tool you run does.
+      Reading and reviewing the code on your own copy, by hand or with a tool, in
+      order to understand it or to report a problem to the copyright holder, is
+      allowed.
+
+   If you find a security problem, please report it privately by email to
+   rhytam.biswas0823@gmail.com and give a reasonable time to fix it before you tell
+   anyone else. Good-faith reports made this way are welcome and will not be
+   treated as a breach of this license.
+
+   Any use in breach of this section ends your permission under this license
+   immediately and automatically (see section 3). The copyright holder may report
+   it to the platform or hosting provider involved, to the affected users, and to
+   the police or other authorities, and may take legal action. This section adds
+   to, and does not limit, any rights the copyright holder has under the law.
