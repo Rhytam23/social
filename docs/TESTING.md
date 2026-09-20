@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **302 tests in 25 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **307 tests in 26 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -29,7 +29,7 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/integration/apiRoutes.test.ts` | 9 | Every data route returns `401` when signed out |
 | `tests/integration/userSearch.test.ts` | 14 | Username-only lookup rules |
 | `tests/chat/chatStore.test.ts`, `envelopeDisplay.test.ts` | 8 + 8 | The store in demo mode; how message payloads become text |
-| `tests/ui/*.test.ts` | 112 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the landing scene's maths and fallbacks, that the default theme follows the device, that technical error detail is shown only to admins (`errorVisibility.test.ts`), and the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`) |
+| `tests/ui/*.test.ts` | 117 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the landing scene's maths and fallbacks, that the default theme follows the device, that technical error detail is shown only to admins (`errorVisibility.test.ts`), the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`), and that analytics only ever receives the origin and path (`analytics.test.ts`) |
 
 `tests/security/pgHarness.ts` is the test database: it creates the Supabase roles (`anon`, `authenticated`, `service_role`), `auth.uid()` and the storage and realtime tables the migrations expect, then runs every migration. **When Supabase changes how any of those work, this file is where to update the emulation.**
 

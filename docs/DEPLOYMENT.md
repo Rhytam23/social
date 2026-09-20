@@ -70,6 +70,9 @@ Preview deployments use whatever variables are set for the Preview environment. 
 - [ ] Attachment and voice note round trip
 - [ ] Layout at 390px wide and at desktop width
 
+**Analytics**
+- [ ] Vercel, Project, Analytics: click **Enable**. The code is already in the app (production builds only); until you enable it no data is collected. Check the Analytics tab after a day.
+
 **Abuse protection** (settings you apply; the app cannot do these for you)
 - [ ] Host firewall or attack-challenge mode is available and you know how to turn it on (Vercel Firewall, or Cloudflare in front)
 - [ ] Supabase, Authentication, Rate Limits reviewed, minimum password length set, custom SMTP configured

@@ -45,6 +45,9 @@ What the app protects, what it deliberately does not, the rules contributors mus
 - **What is never recorded:** message content, keys, tokens, passwords, email addresses, request bodies. Text is scrubbed (`lib/logging/scrub.ts`), length-capped, and shown as plain text. Entries are kept 30 days and the table is capped at 5,000 rows.
 - The browser reporting route is authenticated, rate limited and size limited, and the affected user comes from the session, never from the request body.
 
+**Analytics** (`components/analytics/WebAnalytics.tsx`)
+- Vercel Web Analytics counts page views. Production builds only; cookieless; the address is reduced to origin and path before it is sent (`lib/analytics.ts`), so invite links (`?join=CODE`) and sign-in parameters never leave the browser. It is served from this site's own `/_vercel/insights/` path, so the Content-Security-Policy needs no extra origin. The privacy policy page says so.
+
 **Browser hardening** (`next.config.ts`)
 - **Content-Security-Policy**: scripts, styles, images, fonts, connections and frames limited to this site and the Supabase project; `frame-ancestors 'none'`; `object-src 'none'`; `upgrade-insecure-requests` in production.
 - HSTS (2 years, preload), `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` `same-origin`, `X-Content-Type-Options`, `Referrer-Policy`, a restrictive `Permissions-Policy` (camera and microphone for this site only), no `X-Powered-By`.
@@ -77,7 +80,7 @@ Weak points: in-memory limits are per server instance (on serverless they are we
 5. **Do not delete or weaken security tests** to make a change pass. `tests/security/rls.test.ts` runs the real migrations: if it fails, a database rule no longer holds.
 6. **Do not fake success.** Never mark a message delivered when the server rejected it, or show a "saved/backed up" message that did nothing.
 7. **Add new environment variables to `.env.example`**, and document whether they are secret. Never commit `.env*` (only `.env.example`).
-8. **No analytics, advertising or tracking scripts.**
+8. **No advertising or tracking scripts, and no analytics beyond Vercel Web Analytics** (anonymous page-view counts, no cookies, production only). It may only ever receive the origin and path: query strings and fragments (invite codes, sign-in redirects) are stripped in `lib/analytics.ts`. Do not add another third-party script, and do not send anything from inside the app (a chat, a person, a group) to any analytics service.
 9. **Schema changes go through a new migration**, with matching updates to `types/database.ts` and tests.
 10. **New API routes use `lib/api/security.ts`** (auth, validation, limits, origin check, generic errors) and get a test in `tests/security/apiSecurity.test.ts`.
 11. **Never put secrets, keys or private data in URLs, logs or client storage used as a security control.**

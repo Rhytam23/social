@@ -78,7 +78,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-At the time of writing this gives: no type or lint errors, **302 tests passing in 25 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
+At the time of writing this gives: no type or lint errors, **307 tests passing in 26 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
 
 ## What will change over ten years (and what to check)
 
@@ -94,6 +94,10 @@ At the time of writing this gives: no type or lint errors, **302 tests passing i
 | **Upstash Redis** | Optional shared rate-limit store, used through its REST API | If absent, limits are per server instance and weaker |
 
 **Cryptography ages.** Nothing here is forward-secret ([E2EE](E2EE.md#limitations)). If you have the resources, the largest single improvement is a Double-Ratchet-style protocol, which is a redesign, not a patch.
+
+## Third parties that see anything
+
+Keep this list short and true. Supabase (database, sign-in, storage, realtime) sees ciphertext and metadata. The host (Vercel) serves the site and, if you enable it, Vercel Web Analytics counts page views: it receives only origin and path (`lib/analytics.ts` strips everything after the path). Google, if sign-in with Google is on. An optional TURN relay sees encrypted call media. Nothing else: no advertising or tracking scripts.
 
 ## Rules that must never be broken
 

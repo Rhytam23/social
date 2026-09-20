@@ -92,3 +92,10 @@ The main architectural choices, why they were made, and where they stand. New de
 - **Context:** Technical error detail is shown only to admins, but the only place server errors were visible was the hosting and database dashboards, which the owner does not want to share with every admin.
 - **Decision:** Keep an error log and an append-only admin activity log in the database, readable only by admins through row level security and shown in the Admin area. Writes go only through server-only database functions (nobody can write to the tables directly), the browser reports through an authenticated, rate-limited route, and all text is scrubbed of secrets and personal data first. Same problem = one row with a counter. Retention 30 days plus a 5,000-row cap. The affected user is recorded (agreed with the owner) so admins can help that person.
 - **Consequences:** admins can work without Supabase or Vercel access. The log is only as complete as what is reported: errors before sign-in are not captured from the browser, and a signed-in user can send junk entries within the limits. It is not a replacement for real monitoring at scale.
+
+## ADR 015: Vercel Web Analytics, with the address reduced to its path
+
+- **Status:** Accepted (September 2026). **Relaxes** the earlier rule of "no analytics or tracking scripts".
+- **Context:** The owner wanted to see how many people visit. A pull request added Vercel Web Analytics (`@vercel/analytics`). It is cookieless page-view counting, but pages can carry private values in the address (an invite is `/?join=CODE`).
+- **Decision:** Keep it, wrapped so it runs only in production builds and only ever receives the origin and path (`lib/analytics.ts`). No other analytics, advertising or tracking script is allowed, and nothing from inside the app is reported to it. The privacy policy page states it.
+- **Consequences:** page counts without cookies or a consent banner, and a third party (Vercel, which already hosts the site) sees page paths and general visitor details. If the site is ever hosted elsewhere, remove it.
