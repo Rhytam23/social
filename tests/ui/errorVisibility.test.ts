@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GENERIC_ERROR, UserMessageError, adminDetail, canSeeErrorDetail, errorDetail, setErrorViewer, technicalNote, userError } from '../../lib/ui/errors';
+import { GENERIC_ERROR, UserMessageError, adminDetail, errorDetail, setErrorViewer, technicalNote, userError } from '../../lib/ui/errors';
 
 const DB_ERROR = { message: 'new row violates row-level security policy for table "messages"', code: '42501' };
 
@@ -57,9 +57,8 @@ describe('who sees how much of an error', () => {
 
   it('signing out (or a non-admin profile) turns detail off again', () => {
     setErrorViewer(true);
-    expect(canSeeErrorDetail()).toBe(true);
+    expect(userError(new Error('secret table name'), 'Failed.')).toContain('secret table name');
     setErrorViewer(false);
-    expect(canSeeErrorDetail()).toBe(false);
     expect(userError(new Error('secret table name'), 'Failed.')).toBe('Failed.');
   });
 

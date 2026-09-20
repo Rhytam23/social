@@ -15,7 +15,7 @@ Everything lives in [`app/globals.css`](../app/globals.css) as CSS variables. Th
 | Surfaces | `--canvas-bg`, `--surface-1`, `--surface-2`, `--surface-hover`, `--border-subtle`, `--border-strong` |
 | Text | `--text-primary`, `--text-secondary`, `--text-muted` |
 | Accent | `--accent-primary`, `--accent-primary-hover`, `--accent-contrast`, `--accent-text`, `--accent-subtle`, `--accent-line` |
-| Status | `--danger-neutral`, `--warning`, `--success` (+ `-subtle`), and `--presence-*` |
+| Status | `--danger-neutral`, `--danger-subtle`, `--warning`, `--success`, and `--presence-*` |
 | Depth | `--shadow-1`, `--shadow-2`, `--shadow-pop`, `--edge-light` |
 | Shape and motion | `--radius-control`, `--radius-card`, `--motion-fast/base/slow`, `--ease-out` |
 
@@ -27,8 +27,8 @@ Type is Geist (sans and mono, loaded by `next/font` through the `geist` package,
 
 Use these instead of writing long class strings.
 
-- **`Button`** and **`IconButton`** ([`components/ui/button.tsx`](../components/ui/button.tsx)). Variants: `primary`, `secondary`, `tertiary`, `danger`, `ghost`. Sizes `sm`, `md`, `lg`. No white or default-styled buttons anywhere.
-- **`Input`, `Textarea`, `Select`** ([`components/ui/input.tsx`](../components/ui/input.tsx)) and the `.field` class for the rare raw control.
+- **`Button`** ([`components/ui/button.tsx`](../components/ui/button.tsx)). Variants: `primary`, `secondary`, `tertiary`, `danger`, `ghost`. Sizes `sm`, `md`, `lg`. No white or default-styled buttons anywhere.
+- **`Input`** ([`components/ui/input.tsx`](../components/ui/input.tsx)) and the `.field` class for the rare raw control.
 - **`.panel`** (a card) and **`.floating`** (menus, popovers, dialogs) classes.
 - **`Dialog`, `Avatar`, `Badge`, `Switch`, `EmptyState`, `ErrorState`, skeletons, `Toast`** as before.
 - **`.pressable`** for press feedback, **`.anim-message`**, **`.anim-view`** and **`.stagger`** for entrances.

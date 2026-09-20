@@ -3,37 +3,6 @@ import { createServerClient } from '@/lib/supabase/server';
 import { boundedString, limitByIp, limitByUser, readJson, rejectCrossSite, serverError, uuidList } from '@/lib/api/security';
 import { ConversationType, Database } from '@/types/database';
 
-export async function GET(request: NextRequest) {
-  const limited = await limitByIp(request, 'conv-list', { limit: 240, windowMs: 60 * 1000 });
-  if (limited) return limited;
-
-  const supabase = await createServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Authentication required.' }, { status: 401 });
-  }
-
-  // Only conversations where the caller is an active member (RLS enforces the same rule).
-  const { data: memberships, error: memberError } = await supabase
-    .from('conversation_members')
-    .select('conversation_id')
-    .eq('user_id', user.id)
-    .is('left_at', null);
-  if (memberError) return serverError('conversations.list.members', memberError, 500, undefined, user.id);
-
-  const conversationIds = (memberships as Array<{ conversation_id: string }> | null)?.map((m) => m.conversation_id) || [];
-  if (conversationIds.length === 0) return NextResponse.json([]);
-
-  const { data: conversations, error: convError } = await supabase
-    .from('conversations')
-    .select('id, type, name, avatar_url, created_at, updated_at')
-    .in('id', conversationIds)
-    .order('updated_at', { ascending: false });
-  if (convError) return serverError('conversations.list', convError, 500, undefined, user.id);
-
-  return NextResponse.json(conversations);
-}
-
 export async function POST(request: NextRequest) {
   const cross = rejectCrossSite(request);
   if (cross) return cross;

@@ -7,7 +7,7 @@ export interface AttachmentEnvelope {
   size: number;
 }
 
-export interface PollOptionEnvelope {
+interface PollOptionEnvelope {
   id: string;
   text: string;
 }

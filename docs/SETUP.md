@@ -74,8 +74,6 @@ select
   to_regclass('public.admin_audit_log') is not null                             as m019_audit_log;
 ```
 
-`database/functions/atomic_invite_consumption.sql` belongs to the removed invite feature. New installs do not need it.
-
 **Do not re-run old migrations on an existing project.** `002` and `003` are not re-runnable: `002` refers to a column that `003` removes, so running it again fails with `column "role" does not exist`. If you are unsure what has been applied, run this read-only check and only run what is missing:
 
 ```sql

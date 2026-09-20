@@ -37,10 +37,6 @@ export function setErrorReporter(fn: ErrorReporter | null): void {
   reporter = fn;
 }
 
-export function canSeeErrorDetail(): boolean {
-  return viewerIsAdmin;
-}
-
 /** Pulls the technical text out of whatever was thrown (Error, Supabase error object, string). */
 export function errorDetail(err: unknown): string {
   if (err instanceof Error) return err.message;

@@ -30,7 +30,7 @@ export function clientIp(request: Pick<NextRequest, 'headers'>): string {
   return /^[0-9a-fA-F:.]{2,45}$/.test(raw) ? raw : 'unknown';
 }
 
-export const tooManyRequests = () => NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429, headers: { 'Retry-After': '60' } });
+const tooManyRequests = () => NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429, headers: { 'Retry-After': '60' } });
 
 /** Rate limits per IP before authentication. Returns a 429 response when exceeded, otherwise null. */
 export async function limitByIp(request: NextRequest, bucket: string, options: RateLimitOptions): Promise<NextResponse | null> {

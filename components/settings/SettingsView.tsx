@@ -20,7 +20,7 @@ import { NotificationSettings } from './NotificationSettings';
 import { PrivacySettings, type PrivacySettingsProps } from './PrivacySettings';
 
 import { Button } from '../ui/button';
-export type SettingsTab = 'profile' | 'account' | 'privacy' | 'security' | 'appearance' | 'notifications' | 'devices' | 'data' | 'about';
+type SettingsTab = 'profile' | 'account' | 'privacy' | 'security' | 'appearance' | 'notifications' | 'devices' | 'data' | 'about';
 
 export interface SettingsViewProps {
   currentUser: UserItem;

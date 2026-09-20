@@ -151,7 +151,7 @@ types/        Shared TypeScript types, database types
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-307 automated tests (at the time of writing) cover the encryption layer, the database security rules (the real migrations run on an in-process Postgres and attacked as several users), API route security, device linking, flood limits, the message store and the UI logic. They do **not** cover the UI in a real browser, two real browsers linking a device, or anything that needs a live Supabase project (Realtime delivery, real email, Realtime Authorization). [`docs/TESTING.md`](docs/TESTING.md) has manual checklists for those.
+304 automated tests (at the time of writing) cover the encryption layer, the database security rules (the real migrations run on an in-process Postgres and attacked as several users), API route security, device linking, flood limits, the message store and the UI logic. They do **not** cover the UI in a real browser, two real browsers linking a device, or anything that needs a live Supabase project (Realtime delivery, real email, Realtime Authorization). [`docs/TESTING.md`](docs/TESTING.md) has manual checklists for those.
 
 ---
 

@@ -2,11 +2,11 @@ import type { GroupRole } from '../lib/groups/roles';
 
 export type ViewCategory = 'chats' | 'groups' | 'people' | 'saved' | 'settings' | 'admin';
 
-export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
 
 export type UserPresence = 'online' | 'away' | 'dnd' | 'meeting' | 'offline';
 
-export interface ReactionItem {
+interface ReactionItem {
   emoji: string;
   count: number;
   userReacted: boolean;

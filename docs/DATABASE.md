@@ -27,7 +27,6 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `017_security_hardening.sql` | Security fixes from the September 2026 audit: `conversation_has_members()`, creator-only-while-empty membership insert, `guard_membership_identity`, group key envelopes only from group admins, `is_blocked_in_conversation()` and a working blocking rule, `guard_message_columns` and `guard_receipt_identity` triggers, storage size and type limits, invite caps, an avatar URL allow-list, and Realtime Authorization policies for the typing and call channels | Yes |
 | `018_devices_and_flood_limits.sql` | At most 3 registered device keys per account (`limit_devices_per_user`); per-account write limits inside the database (`enforce_write_rate`: 120 messages and 200 reactions per minute, 30 new conversations per hour) | Yes |
 | `019_admin_logs.sql` | The admin error log and admin activity log: tables `error_logs` and `admin_audit_log` (readable by platform admins only), the server-only ingest functions `log_error()` and `log_admin_action()`, and the admin actions `admin_set_error_status()` and `admin_clear_errors()`. 30-day retention and a 5,000-row cap | Yes |
-| `functions/atomic_invite_consumption.sql` | `consume_invite` (unused; the invite feature was removed from the app) | Yes. Not numbered; skip on new installs |
 
 ## Tables
 
@@ -70,7 +69,7 @@ All are `SECURITY DEFINER` with a fixed `search_path`; helpers are executable by
 - **`prevent_profile_admin_escalation()`**: on `profiles`, a signed-in caller cannot set or change `is_admin`. Direct database and service-role changes (including the first-user bootstrap) are allowed.
 - **`enforce_private_conversation_cap()`**: rejects a third active member in a private conversation.
 - **`set_updated_at()`**: keeps `updated_at` current on several tables.
-- **`consume_invite(...)`**: atomic single-use invite redemption, `service_role` only. **Unused** since the invite feature was removed; can be dropped together with the `invites` table.
+- **`consume_invite(...)`**: atomic single-use invite redemption, `service_role` only. **Unused** since the invite feature was removed. It exists only in projects where the old `functions/atomic_invite_consumption.sql` script was run (that file has been deleted); it can be dropped together with the `invites` table.
 
 ## Row level security summary
 

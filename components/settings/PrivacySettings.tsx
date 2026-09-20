@@ -12,7 +12,7 @@ import { checkPin, createPinRecord, isValidPin, loadPinRecord, removePinRecord, 
 const inputClass =
   'bg-[var(--surface-2)] border border-[var(--border-subtle)] px-2.5 py-1.5 rounded-lg text-xs text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/60';
 
-export type PrivacyPart = 'privacy' | 'security' | 'devices' | 'data';
+type PrivacyPart = 'privacy' | 'security' | 'devices' | 'data';
 
 export interface PrivacySettingsProps {
   userId: string;

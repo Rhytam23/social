@@ -9,7 +9,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 /** The one button. Every clickable action in the product is a variant of this. */
-export const VARIANT_STYLES = {
+const VARIANT_STYLES = {
   primary:
     'bg-[var(--accent-primary)] text-[var(--accent-contrast)] font-semibold shadow-[inset_0_1px_0_rgba(255,255,255,0.22),var(--shadow-1)] hover:bg-[var(--accent-primary-hover)]',
   secondary:
@@ -21,7 +21,7 @@ export const VARIANT_STYLES = {
   ghost: 'bg-transparent text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]',
 } as const;
 
-export const SIZE_STYLES = {
+const SIZE_STYLES = {
   sm: 'h-8 px-3 text-xs gap-1.5',
   md: 'h-9 px-4 text-sm gap-2',
   lg: 'h-11 px-5 text-sm gap-2.5',
@@ -48,32 +48,6 @@ export const Button: React.FC<ButtonProps> = ({
     {loading && (
       <span className="w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" aria-hidden="true" />
     )}
-    {children}
-  </button>
-);
-
-export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  /** Required: icon-only buttons need an accessible name. */
-  label: string;
-  size?: 'sm' | 'md';
-  active?: boolean;
-}
-
-/** Square icon-only button (toolbars, headers). Shows its label as a tooltip. */
-export const IconButton: React.FC<IconButtonProps> = ({ label, size = 'md', active, className = '', type = 'button', children, ...props }) => (
-  <button
-    type={type}
-    aria-label={label}
-    title={label}
-    className={`pressable inline-flex items-center justify-center rounded-lg disabled:opacity-40 disabled:cursor-not-allowed ${
-      size === 'sm' ? 'w-7 h-7' : 'w-9 h-9'
-    } ${
-      active
-        ? 'bg-[var(--accent-subtle)] text-[var(--accent-text)]'
-        : 'text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]'
-    } ${className}`}
-    {...props}
-  >
     {children}
   </button>
 );

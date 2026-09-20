@@ -14,7 +14,7 @@ import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } f
 import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
 import { userError, adminDetail, technicalNote } from '../ui/errors';
 
-export type StoreMode = 'connected' | 'demo';
+type StoreMode = 'connected' | 'demo';
 
 /** Shape of a `messages` row as delivered by Supabase Realtime postgres_changes. */
 export interface RealtimeMessageRow {

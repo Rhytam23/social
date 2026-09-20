@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { GET as getAuth } from '../../app/api/auth/route';
-import { GET as getConversations, POST as postConversations } from '../../app/api/conversations/route';
+import { POST as postConversations } from '../../app/api/conversations/route';
 import { GET as getMessages, POST as postMessages } from '../../app/api/messages/route';
-import { GET as getGroups, POST as postGroups } from '../../app/api/groups/route';
+import { POST as postGroups } from '../../app/api/groups/route';
 import { POST as postUploads } from '../../app/api/uploads/route';
 import { GET as getUsers } from '../../app/api/users/route';
 import { NextRequest } from 'next/server';
@@ -26,23 +25,7 @@ function createMockRequest(url: string, options: { method?: string; body?: any; 
 }
 
 describe('API Routes Security & Verification Suite', () => {
-  describe('1. Authentication API (/api/auth)', () => {
-    it('should reject unauthenticated session checks with 401', async () => {
-      const req = createMockRequest('http://localhost:3000/api/auth');
-      const res = await getAuth(req);
-      expect(res.status).toBe(401);
-      const json = await res.json();
-      expect(json.authenticated).toBe(false);
-    });
-  });
-
   describe('3. Conversations API (/api/conversations)', () => {
-    it('should reject unauthenticated conversation listing with 401', async () => {
-      const req = createMockRequest('http://localhost:3000/api/conversations');
-      const res = await getConversations(req);
-      expect(res.status).toBe(401);
-    });
-
     it('should reject unauthenticated conversation creation with 401', async () => {
       const req = createMockRequest('http://localhost:3000/api/conversations', {
         method: 'POST',
@@ -77,12 +60,6 @@ describe('API Routes Security & Verification Suite', () => {
         body: { name: 'Test Group', memberIds: ['usr-1'] },
       });
       const res = await postGroups(req);
-      expect(res.status).toBe(401);
-    });
-
-    it('should reject unauthenticated group details with 401', async () => {
-      const req = createMockRequest('http://localhost:3000/api/groups?groupId=grp-1');
-      const res = await getGroups(req);
       expect(res.status).toBe(401);
     });
   });

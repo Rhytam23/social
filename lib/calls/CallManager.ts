@@ -3,7 +3,7 @@ import type { MessagingCrypto } from '../messaging/messagingCrypto';
 import type { CallOutcome, MessageEnvelope } from '../messaging/envelope';
 import { UserMessageError, userError } from '../ui/errors';
 
-export type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'connected';
+type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'connected';
 
 export interface CallState {
   phase: CallPhase;

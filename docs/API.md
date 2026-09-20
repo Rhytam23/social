@@ -14,12 +14,9 @@ Route handlers live in `app/api/**/route.ts`, plus `app/auth/confirm/route.ts`.
 - Routes use the caller's own session, so row level security applies. The service-role client is used only where marked.
 - Message bodies are opaque ciphertext. The server never receives plaintext.
 
-## Session and people
+## People
 
-### `GET /api/auth` (120/min)
-Returns the current session.
-- `200 { authenticated: true, user: { id, email, profile } }`. `profile` is `id, username, display_name, avatar_url, is_admin, created_at` or `null`.
-- Signed out: `401 { authenticated: false, user: null }`.
+The app reads the current session and its own conversations straight from Supabase, so there are no session, conversation-list or group-detail routes (`GET /api/auth`, `GET /api/conversations` and `GET /api/groups` were removed as unused).
 
 ### `GET /api/users?username=` (60/min per address, 30/min per account)
 Find one person by **exact username**. This is the only way to discover someone you have not talked to. The value is trimmed, a leading `@` is dropped and it is lower-cased; it must be 3 to 30 letters, numbers, dots or underscores. Display name, email, phone number and bio are never searched.
@@ -32,17 +29,9 @@ People you already share a conversation with (used to fill the contacts list). P
 
 ## Conversations and groups
 
-### `GET /api/conversations` (120/min)
-`200` array of `{ id, type, name, avatar_url, created_at, updated_at }` for conversations you are an active member of, newest first.
-
 ### `POST /api/conversations` (30/min)
 Body: `{ type: "private" | "group", name?, participantIds: string[] }`. `name` is required for groups; `participantIds` must be a list of valid UUIDs, not empty and bounded. You are added automatically.
 - `201 { id, type, name, created_at }` · `400` invalid input.
-
-### `GET /api/groups?groupId=` (60/min)
-Group details for an active member.
-- `200 { id, type, name, avatar_url, created_at, updated_at, members: [{ user_id, joined_at, profiles: { id, username, display_name, avatar_url } }] }`
-- `400` missing id · `403` not a member · `404` not found or not a group.
 
 ### `POST /api/groups` (20/min)
 Body: `{ name, memberIds: string[] }`. You are added automatically. `201 { id, type, name, created_at }`.
