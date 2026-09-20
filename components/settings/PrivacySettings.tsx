@@ -6,6 +6,7 @@ import { SettingRow, Switch } from '../ui/primitives';
 import { Button } from '../ui/button';
 import { Avatar } from '../ui/avatar';
 import { toast } from '../../lib/ui/toastStore';
+import { technicalNote } from '../../lib/ui/errors';
 import { checkPin, createPinRecord, isValidPin, loadPinRecord, removePinRecord, savePinRecord } from '../../lib/privacy/appLock';
 
 const inputClass =
@@ -137,7 +138,7 @@ export const PrivacySettings: React.FC<PrivacySettingsProps & PartProps> = ({ pa
         <>
       <h3 className="text-sm font-bold text-[var(--text-primary)] mt-6 mb-1">Blocked people</h3>
       {!canBlock ? (
-        <p className="text-xs text-[var(--text-muted)] py-2">Blocking needs the latest database update (migration 015).</p>
+        <p className="text-xs text-[var(--text-muted)] py-2">{technicalNote('Blocking needs the latest database update (migration 015).', 'Blocking is not available right now.')}</p>
       ) : blockedUsers.length === 0 ? (
         <p className="text-xs text-[var(--text-muted)] py-2">You have not blocked anyone. Blocked people cannot send you direct messages.</p>
       ) : (

@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { createClient } from '../../lib/supabase/client';
 import { isSupabaseConfigured } from '../../lib/supabase/env';
 import { Button } from '../ui/button';
+import { technicalNote } from '../../lib/ui/errors';
 import { Badge } from '../ui/primitives';
 
 interface ReportRow {
@@ -32,7 +33,7 @@ export const AdminReports: React.FC<{ nameOf: (userId: string) => string }> = ({
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) {
-      setNote('Reports need the latest database update (migration 015).');
+      setNote(technicalNote('Reports need the latest database update (migration 015).', 'Reports are not available right now.'));
       setRows([]);
       return;
     }

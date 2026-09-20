@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **242 tests in 21 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **253 tests in 22 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -27,7 +27,7 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/integration/apiRoutes.test.ts` | 9 | Every data route returns `401` when signed out |
 | `tests/integration/userSearch.test.ts` | 14 | Username-only lookup rules |
 | `tests/chat/chatStore.test.ts`, `envelopeDisplay.test.ts` | 8 + 8 | The store in demo mode; how message payloads become text |
-| `tests/ui/*.test.ts` | 82 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the landing scene's maths and fallbacks, and that the default theme follows the device |
+| `tests/ui/*.test.ts` | 93 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the landing scene's maths and fallbacks, that the default theme follows the device, and that technical error detail is shown only to admins (`errorVisibility.test.ts`) |
 
 `tests/security/pgHarness.ts` is the test database: it creates the Supabase roles (`anon`, `authenticated`, `service_role`), `auth.uid()` and the storage and realtime tables the migrations expect, then runs every migration. **When Supabase changes how any of those work, this file is where to update the emulation.**
 
@@ -157,6 +157,7 @@ Run after applying `017` and `018` to a real project. Use accounts A, B, C (outs
 - [ ] Try to insert a 4th `user_devices` row for A (SQL as A): refused with `device_limit_reached`.
 - [ ] Send more than 120 messages in a minute with a script: the extra are refused.
 - [ ] Response headers on the live site include `Content-Security-Policy` and `Strict-Transport-Security`; `/api/auth` has `Cache-Control: no-store`.
+- [ ] Errors: as an ordinary user, cause a failure (for example save a profile before migration `011` is applied, or block the network) and confirm the message is a plain sentence with no database or migration text; as an admin the same failure also shows an "Admin detail" part.
 - [ ] Theme: with no saved choice, a light-mode device shows the light theme and a dark-mode device the dark theme, and switching the device setting changes the app without reloading. Choosing Dark or Light in Settings sticks.
 
 ## Not yet done

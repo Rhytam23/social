@@ -1,4 +1,5 @@
 import type { SupabaseClient, User } from '@supabase/supabase-js';
+import { UserMessageError } from '../ui/errors';
 
 /** Columns that exist since the first schema. */
 const BASE_PROFILE_COLUMNS = 'id, username, display_name, avatar_url, is_admin';
@@ -79,7 +80,10 @@ export async function saveOwnProfile(
 
   if (Object.keys(base).length > 0) {
     const { error } = await supabase.from('profiles').update(base).eq('id', userId);
-    if (error) throw new Error(error.message);
+    if (error) {
+      if ((error as { code?: string }).code === '23505') throw new UserMessageError('That username or phone number is already taken.');
+      throw new Error(error.message);
+    }
   }
   if (Object.keys(extra).length === 0) return { extrasSaved: true };
 

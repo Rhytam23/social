@@ -77,7 +77,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-At the time of writing this gives: no type or lint errors, **242 tests passing in 21 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
+At the time of writing this gives: no type or lint errors, **253 tests passing in 22 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
 
 ## What will change over ten years (and what to check)
 

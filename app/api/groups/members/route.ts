@@ -183,7 +183,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Forbidden. You are not a member of this group.' }, { status: 403 });
     }
     if (!me.rolesEnabled) {
-      return NextResponse.json({ error: 'Group roles need the latest database update (migration 013).' }, { status: 409 });
+      return NextResponse.json({ error: 'Group roles are not available yet.' }, { status: 409 });
     }
 
     const target = await lookupMember(supabase, groupId, userId);

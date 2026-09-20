@@ -43,6 +43,7 @@
 | `lib/auth/roles.ts` | Server-side admin check against `profiles.is_admin` |
 | `lib/api/security.ts` | Helpers every API route uses: UUID and date validation, trusted client address, per-address and per-account limits, cross-site (Origin) check, bounded JSON reader, generic server errors, file-name sanitiser |
 | `lib/rate-limit/rateLimiter.ts` | The rate limiter (Upstash Redis, or in memory per server instance) |
+| `lib/ui/errors.ts` | Decides who sees how much of an error: everyone gets a friendly message, platform admins also get the technical detail |
 | `lib/ui/theme.ts`, `lib/ui/themeScript.ts` | Theme preference. Default is `system` (follows the device); an inline script sets `data-theme` before first paint so there is no flash |
 | `lib/calls/`, `lib/realtime/` | WebRTC calls and the presence and typing channels (typing and call channels are private, see [Database](DATABASE.md#realtime)) |
 | `database/` | Migrations, the source of truth for the schema ([Database](DATABASE.md)) |

@@ -38,6 +38,7 @@ What the app protects, what it deliberately does not, the rules contributors mus
 - **Fail closed.** In production a missing or placeholder Supabase configuration returns HTTP 500. Demo mode exists only when `NODE_ENV` is not `production`.
 - **Open-redirect protection** on `/auth/confirm`: `next` must be a same-site path.
 - **Errors shown on the login page are length-capped and rendered as plain text.**
+- **Technical error detail is for admins only.** People see a short friendly message; platform admins also see the technical detail (database messages, migration hints, decrypt reasons) after it. Implemented in `lib/ui/errors.ts` (`userError`, `technicalNote`, `adminDetail`, `UserMessageError`); the viewer's admin status is set at sign-in from `profiles.is_admin`. **This is a display rule, not an access control:** calls the browser makes straight to Supabase carry the database's own message, which someone inspecting the network tab can still read. The real protection is the database rules; the API routes already return only generic errors.
 
 **Browser hardening** (`next.config.ts`)
 - **Content-Security-Policy**: scripts, styles, images, fonts, connections and frames limited to this site and the Supabase project; `frame-ancestors 'none'`; `object-src 'none'`; `upgrade-insecure-requests` in production.
@@ -75,6 +76,7 @@ Weak points: in-memory limits are per server instance (on serverless they are we
 9. **Schema changes go through a new migration**, with matching updates to `types/database.ts` and tests.
 10. **New API routes use `lib/api/security.ts`** (auth, validation, limits, origin check, generic errors) and get a test in `tests/security/apiSecurity.test.ts`.
 11. **Never put secrets, keys or private data in URLs, logs or client storage used as a security control.**
+12. **Never show a raw exception, database or migration message to a user.** Wrap it: `userError(err, 'Friendly sentence.')`, `technicalNote(detail, generic)` or `adminDetail(err, fallback)` from `lib/ui/errors.ts`. Throw `UserMessageError` only for messages written for people (for example "Use 4 to 8 digits").
 
 ## Known gaps
 

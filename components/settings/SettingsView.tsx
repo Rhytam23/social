@@ -14,6 +14,7 @@ import {
 } from '../ui/icons';
 import { createClient } from '../../lib/supabase/client';
 import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
+import { userError } from '../../lib/ui/errors';
 import { AppearanceSettings } from './AppearanceSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { PrivacySettings, type PrivacySettingsProps } from './PrivacySettings';
@@ -110,7 +111,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           timezone: timezone.trim() || null,
         });
         if (!extrasSaved) {
-          setErrorMessage('Name and username were saved, but bio, pronouns and time zone need the latest database update (migration 011).');
+          setErrorMessage(userError(new Error('bio, pronouns and time zone need the latest database update (migration 011)'), 'Your name and username were saved, but your other profile details could not be saved right now. Please try again later.'));
         }
       }
 
@@ -127,7 +128,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       setProfileSuccess('Profile updated successfully.');
     } catch (err: unknown) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to update profile.');
+      setErrorMessage(userError(err, 'Could not save your profile. Please try again.'));
     } finally {
       setIsSavingProfile(false);
     }
@@ -146,7 +147,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setBackupMessage('Encrypted key backup generated using Argon2id + AES-256-GCM.');
       setBackupPassphrase('');
     } catch (e: unknown) {
-      setErrorMessage(e instanceof Error ? e.message : 'Failed to generate key backup.');
+      setErrorMessage(userError(e, 'Could not create the key backup. Please try again.'));
     } finally {
       setIsProcessingBackup(false);
     }
@@ -166,7 +167,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setRestorePassphrase('');
       setRestoreJson('');
     } catch (e: unknown) {
-      setErrorMessage(e instanceof Error ? e.message : 'Invalid passphrase or corrupted backup.');
+      setErrorMessage(userError(e, 'Could not restore the backup. Check the passphrase and the file, then try again.'));
     } finally {
       setIsProcessingBackup(false);
     }
@@ -204,7 +205,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       onUpdateProfile?.({ avatarUrl: url });
       setProfileSuccess('Avatar updated.');
     } catch (err) {
-      setErrorMessage(err instanceof Error ? err.message : 'Failed to upload avatar.');
+      setErrorMessage(userError(err, 'Could not upload your photo. Please try again.'));
     } finally {
       setIsUploadingAvatar(false);
     }
