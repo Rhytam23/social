@@ -541,7 +541,7 @@ export default function HomePage() {
   if (configured && !isAuthenticated) {
     if (authModalTab) {
       return (
-        <div data-theme="dark" className="relative min-h-screen bg-[var(--canvas-bg)]">
+        <div className="relative min-h-screen bg-[var(--canvas-bg)]">
           <div className="absolute top-4 left-4 z-50">
             <Button variant="tertiary" size="sm" onClick={() => setAuthModalTab(null)}>
               ← Back to overview

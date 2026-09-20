@@ -13,7 +13,6 @@ export interface AuthLayoutProps {
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, currentStep, totalSteps }) => {
   return (
     <div
-      data-theme="dark"
       className="grain relative min-h-screen bg-[var(--canvas-bg)] text-[var(--text-primary)] flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
     >
       <div
