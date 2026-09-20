@@ -5,7 +5,7 @@
 /* ------------------------------------------------------------------
    Design tokens: the one place the product's look is defined.
 
-   Dark is the default; light applies with data-theme="light", or with
+   The default follows the device (data-theme="system"); dark is the base palette; light applies with data-theme="light", or with
    data-theme="system" when the OS prefers it. Tailwind's `slate` scale is
    a neutral ramp and its `emerald` scale is the accent ramp (a restrained
    cool blue-cyan); both read these variables (tailwind.config.ts), so every
@@ -179,6 +179,10 @@
     --accent-400: 11 102 144;
     --accent-500: 14 116 160;
     --accent-600: 11 95 133;
+  }
+
+  [data-theme='system'] .hover\:text-white:hover {
+    color: var(--text-primary);
   }
 }
 

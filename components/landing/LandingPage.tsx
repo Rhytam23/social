@@ -146,7 +146,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenAuth, forceStill
   };
 
   return (
-    <div data-theme="dark" className="grain relative min-h-screen bg-[var(--canvas-bg)] text-[var(--text-primary)] font-sans overflow-x-clip">
+    <div className="grain relative min-h-screen bg-[var(--canvas-bg)] text-[var(--text-primary)] font-sans overflow-x-clip">
       {/* Soft top light and a vignette: depth without glow */}
       <div
         aria-hidden="true"

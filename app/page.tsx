@@ -27,6 +27,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 
 import { Button } from '../components/ui/button';
+import { LinkDevice } from '../components/auth/LinkDevice';
 export default function HomePage() {
   const [state, store] = useChatStore();
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
@@ -37,6 +38,7 @@ export default function HomePage() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [linkCrypto, setLinkCrypto] = useState<MessagingCrypto | null>(null);
   const [inviteCode, setInviteCode] = useState<string | undefined>(undefined);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const cryptoRef = useRef<MessagingCrypto | null>(null);
@@ -152,6 +154,12 @@ export default function HomePage() {
       const crypto = new MessagingCrypto(supabase, user.id);
       await crypto.waitReady();
       cryptoRef.current = crypto;
+
+      // A new browser on an account that already has a key must be linked, not given a new key.
+      if (crypto.needsLink()) {
+        setLinkCrypto(crypto);
+        return;
+      }
 
       await store.initializeForUser(supabase, crypto, {
         id: user.id,
@@ -418,9 +426,16 @@ export default function HomePage() {
   const handleRestoreKeyBackup = async (passphrase: string, backupJson: string) => {
     const crypto = cryptoRef.current;
     if (!crypto) throw new Error('Encryption is not ready yet');
+    const previousDeviceId = crypto.hasIdentity() ? crypto.myDeviceId() : null;
     const backup = JSON.parse(backupJson);
     await restoreKeyBackup(passphrase, backup, crypto.getKeyStore());
-    await crypto.getKeyStore().persist();
+    await crypto.completeLinking(previousDeviceId);
+  };
+
+  const finishLinking = () => {
+    setLinkCrypto(null);
+    setAuthLoading(true);
+    void bootstrapSession();
   };
 
   const handleRevokeDevice = (deviceId: string) => {
@@ -455,6 +470,27 @@ export default function HomePage() {
     store.logout();
     setIsAuthenticated(false);
   };
+
+  if (linkCrypto && isAuthenticated) {
+    return (
+      <LinkDevice
+        onLink={async (passphrase, backupJson) => {
+          const backup = JSON.parse(backupJson);
+          await restoreKeyBackup(passphrase, backup, linkCrypto.getKeyStore());
+          await linkCrypto.completeLinking(null);
+          finishLinking();
+        }}
+        onStartFresh={async () => {
+          await linkCrypto.startFresh();
+          finishLinking();
+        }}
+        onLogout={() => {
+          setLinkCrypto(null);
+          void handleLogout();
+        }}
+      />
+    );
+  }
 
   // Loading State
   if (authLoading) {
@@ -505,7 +541,7 @@ export default function HomePage() {
   if (configured && !isAuthenticated) {
     if (authModalTab) {
       return (
-        <div data-theme="dark" className="relative min-h-screen bg-[var(--canvas-bg)]">
+        <div className="relative min-h-screen bg-[var(--canvas-bg)]">
           <div className="absolute top-4 left-4 z-50">
             <Button variant="tertiary" size="sm" onClick={() => setAuthModalTab(null)}>
               ← Back to overview

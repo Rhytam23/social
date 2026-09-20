@@ -13,7 +13,15 @@ export function readTheme(): ThemePreference {
   } catch {
     // storage unavailable (private mode): fall back to the default
   }
-  return 'dark';
+  // No saved choice: follow the device's light or dark setting.
+  return 'system';
+}
+
+/** The theme actually showing right now ('system' resolved through the device setting). */
+export function effectiveTheme(): 'dark' | 'light' {
+  const pref = readTheme();
+  if (pref !== 'system') return pref;
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
 }
 
 function applyTheme(pref: ThemePreference) {
@@ -38,6 +46,6 @@ function subscribe(cb: () => void) {
 }
 
 export function useTheme(): [ThemePreference, (t: ThemePreference) => void] {
-  const theme = useSyncExternalStore(subscribe, readTheme, () => 'dark' as ThemePreference);
+  const theme = useSyncExternalStore(subscribe, readTheme, () => 'system' as ThemePreference);
   return [theme, setTheme];
 }

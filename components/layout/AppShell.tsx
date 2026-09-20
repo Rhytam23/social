@@ -19,7 +19,7 @@ import { CreateChannelDialog, CommunitySettingsDialog } from '../community/Commu
 import { GroupsDialog } from '../groups/GroupsDialog';
 import type { LookupOutcome } from '../../lib/people/lookup';
 import { isGroupManager, type GroupRole } from '../../lib/groups/roles';
-import { setTheme, readTheme } from '../../lib/ui/theme';
+import { setTheme, effectiveTheme } from '../../lib/ui/theme';
 import { toast } from '../../lib/ui/toastStore';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { GroupSpaceView } from '../groups/GroupSpaceView';
@@ -262,7 +262,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       id: 'theme',
       label: 'Switch theme (dark / light)',
       run: () => {
-        const next = readTheme() === 'light' ? 'dark' : 'light';
+        const next = effectiveTheme() === 'light' ? 'dark' : 'light';
         setTheme(next);
         toast(`Switched to ${next} theme`, { kind: 'success' });
       },

@@ -204,7 +204,7 @@ export const SceneStage: React.FC<{ chapter: number; className?: string; paralla
   }, [parallax]);
 
   return (
-    <div ref={wrapRef} className={`relative w-full ${className}`} style={{ height: 620 * k }} aria-hidden="true">
+    <div ref={wrapRef} data-theme="dark" className={`relative w-full ${className}`} style={{ height: 620 * k }} aria-hidden="true">
       <div
         className="absolute left-1/2 top-1/2"
         style={{ width: 1040, height: 620, transform: `translate(-50%, -50%) scale(${k * zoom})`, perspective: 920, perspectiveOrigin: '50% 45%' }}

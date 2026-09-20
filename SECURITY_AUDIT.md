@@ -1,6 +1,6 @@
 # Security audit
 
-Scope: the code in this repository, read directly. Earlier "production-ready" claims were not trusted. Nothing was committed or pushed.
+Scope: the code in this repository, read directly. Earlier "production-ready" claims were not trusted. Update 2 (multi-device and flood protection) is included below.
 
 Status words: **PASS** verified by a test I ran. **FIXED** found, fixed, and re-tested. **UNVERIFIED** could not be tested here. **BLOCKED** needs a credential, an account or an external setting.
 
@@ -25,6 +25,8 @@ Status words: **PASS** verified by a test I ran. **FIXED** found, fixed, and re-
 | V15 | Low | Invite links could be created with unlimited lifetime and uses. | **FIXED** (017: at most 30 days, 250 uses) |
 | V16 | Low | Group management routes did not check the conversation is a plain group, so they could be pointed at direct chats. | **FIXED** |
 | V17 | Dependency (build time) | `postcss` <= 8.5.22 (high) nested in `next`; `vitest`/`@vitest/mocker` (moderate, dev only). | **FIXED** (`overrides`, vitest 4.1.11). `npm audit`: 0 vulnerabilities. |
+| V19 | Medium | **A second browser silently broke the first.** A browser with no key minted a brand-new identity and registered it; peers pick the account's most recently active identity, so they started encrypting to the new one and the first device could no longer read new messages. There was also no cap on identity rows, and any holder of a session could keep swapping keys. | **FIXED** (app + 018) |
+| V20 | Medium | **Floods.** Every request, including junk, reached Supabase (an auth lookup per request). Signed-in accounts could also write straight to the database and skip the API limits. | **FIXED for application-level floods** (middleware + 018). Volumetric DDoS is not something an app can stop: see section 5. |
 | V18 | Info | Moving a membership row to another conversation looked possible from the update policy. Tested: it is **already stopped** because Postgres also applies the SELECT policy to the new row. Not a vulnerability. | PASS. A trigger was still added so the rule is explicit. |
 
 ## 2. Fixes made
@@ -35,12 +37,19 @@ Status words: **PASS** verified by a test I ran. **FIXED** found, fixed, and re-
 - `lib/rate-limit/rateLimiter.ts`: bounded memory, encoded Upstash key.
 - `next.config.ts`: CSP (scripts, images, connections and frames restricted to this site and the Supabase project), HSTS with preload, COOP, CORP, `Permissions-Policy` extended, `no-store` on `/api`, powered-by header removed. `middleware.ts` header aligned.
 - `lib/realtime/liveChannels.ts`, `lib/calls/CallManager.ts`: typing and call channels are now `private`.
+- **Multi-device (V19):** all linked devices share the account's one key, so every browser reads the same chats, history and group keys with no protocol change. A browser with no key now stops at a "Link this device" screen (`components/auth/LinkDevice.tsx`, `lib/messaging/messagingCrypto.ts`) and links by restoring the passphrase-encrypted backup made on the first device, or explicitly starts fresh (old messages unreadable, contacts see a security-code change). Restoring a backup in Settings also registers the restored identity and removes the replaced one. If the account check fails the browser refuses to continue rather than minting a key.
+- `database/migrations/018_devices_and_flood_limits.sql` (new, re-runnable): at most 3 registered identities per account (`limit_devices_per_user`); per-account write limits inside the database: 120 messages per minute, 200 reactions per minute, 30 new conversations per hour (`enforce_write_rate`). Writes with no signed-in user (SQL editor, service role) are not limited.
+- `middleware.ts`: per-address limit before any Supabase call (300 per minute for `/api` and `/auth`, 600 per minute for pages), and a 2 MB body cap on `/api` (413).
 - `package.json`: `overrides` for `postcss`, `vitest` 4.1.11. `.gitignore`: any `.env.*` except the example.
 
 ## 3. Security controls verified
 
 All of the below were checked by tests that ran (section 4).
 
+- **PASS** Multi-device: a browser with no key on an account that already has one is told to link and does not register a key; restoring the backup gives the same device id and public key; a wrong passphrase, an empty backup, and a failed device check are all refused (`tests/security/deviceLinking.test.ts`).
+- **PASS** The 4th identity for an account is refused, re-registering an existing one still works, the cap is per account, and nobody can register a device for someone else (real Postgres).
+- **PASS** The 121st message in a minute and the 31st conversation in an hour are refused in the database; other accounts are unaffected; trusted server writes are not limited.
+- **PASS** Live flood: pages and `/api` return 429 past the limits, a 3 MB body returns 413.
 - **PASS** Server-side authentication on every sensitive route; a forged bearer token or cookie is a 401 (Supabase's `getUser()` validates the token; the cookie is never trusted).
 - **PASS** Membership is enforced by the API **and** by row level security: outsider C cannot read, post to, react to, edit, delete, or upload into A and B's conversation, and cannot list or read its attachments.
 - **PASS** `sender_id` cannot be forged; edits change content only; another user cannot edit or delete a message.
@@ -61,10 +70,11 @@ All of the below were checked by tests that ran (section 4).
 
 ## 4. Tests actually performed and results
 
-Final run: type check (with unused-code flags), lint, production build: all clean. **224 tests pass in 18 files** (was 146). `npm audit`: 0 vulnerabilities.
+Final run: type check (with unused-code flags), lint, production build: all clean. **238 tests pass in 20 files** (was 146 before this audit). `npm audit`: 0 vulnerabilities.
 
 - `tests/security/rls.test.ts` (56 tests): the project's own migrations 001 to 017 executed on a real Postgres (PGlite, WebAssembly) with Supabase roles and `auth.uid()` emulated, then attacked as separate identities with the API role: **A, B** (participants), **C** (outsider), **ADMIN**, plus D and E. Covers unauthenticated access, A to B reads and writes, forged senders, role escalation, membership and envelope abuse, message tampering, blocking, storage policies, communities and invites, reports, profile photo URLs, and realtime policies. A second block runs the schema **before** 017 and shows V2, V3, V4, V5 succeeding, so the fixes are proven to matter.
 - `tests/security/apiSecurity.test.ts` (22 tests): the real route handlers with a stub database. Unauthenticated and forged-token requests, IDOR, ID tampering and injection strings, malformed and oversized bodies, type confusion, mass assignment, error-message leakage, per-account limits with spoofed headers, CSRF, upload filename traversal, admin route protection.
+- `tests/security/floodAndDevices.test.ts` (9 tests, real Postgres) and `tests/security/deviceLinking.test.ts` (6 tests): the 018 limits and the link-a-new-browser flow.
 - Live black-box against the production build (`next start`, fake Supabase settings): every sensitive route returned 401 with no or forged credentials; `/admin`, `/chat`, `/settings` redirected (307); cross-origin POST returned 403; security headers present on `/`; `/api/*` sent `no-store`; spoofed-address flood cut off at the limit; no service key and no source maps in the client bundle.
 
 ## 5. Remaining risks and unverified areas
@@ -73,8 +83,9 @@ Final run: type check (with unused-code flags), lint, production build: all clea
 - **Migration 017 is required.** Until it is applied: blocking does not work, key injection is possible, and the realtime channels the app now opens as `private` will be refused (typing indicators and calls stop working) because no policy allows them. Realtime Authorization may also need enabling in the Supabase dashboard.
 - **The first account created on a fresh install becomes platform admin** (by design, `007`). On a public deployment, sign up as yourself first, and check `profiles.is_admin` is only you. Admins can read conversation and membership metadata (never message content).
 - **Presence is still one global channel** (`pc-presence`): any signed-in user can see which user ids are online and their status. Not fixed: it needs a redesign, not a policy.
-- **Any group member can read the group's ciphertext and metadata** (expected); envelopes are now admin-only, but there is still **no forward secrecy** and **one device per user**, so the UI must not claim more than that. Private keys sit in IndexedDB unencrypted; a CSP now limits what can run, but an XSS bug would still expose them. The app lock is a screen lock, not encryption.
+- **Any group member can read the group's ciphertext and metadata** (expected); envelopes are now admin-only, but there is still **no forward secrecy**. Devices are linked by sharing the one account key (up to 3 registered identities, any number of browsers can hold the key), so a lost or compromised device exposes the whole account, and "revoke device" only edits the registry: it cannot take the key back from a browser that already has it. Linking needs the backup file, so keep it and its passphrase safe. Linking was tested with a stubbed database, not with two real browsers. Private keys sit in IndexedDB unencrypted; a CSP now limits what can run, but an XSS bug would still expose them. The app lock is a screen lock, not encryption.
 - **CSP keeps `'unsafe-inline'` for scripts** (Next.js bootstrap and the theme script). A nonce-based policy would need per-request rendering.
+- **DDoS: the app cannot stop a volumetric attack.** The limits above protect the application and Supabase from cheap floods, but traffic that saturates bandwidth or the platform must be absorbed before it reaches the app: use Vercel Firewall / Attack Challenge Mode or Cloudflare in front, Supabase's built-in auth rate limits, and a CAPTCHA on sign-up (not added: needs keys from you). Sign-up, password reset and Google sign-in are limited by Supabase, not by this code.
 - **Rate limits are per server instance** unless Upstash is configured (`UPSTASH_REDIS_REST_*`); on serverless, limits are weaker than they look. Upstash was not tested.
 - **Direct Storage uploads** are bounded by size and type but not rate-limited, and any member can upload up to 25 MB files repeatedly into their conversations.
 - Search-by-username is enforced by the app, not row level security: any signed-in user can still read public profile columns (username, name, photo, bio) with the Supabase API.

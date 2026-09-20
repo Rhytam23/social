@@ -104,7 +104,7 @@ const LockScreen: React.FC<{ userId: string; onSignOut: () => void }> = ({ userI
   };
 
   return (
-    <div data-theme="dark" role="dialog" aria-modal="true" aria-label="App locked" className="fixed inset-0 z-[100] bg-[var(--canvas-bg)] flex items-center justify-center p-6 font-sans">
+    <div role="dialog" aria-modal="true" aria-label="App locked" className="fixed inset-0 z-[100] bg-[var(--canvas-bg)] flex items-center justify-center p-6 font-sans">
       <form onSubmit={submit} className="w-full max-w-xs flex flex-col items-center gap-4 text-center">
         <div className="w-14 h-14 rounded-2xl bg-[var(--accent-subtle)] border border-emerald-500/30 flex items-center justify-center text-[var(--accent-text)]">
           <IconLock className="w-7 h-7" />

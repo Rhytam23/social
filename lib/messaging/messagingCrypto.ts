@@ -37,6 +37,8 @@ export class MessagingCrypto {
     this.readyPromise = this.init();
   }
 
+  private linkRequired = false;
+
   private async init(): Promise<void> {
     const loaded = await DeviceKeyStore.load();
     if (loaded && loaded.getIdentity()) {
@@ -50,19 +52,71 @@ export class MessagingCrypto {
       return;
     }
 
+    // No key on this browser. If the account already has an identity, a new one must NOT be
+    // minted silently: peers would start encrypting to it and the first device would go blind.
+    // The person links this browser with their encrypted backup instead (or starts fresh).
+    const { count, error } = await this.supabase
+      .from('user_devices')
+      .select('device_id', { count: 'exact', head: true })
+      .eq('user_id', this.myUserId);
+    if (error) throw new Error('Could not check this account devices. Please try again.');
+    if ((count ?? 0) > 0) {
+      this.linkRequired = true;
+      return;
+    }
+    await this.createIdentity();
+  }
+
+  private async createIdentity(): Promise<void> {
     const bundle = await generateDeviceKeys(this.keyStore);
     await this.keyStore.persist();
+    await this.registerDevice(bundle.deviceId, bundle.identityPublicKey);
+  }
 
-    await this.supabase.from('user_devices').upsert(
+  private async registerDevice(deviceId: string, publicKeyB64: string): Promise<void> {
+    const { error } = await this.supabase.from('user_devices').upsert(
       {
         user_id: this.myUserId,
-        device_id: bundle.deviceId,
-        identity_public_key: bundle.identityPublicKey,
-        signed_prekey: bundle.identityPublicKey,
+        device_id: deviceId,
+        identity_public_key: publicKeyB64,
+        signed_prekey: publicKeyB64,
         last_seen_at: new Date().toISOString(),
       },
       { onConflict: 'user_id,device_id' }
     );
+    if (error) throw new Error('Could not register this device. Every account can link up to 3 devices.');
+  }
+
+  /** True when this browser has no key yet but the account already has one to link with. */
+  needsLink(): boolean {
+    return this.linkRequired;
+  }
+
+  /**
+   * Call after a backup was restored into this browser's key store. Persists it and makes sure
+   * the account's device registry lists that identity. `previousDeviceId` is the identity this
+   * browser used before (if any); its registry row is removed so peers stop encrypting to it.
+   */
+  async completeLinking(previousDeviceId?: string | null): Promise<void> {
+    const identity = this.keyStore.getIdentity();
+    if (!identity) throw new Error('That backup does not contain an account key.');
+    await this.keyStore.persist();
+    await this.registerDevice(identity.deviceId, bytesToBase64(identity.publicKey));
+    if (previousDeviceId && previousDeviceId !== identity.deviceId) {
+      await this.supabase.from('user_devices').delete().eq('user_id', this.myUserId).eq('device_id', previousDeviceId);
+    }
+    this.peerDeviceCache.clear();
+    this.linkRequired = false;
+  }
+
+  /** Replaces the account's key with a brand-new one. Old messages become unreadable. */
+  async startFresh(): Promise<void> {
+    const { error } = await this.supabase.from('user_devices').delete().eq('user_id', this.myUserId);
+    if (error) throw new Error('Could not reset this account keys. Please try again.');
+    this.keyStore = new DeviceKeyStore();
+    this.peerDeviceCache.clear();
+    await this.createIdentity();
+    this.linkRequired = false;
   }
 
   async waitReady(): Promise<void> {
