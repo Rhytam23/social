@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 022 and 025**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 023 and 025**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -26,6 +26,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `016_username_only_discovery.sql` | Revokes client access to `find_profiles_by_contact()` (people are found by exact username only) | Yes |
 | `017_security_hardening.sql` | Security fixes from the September 2026 audit: `conversation_has_members()`, creator-only-while-empty membership insert, `guard_membership_identity`, group key envelopes only from group admins, `is_blocked_in_conversation()` and a working blocking rule, `guard_message_columns` and `guard_receipt_identity` triggers, storage size and type limits, invite caps, an avatar URL allow-list, and Realtime Authorization policies for the typing and call channels | Yes |
 | `018_devices_and_flood_limits.sql` | At most 3 registered device keys per account (`limit_devices_per_user`); per-account write limits inside the database (`enforce_write_rate`: 120 messages and 200 reactions per minute, 30 new conversations per hour) | Yes |
+| `023_hide_platform_admins.sql` | `profiles` read rule: a platform admin's profile is visible only to themselves, other admins, and people who share a conversation or a community with them (new helper `shares_community_with()`). Everyone else gets no row, whatever they ask for. Other profiles are unchanged | Yes |
 | `025_admin_lock_and_roles.sql` | Two kinds of admin. **`is_admin` can no longer be changed by any API role, including the service role**; the only way is the Supabase dashboard or SQL editor, and each change is written to the admin activity log. Group and community admins can make members admins (owners do everything else); a community holds at most 10 channels; official-looking names ("admin", "staff", a check mark, reserved handles) can only belong to platform admins | Yes |
 | `022_support_requests.sql` | The support inbox: table `support_requests` (readable by platform admins only, no client writes), the server-only function `submit_support_request()` (validates, allows at most 5 requests a day per email, keeps 90 days and 5,000 rows), and `admin_set_support_status()` (admins only, audited) | Yes |
 | `021_upload_limits.sql` | Attachments only through signed uploads: drops the client upload policy, sets the bucket ceiling (100 MB) and the avatar limit (2 MB, images), adds `uploaded_bytes_last_day()` for the daily quota. **Deploy the matching app version before running it** | Yes |

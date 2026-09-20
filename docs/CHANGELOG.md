@@ -4,6 +4,12 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Platform admins cannot be found (September 2026).** Needs migration `023`; try it on a staging project first.
+
+- The `profiles` read rule hides a platform admin from everyone except themselves, other admins, and people who share a conversation or community with them. Username search, listing the table and joins all follow it. Other people's profiles are unchanged.
+- Chats started by a platform admin are written to the activity log. Blocks still apply to admins.
+- Limit: not anonymous. Anyone the admin talks to knows who they are, and the admin's user id can appear (without a name) in the live presence list.
+
 **Two kinds of admin (September 2026).** Needs migration `025`; deploy the app first.
 
 - **Platform admin is made only in Supabase.** The in-app promote and demote button and `PATCH /api/admin/users` are gone, and `025` stops every API role, including the service role, from changing `profiles.is_admin`. A stolen admin session or a leaked service-role key can no longer create admins. Changes made in the dashboard are written to the activity log. See the maintainer guide, "Someone should become a platform admin".

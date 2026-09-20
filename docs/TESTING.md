@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **384 tests in 38 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **397 tests in 40 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -23,6 +23,8 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
 | `tests/security/latestMessages.test.ts` | 4 | Migration `020` on real Postgres: exactly the newest message per conversation, never one from a conversation the caller is not in, empty input, signed-out refused |
 | `tests/security/latestRoute.test.ts` | 5 | `GET /api/messages/latest`: 401, uses only the caller's own conversations, only known columns returned, 501 fallback while `020` is missing, no database text in errors |
+| `tests/security/hiddenAdmins.test.ts` | 10 | Migration `023` on real Postgres: a stranger cannot list, look up or fetch an admin, ordinary profiles are unchanged, the admin appears to people who share a chat or community and disappears when they leave, anonymous visitors see nothing, `is_admin()` does not recurse |
+| `tests/security/adminChatAudit.test.ts` | 3 | A chat started by a platform admin is written to the activity log; ordinary chats and groups are not |
 | `tests/security/adminRoles.test.ts` | 21 | Migration `025` on real Postgres: nobody, not even the service role, can change `is_admin` through the API, dashboard changes work and are logged, group admins have no platform powers, group and community role rules (admins only make members admins), the 10-channel limit, reserved official-looking names (and sign-up not failing for them) |
 | `tests/security/supportRequests.test.ts` | 7 | Migration `022` on real Postgres: only admins read requests, nobody writes directly, submitting is server-only, per-email daily limit, 90-day retention, admin resolve is audited and non-admins are refused |
 | `tests/security/supportRoute.test.ts` | 9 | `POST /api/support`: signed-out and signed-in requests, honeypot, cross-site, oversized and malformed bodies, validation (including header-injection-shaped emails), control characters, rate limit, no database text in errors |
@@ -209,3 +211,11 @@ Run after applying `022`.
 - [ ] A group admin can make a member an admin, cannot demote the other admin or the owner, and never sees the Admin section.
 - [ ] A community admin can create channels until the community has 10 (the default one counts), then sees a clear message.
 - [ ] Renaming an ordinary account to "Nook Admin" or a name with a check mark is refused with a clear message; the platform admin can use any name.
+
+## Checklist for hidden platform admins (migration 023)
+
+- [ ] As an ordinary account that has never talked to the admin, search the admin's exact username: no result. In the browser console, `supabase.from('profiles').select('*')` does not include the admin.
+- [ ] As the admin, start a chat with that account: it appears for them, with the verified badge on the admin's name. A third account that has not talked to the admin still cannot find them.
+- [ ] Community members can see the admin's name in the member list; someone outside the community cannot.
+- [ ] Community lists, group member lists, mentions and onboarding still show everyone else correctly (this is the change most likely to break something: check it on a staging project first).
+- [ ] The admin's start of a chat appears in Admin, Activity as `admin_start_chat`.

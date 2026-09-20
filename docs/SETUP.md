@@ -57,6 +57,7 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 017 | `017_security_hardening.sql` | Security fixes: blocking that works, group key envelopes only from admins, membership and message integrity guards, storage limits, realtime authorization. **Required for the security fixes to take effect.** |
 | 018 | `018_devices_and_flood_limits.sql` | At most 3 registered device identities per account, and per-account write limits (messages, reactions, new conversations) enforced in the database. |
 | 019 | `019_admin_logs.sql` | The admin error log and admin activity log (Admin, Errors and Activity), so admins can see problems without Supabase access. |
+| 023 | `023_hide_platform_admins.sql` | Platform admins cannot be found in search or by listing profiles; only people who share a chat or community with them can see them. |
 | 025 | `025_admin_lock_and_roles.sql` | Platform admins can only be made from Supabase; group admins can promote members; 10 channels per community; official-looking names are reserved. **Deploy the matching app first** (it removes the in-app promote button). |
 | 022 | `022_support_requests.sql` | The support inbox behind the Contact page and Settings, Report a problem (Admin, Support). |
 | 021 | `021_upload_limits.sql` | Attachments can only be uploaded through the server's signed addresses; per-account daily upload quota; bucket and avatar limits. Deploy the matching app first, then run it. |
@@ -81,6 +82,7 @@ select
   to_regprocedure('public.get_latest_messages(uuid[])') is not null            as m020_latest_messages,
   to_regprocedure('public.uploaded_bytes_last_day(uuid)') is not null           as m021_upload_quota,
   to_regclass('public.support_requests') is not null                            as m022_support,
+  to_regprocedure('public.shares_community_with(uuid)') is not null            as m023_hidden_admins,
   exists (select 1 from pg_trigger where tgname = 'trigger_audit_profile_admin_change') as m025_admin_lock;
 ```
 
