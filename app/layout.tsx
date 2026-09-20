@@ -4,6 +4,7 @@ import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import { THEME_INIT_SCRIPT } from "../lib/ui/themeScript";
 import { ToastHost } from "../components/ui/toast";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "Private Chat",
@@ -32,6 +33,7 @@ export default function RootLayout({
         </a>
         {children}
         <ToastHost />
+        <Analytics />
       </body>
     </html>
   );
