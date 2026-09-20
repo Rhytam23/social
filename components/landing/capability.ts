@@ -16,7 +16,7 @@ export interface RenderSignals {
   webgl: boolean;
 }
 
-export const MIN_WIDTH_PX = 1024;
+const MIN_WIDTH_PX = 1024;
 
 export function shouldRender3D(s: RenderSignals): boolean {
   if (s.width < MIN_WIDTH_PX) return false;

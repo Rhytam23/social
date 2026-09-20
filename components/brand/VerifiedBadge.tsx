@@ -7,7 +7,7 @@ import { SITE_NAME } from '../../lib/site';
  * are refused by the database (migration 025, guard_profile_names). Group admins do not get it: they have a
  * plain role label.
  */
-export const VERIFIED_LABEL = `Verified administrator of ${SITE_NAME}`;
+const VERIFIED_LABEL = `Verified administrator of ${SITE_NAME}`;
 
 export function VerifiedBadge({ className = 'w-4 h-4' }: { className?: string }) {
   return (
