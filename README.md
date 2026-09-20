@@ -180,6 +180,12 @@ The complete list, and what is planned, is in [`docs/ROADMAP.md`](docs/ROADMAP.m
 
 ---
 
+## License
+
+This project is **source-available, not open source**. The [Private Chat Non-Commercial Learning License](LICENSE) lets you clone, run, read and modify it **for your own personal, non-commercial learning and testing**. You may **not** use it commercially, **not** use it in any hackathon, competition or contest, **not** run it as a service for other people, and **not** publish or redistribute it or a modified copy. Using it in a way the license does not allow ends your permission and may lead to action against you.
+
+For any other use, email **rhytam.biswas0823@gmail.com** and ask first.
+
 ## Documentation
 
 | Document | What's in it |

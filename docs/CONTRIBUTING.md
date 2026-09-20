@@ -1,5 +1,9 @@
 # Contributing
 
+## License
+
+The project is under a non-commercial, learning-only license ([LICENSE](../LICENSE)). By sending a contribution you agree to the contributions clause in it. Do not copy code into the project from a source whose license forbids it.
+
 ## Getting started
 
 Follow [Setup](SETUP.md). You can work on most of the UI without a backend in demo mode (`npm run dev` with no Supabase variables), but anything involving accounts, Realtime or row level security needs a real Supabase project.
