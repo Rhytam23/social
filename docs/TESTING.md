@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **360 tests in 36 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **384 tests in 38 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -23,6 +23,7 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
 | `tests/security/latestMessages.test.ts` | 4 | Migration `020` on real Postgres: exactly the newest message per conversation, never one from a conversation the caller is not in, empty input, signed-out refused |
 | `tests/security/latestRoute.test.ts` | 5 | `GET /api/messages/latest`: 401, uses only the caller's own conversations, only known columns returned, 501 fallback while `020` is missing, no database text in errors |
+| `tests/security/adminRoles.test.ts` | 21 | Migration `025` on real Postgres: nobody, not even the service role, can change `is_admin` through the API, dashboard changes work and are logged, group admins have no platform powers, group and community role rules (admins only make members admins), the 10-channel limit, reserved official-looking names (and sign-up not failing for them) |
 | `tests/security/supportRequests.test.ts` | 7 | Migration `022` on real Postgres: only admins read requests, nobody writes directly, submitting is server-only, per-email daily limit, 90-day retention, admin resolve is audited and non-admins are refused |
 | `tests/security/supportRoute.test.ts` | 9 | `POST /api/support`: signed-out and signed-in requests, honeypot, cross-site, oversized and malformed bodies, validation (including header-injection-shaped emails), control characters, rate limit, no database text in errors |
 | `tests/security/floodAndDevices.test.ts` | 8 | Migration `018` on real Postgres: the 3-key cap, per-account write limits, server writes not limited |
@@ -199,3 +200,12 @@ Run after applying `022`.
 - [ ] Settings, About, Report a problem sends as the signed-in account (no email field) and appears in Admin, Support with the account.
 - [ ] Landing on a computer: the 3D scene appears after the page loads; with the operating system's reduced-motion setting on, or on a phone or tablet, it never loads and the page is plain.
 - [ ] With `NEXT_PUBLIC_TURNSTILE_SITE_KEY` set and CAPTCHA enabled in Supabase: sign-up, sign-in and reset show the check and refuse to submit until it passes; a wrong password can be retried (the check refreshes).
+
+## Checklist for admin roles (migration 025)
+
+- [ ] Admin, People shows everyone read-only with no promote or demote buttons, and the verified badge next to platform admins only.
+- [ ] In the Supabase table editor, ticking `is_admin` for a test account makes the Admin section appear for them after a reload, and the change shows in Admin, Activity. Unticking it removes access. (This also confirms the dashboard connection is allowed, which the automated tests can only emulate.)
+- [ ] In the browser console, `supabase.from('profiles').update({ is_admin: true })` for your own row does nothing.
+- [ ] A group admin can make a member an admin, cannot demote the other admin or the owner, and never sees the Admin section.
+- [ ] A community admin can create channels until the community has 10 (the default one counts), then sees a clear message.
+- [ ] Renaming an ordinary account to "Nook Admin" or a name with a check mark is refused with a clear message; the platform admin can use any name.

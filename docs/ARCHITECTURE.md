@@ -41,7 +41,6 @@
 | `lib/messaging/` | `messagingCrypto.ts` (session-scoped crypto orchestration), `envelope.ts` (message payload types), `envelopeDisplay.ts` (payload to UI text), `messageService.ts` (fetch and send), `attachments.ts` (encrypted upload and download) |
 | `crypto/` | Cryptographic primitives ([E2EE](E2EE.md)) |
 | `lib/supabase/` | Browser, server and admin clients, env helpers, middleware session refresh |
-| `lib/auth/roles.ts` | Server-side admin check against `profiles.is_admin` |
 | `lib/api/security.ts` | Helpers every API route uses: UUID and date validation, trusted client address, per-address and per-account limits, cross-site (Origin) check, bounded JSON reader, generic server errors, file-name sanitiser |
 | `lib/rate-limit/rateLimiter.ts` | The rate limiter (Upstash Redis, or in memory per server instance) |
 | `lib/logging/` | The admin error log: `scrub.ts` (removes secrets and personal data), `errorLog.ts` (server writer using the service role), `clientLogger.ts` (browser reporter with throttling and de-duplication), `errorRows.ts` (list filters). `lib/ui/errors.ts` sends every handled UI error to the reporter; `serverError()` in `lib/api/security.ts` writes every server error after responding |

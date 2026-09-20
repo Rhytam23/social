@@ -159,7 +159,7 @@ export async function DELETE(request: NextRequest): Promise<NextResponse> {
   return NextResponse.json({ success: true });
 }
 
-/** Change a member's role. Owner only. Promoting someone to owner makes the caller an admin. */
+/** Change a member's role. The owner changes any role; an admin can only make a member an admin. Promoting someone to owner makes the caller an admin. */
 export async function PATCH(request: NextRequest): Promise<NextResponse> {
   const auth = await authenticate(request, 'grp-member-role', 30);
   if ('error' in auth && auth.error) return auth.error;
@@ -191,7 +191,7 @@ export async function PATCH(request: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'That person is not in this group.' }, { status: 404 });
     }
     if (!canChangeRole(me.role, target.role, role, userId === user.id)) {
-      return NextResponse.json({ error: 'Only the group owner can change roles.' }, { status: 403 });
+      return NextResponse.json({ error: 'Only the group owner can change roles. Admins can make members admins.' }, { status: 403 });
     }
 
     const { error: updateError } = await supabase

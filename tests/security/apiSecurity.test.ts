@@ -58,17 +58,14 @@ vi.mock('@/lib/supabase/server', () => ({
   }),
 }));
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ from: () => table('conversations') }) }));
-vi.mock('@/lib/auth/roles', () => ({ isUserAdmin: async (id: string) => id === 'aaaaaaaa-0000-4000-8000-000000000004' }));
 
 import { GET as getMessages, POST as postMessage, PATCH as patchMessage } from '../../app/api/messages/route';
-import { PATCH as patchAdmin } from '../../app/api/admin/users/route';
 import { POST as postGroupMember } from '../../app/api/groups/members/route';
 import { clientIp, isUuid } from '../../lib/api/security';
 
 const A = 'aaaaaaaa-0000-4000-8000-000000000001';
 const B = 'aaaaaaaa-0000-4000-8000-000000000002';
 const C = 'aaaaaaaa-0000-4000-8000-000000000003';
-const ADMIN = 'aaaaaaaa-0000-4000-8000-000000000004';
 const F = 'aaaaaaaa-0000-4000-8000-000000000006'; // fresh accounts for the rate limit tests
 const G = 'aaaaaaaa-0000-4000-8000-000000000007';
 const H = 'aaaaaaaa-0000-4000-8000-000000000008';
@@ -105,7 +102,6 @@ describe('authentication is enforced on the server', () => {
     expect((await getMessages(req(`/api/messages?conversationId=${CONV}`))).status).toBe(401);
     expect((await postMessage(req('/api/messages', { method: 'POST', body: { conversationId: CONV, ciphertext: 'x', nonce: 'n' } }))).status).toBe(401);
     expect((await patchMessage(req('/api/messages', { method: 'PATCH', body: { messageId: CONV, deleted: true } }))).status).toBe(401);
-    expect((await patchAdmin(req('/api/admin/users', { method: 'PATCH', body: { userId: A, isAdmin: true } }))).status).toBe(401);
     expect((await postGroupMember(req('/api/groups/members', { method: 'POST', body: { groupId: CONV, userId: C } }))).status).toBe(401);
   });
 
@@ -134,12 +130,6 @@ describe('authorization and IDOR', () => {
     db.messages.push({ id: 'cccccccc-0000-4000-8000-000000000009', conversation_id: OTHER, sender_id: C, ciphertext: 'x', nonce: 'n' });
     const r = await postMessage(req('/api/messages', { method: 'POST', body: { conversationId: CONV, ciphertext: 'x', nonce: 'n', replyToMessageId: 'cccccccc-0000-4000-8000-000000000009' } }));
     expect(r.status).toBe(404);
-  });
-  it('a non-admin cannot use the admin route; an admin can, but not on themselves', async () => {
-    asUser(B);
-    expect((await patchAdmin(req('/api/admin/users', { method: 'PATCH', body: { userId: B, isAdmin: true } }))).status).toBe(403);
-    asUser(ADMIN);
-    expect((await patchAdmin(req('/api/admin/users', { method: 'PATCH', body: { userId: ADMIN, isAdmin: false } }))).status).toBe(400);
   });
   it('a plain member cannot add people to a group (role check)', async () => {
     asUser(B);

@@ -417,10 +417,6 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
     void store.toggleSaved(msgId);
   };
 
-  const handleToggleUserRole = (userId: string, currentRole: 'admin' | 'member') => {
-    void store.toggleUserRole(userId, currentRole);
-  };
-
   const handleExportKeyBackup = async (passphrase: string) => {
     const crypto = cryptoRef.current;
     if (!crypto) throw new Error('Encryption is not ready yet');
@@ -616,7 +612,6 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
         onRemoveGroupMember={handleRemoveGroupMember}
         devices={state.devices}
         users={state.allUsers}
-        onToggleUserRole={handleToggleUserRole}
         onExportKeyBackup={handleExportKeyBackup}
         onRestoreKeyBackup={handleRestoreKeyBackup}
         onRevokeDevice={handleRevokeDevice}

@@ -104,10 +104,7 @@ Body `{ path, kind }`, sent after the upload. Confirms the object exists, belong
 
 ## Admin
 
-### `PATCH /api/admin/users` (20/min)
-Admin only (checked against `profiles.is_admin`). Body: `{ userId, isAdmin: boolean }`. You cannot remove your own admin access. Uses the **service-role** client, and records the change in the admin activity log (`admin_audit_log`) and the server log. `200 { id, username, display_name, is_admin }`.
-
-The old `/api/invites` routes were removed; registration no longer uses invitations.
+There is no route to make someone a platform admin: that is done only in Supabase (see the maintainer guide). Group roles change through `PATCH /api/groups/members` (owner: any change; admin: member to admin only) and the community functions.
 
 ## Authentication redirects
 

@@ -21,11 +21,26 @@ describe('group permissions', () => {
     expect(canRemoveMember('member', 'member', true)).toBe(true);
   });
 
-  it('only the owner changes roles, and not their own', () => {
+  it('the owner changes any role, but not their own', () => {
     expect(canChangeRole('owner', 'member', 'admin', false)).toBe(true);
-    expect(canChangeRole('admin', 'member', 'admin', false)).toBe(false);
+    expect(canChangeRole('owner', 'admin', 'member', false)).toBe(true);
+    expect(canChangeRole('owner', 'member', 'owner', false)).toBe(true);
     expect(canChangeRole('owner', 'owner', 'admin', true)).toBe(false);
     expect(canChangeRole('owner', 'admin', 'admin', false)).toBe(false);
+  });
+
+  it('an admin can only make a plain member an admin', () => {
+    expect(canChangeRole('admin', 'member', 'admin', false)).toBe(true);
+    expect(canChangeRole('admin', 'admin', 'member', false)).toBe(false); // no demotions
+    expect(canChangeRole('admin', 'owner', 'member', false)).toBe(false);
+    expect(canChangeRole('admin', 'member', 'owner', false)).toBe(false); // never an owner
+    expect(canChangeRole('admin', 'member', 'admin', true)).toBe(false); // never themselves
+  });
+
+  it('members and people outside the group change nothing', () => {
+    expect(canChangeRole('member', 'member', 'admin', false)).toBe(false);
+    expect(canChangeRole(undefined, 'member', 'admin', false)).toBe(false);
+    expect(canChangeRole('owner', undefined, 'admin', false)).toBe(false);
   });
 });
 

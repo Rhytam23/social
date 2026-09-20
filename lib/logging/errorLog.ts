@@ -53,21 +53,3 @@ export async function writeErrorLog(entry: ErrorLogEntry): Promise<void> {
     console.warn('[error-log] could not store an error entry:', e instanceof Error ? e.message : e);
   }
 }
-
-/** Writes an entry to the admin activity log (`admin_audit_log`). Never throws. */
-export async function writeAdminAction(actorId: string, action: string, targetType: string, targetId: string, detail?: string): Promise<void> {
-  try {
-    if (!isSupabaseConfigured() || !process.env.SUPABASE_SERVICE_ROLE_KEY) return;
-    const admin = createAdminClient();
-    const { error } = await admin.rpc('log_admin_action' as never, {
-      p_actor: actorId,
-      p_action: action,
-      p_target_type: targetType,
-      p_target_id: targetId,
-      p_detail: detail ? scrubText(detail, 500) : null,
-    } as never);
-    if (error) console.warn('[error-log] could not store an admin action:', error.message);
-  } catch (e) {
-    console.warn('[error-log] could not store an admin action:', e instanceof Error ? e.message : e);
-  }
-}

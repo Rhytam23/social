@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 022**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 022 and 025**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -26,6 +26,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `016_username_only_discovery.sql` | Revokes client access to `find_profiles_by_contact()` (people are found by exact username only) | Yes |
 | `017_security_hardening.sql` | Security fixes from the September 2026 audit: `conversation_has_members()`, creator-only-while-empty membership insert, `guard_membership_identity`, group key envelopes only from group admins, `is_blocked_in_conversation()` and a working blocking rule, `guard_message_columns` and `guard_receipt_identity` triggers, storage size and type limits, invite caps, an avatar URL allow-list, and Realtime Authorization policies for the typing and call channels | Yes |
 | `018_devices_and_flood_limits.sql` | At most 3 registered device keys per account (`limit_devices_per_user`); per-account write limits inside the database (`enforce_write_rate`: 120 messages and 200 reactions per minute, 30 new conversations per hour) | Yes |
+| `025_admin_lock_and_roles.sql` | Two kinds of admin. **`is_admin` can no longer be changed by any API role, including the service role**; the only way is the Supabase dashboard or SQL editor, and each change is written to the admin activity log. Group and community admins can make members admins (owners do everything else); a community holds at most 10 channels; official-looking names ("admin", "staff", a check mark, reserved handles) can only belong to platform admins | Yes |
 | `022_support_requests.sql` | The support inbox: table `support_requests` (readable by platform admins only, no client writes), the server-only function `submit_support_request()` (validates, allows at most 5 requests a day per email, keeps 90 days and 5,000 rows), and `admin_set_support_status()` (admins only, audited) | Yes |
 | `021_upload_limits.sql` | Attachments only through signed uploads: drops the client upload policy, sets the bucket ceiling (100 MB) and the avatar limit (2 MB, images), adds `uploaded_bytes_last_day()` for the daily quota. **Deploy the matching app version before running it** | Yes |
 | `020_latest_messages.sql` | `get_latest_messages(uuid[])`: the newest message of each conversation in one query, for the sidebar previews. Runs with the caller's own rights, so row level security decides what is returned. Optional: without it the app makes one request per conversation | Yes |
@@ -69,7 +70,7 @@ All are `SECURITY DEFINER` with a fixed `search_path`; helpers are executable by
 - **`is_conversation_member(uuid)`**: the caller has an active membership (`left_at` is null).
 - **`shares_conversation_with(uuid)`**: the caller and the other user are active in a common conversation.
 - **`is_valid_group_key_recipient(conversation, user, device)`**: a group, an active member, and a device belonging to that user.
-- **`prevent_profile_admin_escalation()`**: on `profiles`, a signed-in caller cannot set or change `is_admin`. Direct database and service-role changes (including the first-user bootstrap) are allowed.
+- **`prevent_profile_admin_escalation()`**: on `profiles`, no API role (signed in, anonymous or the service role) can set or change `is_admin`; since `025` only a connection that does not switch role (the Supabase dashboard, the SQL editor, migrations, the auth service) can. Signed-in callers are silently reverted; the service role gets an error. Signed-in callers cannot set or change `is_admin`. Direct database and service-role changes (including the first-user bootstrap) are allowed.
 - **`enforce_private_conversation_cap()`**: rejects a third active member in a private conversation.
 - **`set_updated_at()`**: keeps `updated_at` current on several tables.
 - **`consume_invite(...)`**: atomic single-use invite redemption, `service_role` only. **Unused** since the invite feature was removed. It exists only in projects where the old `functions/atomic_invite_consumption.sql` script was run (that file has been deleted); it can be dropped together with the `invites` table.

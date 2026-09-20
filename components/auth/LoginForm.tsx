@@ -8,6 +8,7 @@ import { IconCheck, IconLock, IconX } from '../ui/icons';
 import { Button } from '../ui/button';
 import { TurnstileWidget, type TurnstileHandle } from './TurnstileWidget';
 import { captchaEnabled } from '../../lib/captcha';
+import { reservedNameMessage } from '../../lib/profile/names';
 
 import Link from 'next/link';
 
@@ -99,6 +100,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   const fieldErrors: Partial<Record<Field, string>> = {};
   if (isSignup && !displayName.trim()) fieldErrors.displayName = 'Please enter your display name.';
+  else if (isSignup && reservedNameMessage(displayName)) fieldErrors.displayName = reservedNameMessage(displayName) ?? undefined;
   if (!email.trim()) fieldErrors.email = 'Please enter your email address.';
   else if (!EMAIL_RE.test(email.trim())) fieldErrors.email = 'Enter a valid email address.';
   if (!password) fieldErrors.password = isSignup ? 'Please choose a password.' : 'Please enter your password.';

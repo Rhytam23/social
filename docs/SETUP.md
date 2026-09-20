@@ -57,6 +57,7 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 017 | `017_security_hardening.sql` | Security fixes: blocking that works, group key envelopes only from admins, membership and message integrity guards, storage limits, realtime authorization. **Required for the security fixes to take effect.** |
 | 018 | `018_devices_and_flood_limits.sql` | At most 3 registered device identities per account, and per-account write limits (messages, reactions, new conversations) enforced in the database. |
 | 019 | `019_admin_logs.sql` | The admin error log and admin activity log (Admin, Errors and Activity), so admins can see problems without Supabase access. |
+| 025 | `025_admin_lock_and_roles.sql` | Platform admins can only be made from Supabase; group admins can promote members; 10 channels per community; official-looking names are reserved. **Deploy the matching app first** (it removes the in-app promote button). |
 | 022 | `022_support_requests.sql` | The support inbox behind the Contact page and Settings, Report a problem (Admin, Support). |
 | 021 | `021_upload_limits.sql` | Attachments can only be uploaded through the server's signed addresses; per-account daily upload quota; bucket and avatar limits. Deploy the matching app first, then run it. |
 | 020 | `020_latest_messages.sql` | One query for the newest message of every conversation (sidebar previews). Optional: without it the app makes one request per conversation. |
@@ -79,7 +80,8 @@ select
   to_regclass('public.admin_audit_log') is not null                             as m019_audit_log,
   to_regprocedure('public.get_latest_messages(uuid[])') is not null            as m020_latest_messages,
   to_regprocedure('public.uploaded_bytes_last_day(uuid)') is not null           as m021_upload_quota,
-  to_regclass('public.support_requests') is not null                            as m022_support;
+  to_regclass('public.support_requests') is not null                            as m022_support,
+  exists (select 1 from pg_trigger where tgname = 'trigger_audit_profile_admin_change') as m025_admin_lock;
 ```
 
 **Do not re-run old migrations on an existing project.** `002` and `003` are not re-runnable: `002` refers to a column that `003` removes, so running it again fails with `column "role" does not exist`. If you are unsure what has been applied, run this read-only check and only run what is missing:

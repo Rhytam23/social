@@ -6,6 +6,7 @@ import { IconChevronDown, IconLock, IconPin, IconSearch, IconX } from '../ui/ico
 import { PRESENCE_LABEL } from '../ui/avatar';
 import { MessageListSkeleton, TypingDots } from '../ui/primitives';
 import { ChatHeaderMenu } from './ChatHeaderMenu';
+import { VerifiedBadge } from '../brand/VerifiedBadge';
 
 export interface ChatCanvasProps {
   conversation: ConversationItem;
@@ -44,6 +45,8 @@ export interface ChatCanvasProps {
   onReportMessage?: (msg: MessageData) => void;
   /** Start a voice (false) or video (true) call with the other person (direct chats only). */
   onStartCall?: (video: boolean) => void;
+  /** Ids of platform admins: their messages and the chat title carry the verified badge. */
+  platformAdminIds?: string[];
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -57,6 +60,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   onDownloadAttachment,
   onRetryFailedMessage,
   onToggleInspector,
+  platformAdminIds = [],
   onEditMessage,
   onDeleteMessage,
   onForwardMessage,
@@ -171,6 +175,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
               <h2 className="text-sm font-bold text-slate-100 truncate font-sans">
                 {conversation.communityId ? `# ${conversation.title}` : conversation.title}
               </h2>
+              {conversation.type === 'direct' && conversation.recipientUser && platformAdminIds.includes(conversation.recipientUser.id) && <VerifiedBadge />}
               {conversation.isMuted && (
                 <span className="text-[10px] text-slate-500">Muted</span>
               )}
@@ -340,6 +345,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                     onReportMessage={onReportMessage}
                     threadReplyCount={threadCounts.get(msg.id) ?? 0}
                     continuation={continuation}
+                    senderVerified={platformAdminIds.includes(msg.senderId)}
                   />
                 </React.Fragment>
               );

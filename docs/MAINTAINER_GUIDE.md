@@ -32,7 +32,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 | `lib/logging/` | The admin error log: scrubbing, the server writer, the browser reporter |
 | `lib/calls/`, `lib/realtime/` | WebRTC calls; presence and typing channels |
 | `crypto/` | The cryptographic primitives (libsodium, WebCrypto, Argon2id). Small and self-contained on purpose |
-| `database/migrations/` | **The schema.** `001` to `022` |
+| `database/migrations/` | **The schema.** `001` to `022` and `025` |
 | `types/database.ts` | Hand-maintained TypeScript mirror of the schema |
 | `tests/` | Vitest suites. `tests/security/` runs the real migrations on an in-process Postgres and attacks them |
 | `docs/` | This documentation |
@@ -78,7 +78,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-At the time of writing this gives: no type or lint errors, **360 tests passing in 36 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
+At the time of writing this gives: no type or lint errors, **384 tests passing in 38 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
 
 ## What will change over ten years (and what to check)
 
@@ -121,6 +121,7 @@ These are what a review should defend. The full list is in [Security](SECURITY.m
 | **Someone wrote to support** | Open the app as an admin: **Admin, Support**. Requests from the contact form and Settings, Report a problem are listed with the sender's email; Reply by email opens your mail app; Mark resolved when done. Nothing is emailed to you automatically, so check the tab regularly (or the address on the Contact page). If it says "not available", check that migration `022` is applied |
 | **Users say something is broken** | Open the app as an admin: **Admin, Errors**. Server and browser errors are listed with how often, when, on which page and for which user, with no message content or secrets. Mark them resolved when fixed; **Activity** shows what other admins did. No Supabase or hosting access is needed, so this is where 3 or 4 admins should look first. If the list is empty or says "not available", check that migration `019` is applied |
 | **Someone is flooding the site** | Turn on the host's firewall or attack-challenge mode, and Cloudflare in front if needed. The app's own limits stop cheap floods only ([Security](SECURITY.md#denial-of-service)) |
+| **Someone should become a platform admin** | Only in Supabase, never in the app. Table editor: open `profiles`, find the person, tick `is_admin`. Or in the SQL editor: `update public.profiles set is_admin = true where username = 'their_username';` (use `false` to remove). Each change appears in **Admin, Activity** as `is_admin_changed_in_supabase`. The app cannot do this on purpose: a stolen admin session or a leaked service-role key then cannot create more admins (migration `025`). Group admins are different: they are ordinary users with a role inside one group or community, and they never see the Admin section |
 | **An admin account is compromised** | `update public.profiles set is_admin = false where id = '<id>';` in the SQL editor, and disable the user in Supabase Authentication |
 | **A user lost their device** | If they have the backup file and passphrase they can link a new browser. Without it their old messages cannot be recovered: the "Start fresh" option makes a new key |
 | **A user reports "security code changed"** | Their contact linked a new key ("Start fresh") or was attacked. Compare safety numbers out of band |

@@ -53,7 +53,6 @@ export interface AppShellProps {
 
   devices: DeviceItem[];
   users: UserItem[];
-  onToggleUserRole: (userId: string, currentRole: 'admin' | 'member') => void;
 
   onExportKeyBackup: (passphrase: string) => Promise<void>;
   onRestoreKeyBackup: (passphrase: string, backupJson: string) => Promise<void>;
@@ -141,7 +140,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   onRemoveGroupMember,
   devices,
   users,
-  onToggleUserRole,
   onExportKeyBackup,
   onRestoreKeyBackup,
   onRevokeDevice,
@@ -432,6 +430,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             <>
               <ChatCanvas
                 conversation={activeConversation}
+                platformAdminIds={users.filter((u) => u.role === 'admin').map((u) => u.id)}
                 messages={shownMessages}
                 onSendMessage={onSendMessage}
                 replyTarget={
@@ -640,7 +639,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           {activeCategory === 'admin' && currentUserRole === 'admin' && (
             <AdminDashboard
               users={users}
-              onToggleUserRole={onToggleUserRole}
             />
           )}
         </main>

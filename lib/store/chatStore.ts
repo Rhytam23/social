@@ -953,22 +953,6 @@ export class ChatStore {
     void this.sendSystemNote(groupId, `${this.state.currentUser.name} removed ${this.nameOf(userId)}`);
   }
 
-  public async toggleUserRole(userId: string, currentRole: 'admin' | 'member'): Promise<void> {
-    if (this.state.mode === 'demo') return this.toggleUserRoleDemo(userId, currentRole);
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, isAdmin: currentRole !== 'admin' }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      this.setState({ error: body.error || 'Failed to update role' });
-      return;
-    }
-    this.state.allUsers = this.state.allUsers.map((u) => (u.id === userId ? { ...u, role: currentRole === 'admin' ? 'member' : 'admin' } : u));
-    this.notify();
-  }
-
   public async revokeDevice(deviceId: string): Promise<void> {
     if (this.state.mode === 'demo') return this.revokeDeviceDemo(deviceId);
     if (!this.supabase) return;
@@ -1962,11 +1946,6 @@ export class ChatStore {
     return newId;
   }
 
-  private toggleUserRoleDemo(userId: string, currentRole: 'admin' | 'member') {
-    this.state.allUsers = this.state.allUsers.map((u) => (u.id === userId ? { ...u, role: currentRole === 'admin' ? 'member' : 'admin' } : u));
-    this.persistDemo();
-    this.notify();
-  }
 
   private revokeDeviceDemo(deviceId: string) {
     this.state.devices = this.state.devices.filter((d) => d.id !== deviceId);

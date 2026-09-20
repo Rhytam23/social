@@ -14,6 +14,7 @@ import {
 } from '../ui/icons';
 import { VoiceMessagePreview } from './VoiceMessagePreview';
 import { Avatar } from '../ui/avatar';
+import { VerifiedBadge } from '../brand/VerifiedBadge';
 import { MessageInfoModal } from './MessageInfoModal';
 
 export interface MessageItemProps {
@@ -34,6 +35,8 @@ export interface MessageItemProps {
   onReportMessage?: (msg: MessageData) => void;
   /** True when the previous message is from the same person in the same minute: the name and photo are not repeated. */
   continuation?: boolean;
+  /** The sender is a platform admin: show the verified badge next to the name. */
+  senderVerified?: boolean;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -51,6 +54,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   threadReplyCount = 0,
   onReportMessage,
   continuation = false,
+  senderVerified = false,
 }) => {
   const isSelf = message.isSelf;
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -138,7 +142,10 @@ export const MessageItem: React.FC<MessageItemProps> = ({
           <div className="flex items-center gap-2 px-1 text-[11px] text-slate-400">
             {!continuation && (
               <>
-                <span className="font-semibold text-slate-300">{isSelf ? 'You' : message.senderName}</span>
+                <span className="font-semibold text-slate-300 inline-flex items-center gap-1">
+                  {isSelf ? 'You' : message.senderName}
+                  {senderVerified && !isSelf && <VerifiedBadge className="w-3.5 h-3.5" />}
+                </span>
                 <span>{message.timestamp}</span>
               </>
             )}

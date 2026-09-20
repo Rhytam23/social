@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { ChatStore } from '../../lib/store/chatStore';
 import { checkRateLimit } from '../../lib/rate-limit/rateLimiter';
 import { encryptAttachment, decryptAttachment } from '../../crypto/attachments/attachmentEncryptor';
-import { isUserAdmin } from '../../lib/auth/roles';
 import { DeviceKeyStore } from '../../crypto/storage/keyStorage';
 import { generateDeviceKeys } from '../../crypto/identity/deviceKeys';
 import { createKeyBackup, restoreKeyBackup } from '../../crypto/backup/keyBackup';
@@ -60,10 +59,6 @@ describe('Adversarial & Security Hardening Test Suite', () => {
       expect(store.getState().currentUser.role).toBe('member');
     });
 
-    it('should verify isUserAdmin returns false for invalid or non-existent user IDs', async () => {
-      expect(await isUserAdmin('')).toBe(false);
-      expect(await isUserAdmin('non-existent-uuid-1234')).toBe(false);
-    });
   });
 
   describe('4. Attachment Encryption & Sanitization Defense', () => {

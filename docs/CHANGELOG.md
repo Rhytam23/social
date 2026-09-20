@@ -4,6 +4,13 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Two kinds of admin (September 2026).** Needs migration `025`; deploy the app first.
+
+- **Platform admin is made only in Supabase.** The in-app promote and demote button and `PATCH /api/admin/users` are gone, and `025` stops every API role, including the service role, from changing `profiles.is_admin`. A stolen admin session or a leaked service-role key can no longer create admins. Changes made in the dashboard are written to the activity log. See the maintainer guide, "Someone should become a platform admin".
+- **Group admins** (an ordinary user with a role inside one group or community) can make members admins; the owner still does everything else. They have no platform powers (tested). A community holds at most 10 channels. Roles are labelled "Group admin".
+- **Verified badge** for platform admins (a filled shield with a check), drawn only from the server-side flag, shown next to their name in chats, member lists and profiles. Names that look official ("admin", "staff", a check mark, reserved handles) are reserved for platform admins by the database, so nobody can pose as one.
+- Admin, People is now read-only.
+
 **Nook: name, logo, public site, support and landing animation (September 2026).** Needs migration `022` for the support inbox.
 
 - **Renamed to Nook** (was Private Chat). The name is `SITE_NAME` in `lib/site.ts`. Internal storage names (`private_chat_*` preferences, the `private-chat-keystore` IndexedDB name, `pc-*` channels) were deliberately **not** renamed: that would drop saved preferences and could orphan the browser-held encryption key. Trademark, domain and app-store availability of the name were not checked.

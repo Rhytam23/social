@@ -16,6 +16,7 @@ import { createClient } from '../../lib/supabase/client';
 import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
 import { userError } from '../../lib/ui/errors';
 import { MB, UPLOAD_LIMITS } from '../../lib/limits';
+import { reservedNameMessage } from '../../lib/profile/names';
 import { LogoMark } from '../brand/Logo';
 import { SupportForm } from '../site/SupportForm';
 import { AppearanceSettings } from './AppearanceSettings';
@@ -93,6 +94,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const uErr = username.trim() ? validateUsername(username) : null;
     setUsernameError(uErr);
     if (uErr) return;
+    // Names that look official are for platform admins only (the database enforces it too).
+    const reserved = currentUser.role === 'admin' ? null : reservedNameMessage(displayName, username);
+    if (reserved) {
+      setErrorMessage(reserved);
+      return;
+    }
 
     setIsSavingProfile(true);
     setProfileSuccess(null);

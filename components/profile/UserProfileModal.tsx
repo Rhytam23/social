@@ -4,6 +4,7 @@ import { IconShield, IconUsers, IconX } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
 
 import { Button } from '../ui/button';
+import { VerifiedBadge } from '../brand/VerifiedBadge';
 export interface UserProfileModalProps {
   user: UserItem | null;
   isOpen: boolean;
@@ -74,11 +75,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-bold text-slate-100">{user.name}</h2>
-              {user.role === 'admin' && (
-                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-semibold uppercase">
-                  Admin
-                </span>
-              )}
+              {user.role === 'admin' && <VerifiedBadge className="w-5 h-5" />}
             </div>
             <span className="text-xs text-slate-400">
               {user.username ? `@${user.username}` : ''}
