@@ -2,10 +2,25 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { isSupabaseConfigured, isDemoModeAllowed } from "@/lib/supabase/env";
+import { limitByIp } from "@/lib/api/security";
+
+// First line of defence against floods: runs before any Supabase call, so junk traffic never costs
+// an auth lookup. Limits are per address and generous for real use; the per-route and per-account
+// limits sit behind this. Volumetric attacks still need an edge firewall (see SECURITY_AUDIT.md).
+const MAX_API_BODY_BYTES = 2 * 1024 * 1024;
 
 export async function middleware(request: NextRequest) {
-  const { supabase, user, supabaseResponse } = await updateSession(request);
   const pathname = request.nextUrl.pathname;
+  const isApi = pathname.startsWith("/api/") || pathname.startsWith("/auth/");
+
+  if (isApi && Number(request.headers.get("content-length") || 0) > MAX_API_BODY_BYTES) {
+    return NextResponse.json({ error: "Request too large." }, { status: 413 });
+  }
+
+  const limited = await limitByIp(request, isApi ? "mw-api" : "mw-page", isApi ? { limit: 300, windowMs: 60_000 } : { limit: 600, windowMs: 60_000 });
+  if (limited) return limited;
+
+  const { supabase, user, supabaseResponse } = await updateSession(request);
 
   // Set standard security headers on response
   supabaseResponse.headers.set("X-Frame-Options", "DENY");
