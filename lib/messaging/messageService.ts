@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from './messagingCrypto';
 import type { MessageEnvelope } from './envelope';
+import { adminDetail } from '../ui/errors';
 import { isGroupRole, type GroupRole } from '../groups/roles';
 
 export interface ConversationSummary {
@@ -205,7 +206,7 @@ async function decryptRow(
     }
     return { ...base, envelope };
   } catch (err) {
-    return { ...base, envelope: null, decryptError: err instanceof Error ? err.message : 'Decryption failed' };
+    return { ...base, envelope: null, decryptError: adminDetail(err, 'this message could not be read on this device') };
   }
 }
 

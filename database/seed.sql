@@ -1,1 +1,0 @@
--- Seed script for initial database setup

@@ -28,6 +28,8 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 
 import { Button } from '../components/ui/button';
 import { LinkDevice } from '../components/auth/LinkDevice';
+import { setErrorReporter, setErrorViewer, userError } from '../lib/ui/errors';
+import { reportClientError, startClientLogging, stopClientLogging } from '../lib/logging/clientLogger';
 export default function HomePage() {
   const [state, store] = useChatStore();
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
@@ -136,6 +138,9 @@ export default function HomePage() {
       setIsAuthenticated(true);
 
       const profile = await loadOwnProfile(supabase, user);
+      setErrorViewer(profile?.is_admin === true);
+      startClientLogging();
+      setErrorReporter((err, friendly) => reportClientError(`ui: ${friendly}`, err));
       initPreferences(user.id, profile?.preferences, (prefs: Preferences) => {
         void saveOwnProfile(supabase, user.id, { preferences: prefs as unknown as Record<string, unknown> }).catch(() => {});
       });
@@ -223,7 +228,7 @@ export default function HomePage() {
       // fetch, key setup, store init) must not look like being logged out.
       if (signedIn) {
         console.error('Post-login setup failed', err);
-        setBootError(err instanceof Error ? err.message : 'Could not finish setting up your session.');
+        setBootError(userError(err, 'Could not finish setting up your session. Please try again.'));
       } else {
         setIsAuthenticated(false);
       }
@@ -461,6 +466,9 @@ export default function HomePage() {
         realtimeChannelRef.current = null;
       }
     }
+    setErrorViewer(false);
+    setErrorReporter(null);
+    stopClientLogging();
     cryptoRef.current = null;
     liveRef.current?.stop();
     liveRef.current = null;

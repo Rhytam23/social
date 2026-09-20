@@ -8,14 +8,14 @@ Calm, minimal and a little futuristic, but human. A dark neutral palette with on
 
 ## Tokens
 
-Everything lives in [`app/globals.css`](../app/globals.css) as CSS variables, with dark as the default and light applied by `data-theme="light"` (or `system`).
+Everything lives in [`app/globals.css`](../app/globals.css) as CSS variables. The dark palette is the base (`:root`); light applies with `data-theme="light"`, or with `data-theme="system"` when the device prefers light (a `prefers-color-scheme` media query, so it follows the device live). **The default is `system`**: the app follows the device's light or dark setting unless the person chose Dark or Light in Settings (saved in `localStorage` as `private_chat_theme`). `lib/ui/themeScript.ts` sets the attribute before first paint so there is no flash.
 
 | Group | Variables |
 |---|---|
 | Surfaces | `--canvas-bg`, `--surface-1`, `--surface-2`, `--surface-hover`, `--border-subtle`, `--border-strong` |
 | Text | `--text-primary`, `--text-secondary`, `--text-muted` |
 | Accent | `--accent-primary`, `--accent-primary-hover`, `--accent-contrast`, `--accent-text`, `--accent-subtle`, `--accent-line` |
-| Status | `--danger-neutral`, `--warning`, `--success` (+ `-subtle`), and `--presence-*` |
+| Status | `--danger-neutral`, `--danger-subtle`, `--warning`, `--success`, and `--presence-*` |
 | Depth | `--shadow-1`, `--shadow-2`, `--shadow-pop`, `--edge-light` |
 | Shape and motion | `--radius-control`, `--radius-card`, `--motion-fast/base/slow`, `--ease-out` |
 
@@ -27,8 +27,8 @@ Type is Geist (sans and mono, loaded by `next/font` through the `geist` package,
 
 Use these instead of writing long class strings.
 
-- **`Button`** and **`IconButton`** ([`components/ui/button.tsx`](../components/ui/button.tsx)). Variants: `primary`, `secondary`, `tertiary`, `danger`, `ghost`. Sizes `sm`, `md`, `lg`. No white or default-styled buttons anywhere.
-- **`Input`, `Textarea`, `Select`** ([`components/ui/input.tsx`](../components/ui/input.tsx)) and the `.field` class for the rare raw control.
+- **`Button`** ([`components/ui/button.tsx`](../components/ui/button.tsx)). Variants: `primary`, `secondary`, `tertiary`, `danger`, `ghost`. Sizes `sm`, `md`, `lg`. No white or default-styled buttons anywhere.
+- **`Input`** ([`components/ui/input.tsx`](../components/ui/input.tsx)) and the `.field` class for the rare raw control.
 - **`.panel`** (a card) and **`.floating`** (menus, popovers, dialogs) classes.
 - **`Dialog`, `Avatar`, `Badge`, `Switch`, `EmptyState`, `ErrorState`, skeletons, `Toast`** as before.
 - **`.pressable`** for press feedback, **`.anim-message`**, **`.anim-view`** and **`.stagger`** for entrances.
@@ -48,5 +48,7 @@ All motion uses the tokens above and is switched off by the `prefers-reduced-mot
 - **Progressive.** The first paint is the DOM version, which is also the poster while the scene loads. The scene starts only when `shouldRender3D` ([`sceneMath.ts`](../components/landing/sceneMath.ts)) says the device can take it: not with reduced motion, data saver, no WebGL, 2 GB of memory or fewer, or 2 cores or fewer. Those visitors get the same story as still compositions.
 - **Self-protecting.** The scene renders only while visible, caps pixel ratio at 1.5, and measures its own frame time: if it is slow it drops shadows and resolution, and if that is not enough it hands over to the still version. A lost WebGL context does the same.
 - **Preview.** `/design-system/landing` shows the landing page without a Supabase project (`?still=1` forces the still version). Development only.
+
+The page and the sign-in screens follow the theme. The floating product cards are deliberately pinned to the dark palette (`data-theme="dark"` on the stage in `SceneCards.tsx`; the WebGL cards use fixed colours in `paintCards.ts`) because they are mock product screens. The voice and video call overlay is also always dark.
 
 Signed-in visitors never see the landing page: `/` opens the app directly. Everyone else reaches the existing sign-in and sign-up screens from "Enter app" and "Create account".

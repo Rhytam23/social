@@ -42,7 +42,6 @@
   --danger-subtle: rgba(234, 90, 95, 0.12);
   --warning: #e5a23c;
   --success: #4cb98f;
-  --success-subtle: rgba(76, 185, 143, 0.12);
 
   --presence-online: #4cb98f;
   --presence-away: #e5a23c;
@@ -89,7 +88,6 @@
   --motion-base: 200ms;
   --motion-slow: 320ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
 [data-theme='light'] {
@@ -113,7 +111,6 @@
   --danger-subtle: rgba(209, 52, 56, 0.09);
   --warning: #a8620a;
   --success: #17805c;
-  --success-subtle: rgba(23, 128, 92, 0.1);
   --shadow-1: 0 1px 2px rgba(15, 20, 30, 0.08);
   --shadow-2: 0 4px 14px rgba(15, 20, 30, 0.1), 0 1px 2px rgba(15, 20, 30, 0.08);
   --shadow-pop: 0 18px 44px rgba(15, 20, 30, 0.2), 0 2px 6px rgba(15, 20, 30, 0.1);
@@ -159,7 +156,6 @@
     --danger-subtle: rgba(209, 52, 56, 0.09);
     --warning: #a8620a;
     --success: #17805c;
-    --success-subtle: rgba(23, 128, 92, 0.1);
     --shadow-1: 0 1px 2px rgba(15, 20, 30, 0.08);
     --shadow-2: 0 4px 14px rgba(15, 20, 30, 0.1), 0 1px 2px rgba(15, 20, 30, 0.08);
     --shadow-pop: 0 18px 44px rgba(15, 20, 30, 0.2), 0 2px 6px rgba(15, 20, 30, 0.1);
@@ -370,11 +366,6 @@ samp,
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes pc-pop {
-  0% { transform: scale(0.6); }
-  60% { transform: scale(1.16); }
-  100% { transform: scale(1); }
-}
 @keyframes pc-typing {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-3px); opacity: 1; }
@@ -405,7 +396,6 @@ samp,
 .animate-in.slide-in-from-right { animation-name: pc-slide-right; }
 .animate-in.slide-in-from-bottom { animation-name: pc-slide-up; }
 .anim-slide-up { animation: pc-slide-up var(--motion-base) var(--ease-out) both; }
-.anim-pop { animation: pc-pop var(--motion-slow) var(--ease-out) both; }
 .anim-ring { animation: pc-ring 1.4s ease-out infinite; }
 .anim-message { animation: pc-message-in var(--motion-base) var(--ease-out) both; }
 /* Screen content changes fade in instead of snapping. */

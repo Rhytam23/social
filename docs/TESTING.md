@@ -9,33 +9,36 @@ npm test             # Vitest
 npm run build        # production build
 ```
 
-Stop `npm run dev` before `npm run build` on Windows; a running dev server can make the build fail with `spawn UNKNOWN` or out-of-memory errors.
+Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a running dev server can make the build fail with `spawn UNKNOWN` or out-of-memory errors.
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). 111 tests in 13 files:
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **304 tests in 26 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
-| `tests/crypto/e2ee.test.ts` | 14 | Key generation and persistence, 1:1 encryption in both directions (including reading your own sent message), wrong-recipient key rejection, tampered ciphertext and nonce, private keys never in exported bundles, per-device keys, group encryption with key rotation on member removal, attachment encryption, key backup and restore with wrong passphrases, stable order-independent safety numbers |
-| `tests/security/adversarial.test.ts` | 11 | Non-members cannot read or post in other people's chats or edit their messages, role escalation rejected, `isUserAdmin` false for bad ids, attachment encryption and tamper detection, rate limiter throttling, script/HTML payloads stored as plain text, key backup brute force |
-| `tests/security/authorization.test.ts` | 16 | Static analysis of the SQL migrations (`001`, `003`, `004`): group roles gone, `is_admin()` reads only `profiles.is_admin`, escalation blocked, no `USING (true)` in the `003` policies, device and presence visibility scoped, no plaintext or private-key columns, storage isolation |
-| `tests/integration/apiRoutes.test.ts` | 9 | Every data route returns `401` when signed out |
-| `tests/chat/chatStore.test.ts` | 8 | The message store in demo mode: defaults, optimistic send, reactions, edit, delete, creating direct and group conversations without duplicates, switching persona |
-| `tests/chat/envelopeDisplay.test.ts` | 8 | How message payloads become text and previews, including unknown future kinds and hidden poll votes |
-| `tests/ui/preferences.test.ts` | 8 | Merging saved settings over defaults, quiet hours across midnight, username validation |
-| `tests/ui/richText.test.ts` | 8 | Message formatting: bold, italic, code, quotes, fenced blocks, safe links only, no HTML from text |
-| `tests/ui/groupRoles.test.ts` | 7 | Who can add, remove and promote in a group, and who inherits ownership |
-| `tests/ui/notificationRules.test.ts` | 9 | When a message alerts (do not disturb, mute, mentions-only, overrides) and @mention detection |
-| `tests/ui/invite.test.ts` | 3 | Reading an invite code from a link |
-| `tests/ui/appLock.test.ts` | 6 | PIN hashing, wrong-PIN rejection, salting, backoff after repeated failures |
-| `tests/ui/iceConfig.test.ts` | 6 | STUN and TURN configuration, short-lived credentials, secrets never returned |
+| `tests/security/rls.test.ts` | 56 | **The project's real migrations `001` to `018` executed on an in-process Postgres (PGlite), then attacked with the API role as separate identities**: A and B (participants), C (outsider), an admin, and others. Unauthenticated access, reading and writing across users, forged senders, role and admin escalation, membership and group-key abuse, message and receipt tampering, blocking, storage, communities and invites, reports, avatar URLs, realtime policies. A second block runs the schema *before* `017` and shows the old vulnerabilities working, which proves each fix matters |
+| `tests/security/apiSecurity.test.ts` | 22 | The real route handlers with a stub database: 401s, forged tokens, cross-conversation replies, admin route, injection-shaped ids, malformed and oversized bodies, type confusion, mass assignment, error leakage, per-account rate limits with spoofed headers, cross-site requests, upload file names |
+| `tests/security/adminLogs.test.ts` | 17 | Migration `019` on real Postgres: only admins can read the error and audit logs; nobody (even an admin) can write, edit or delete them directly; ingest functions are not callable by signed-in users; de-duplication and reopening; admin actions refuse non-admins and write audit rows; 30-day retention and the 5,000-row cap |
+| `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
+| `tests/security/floodAndDevices.test.ts` | 8 | Migration `018` on real Postgres: the 3-key cap, per-account write limits, server writes not limited |
+| `tests/security/deviceLinking.test.ts` | 6 | A new browser links instead of creating a key; failed checks refuse to continue; restore gives the same key; wrong passphrase and empty backup refused. Uses a stubbed database |
+| `tests/security/authorization.test.ts` | 16 | Static checks of the SQL text of early migrations (`001`, `003`, `004`) |
+| `tests/security/adversarial.test.ts` | 9 | Non-members, role escalation, attachment tamper detection, rate limiter, script/HTML payloads stored as plain text, backup brute force |
+| `tests/crypto/e2ee.test.ts` | 14 | Key generation, 1:1 encryption both directions, wrong keys and tampering, group encryption with rotation, attachments, key backup and restore, safety numbers |
+| `tests/integration/apiRoutes.test.ts` | 6 | Every data route returns `401` when signed out |
+| `tests/integration/userSearch.test.ts` | 14 | Username-only lookup rules |
+| `tests/chat/chatStore.test.ts`, `envelopeDisplay.test.ts` | 8 + 8 | The store in demo mode; how message payloads become text |
+| `tests/ui/*.test.ts` | 117 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the landing scene's maths and fallbacks, that the default theme follows the device, that technical error detail is shown only to admins (`errorVisibility.test.ts`), the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`), and that analytics only ever receives the origin and path (`analytics.test.ts`) |
+
+`tests/security/pgHarness.ts` is the test database: it creates the Supabase roles (`anon`, `authenticated`, `service_role`), `auth.uid()` and the storage and realtime tables the migrations expect, then runs every migration. **When Supabase changes how any of those work, this file is where to update the emulation.**
 
 ### What the automated tests do not cover
 
-- Anything against a real Supabase project: signup and email confirmation, Google sign-in, **live row level security**, Realtime delivery, storage.
+- Anything against a real Supabase project: signup and email confirmation, Google sign-in, real Realtime delivery, real Storage, the exact behaviour of Supabase's own auth and realtime services. RLS is tested on real Postgres, but with an *emulated* Supabase around it.
 - The UI in a real browser (there is no component or end-to-end test setup yet).
-- Migrations executing against Postgres (the SQL tests read the files; they do not run them).
+- Linking a second device with two real browsers.
+- Real denial-of-service traffic. Only small flood checks were run (see [Security](SECURITY.md#denial-of-service)).
 
 Those need the manual checklist below.
 
@@ -93,7 +96,7 @@ Use a real Supabase project ([Setup](SETUP.md)) and two browser profiles (or one
 ### Production build
 - [ ] With a Supabase variable removed, a production build returns `500 Server misconfiguration`
 
-## Checklist for the platform release (migrations 011 to 015)
+## Checklist for the platform release (migrations 011 to 016)
 
 Nothing below has been run against a live project yet. Use two or three test accounts (A, B, C) in separate browser profiles.
 
@@ -143,8 +146,37 @@ Nothing below has been run against a live project yet. Use two or three test acc
 - [ ] With B on Do Not Disturb, A's call is declined quietly. Deny microphone permission: a clear message appears.
 - [ ] Across strict networks with no TURN configured, a "may not connect" note is shown; with `TURN_URLS` set it connects.
 
+## Checklist for the security and multi-device release (migrations 017 and 018)
+
+Run after applying `017` and `018` to a real project. Use accounts A, B, C (outsider).
+
+- [ ] Typing indicator: A types, B sees it. Start a call, it rings. (If not, Realtime Authorization is misconfigured, see [Setup](SETUP.md#6-verify-the-storage-buckets-and-realtime).)
+- [ ] Blocking: B blocks A, then A tries to send to B: refused. B can still send to A.
+- [ ] Group keys: in a group where B is only a member, B cannot add a key for C (the API refuses); the owner can add C and C can read new messages.
+- [ ] Sign in as A on a second browser with no key: the **Link this device** screen appears (no new key is created). Link with the backup file and passphrase; old and new messages are readable on both browsers, and a message sent from either arrives on the other. A wrong passphrase is refused.
+- [ ] On the second browser choose **Start fresh** with a spare account: old messages become unreadable and the contact sees "security code changed".
+- [ ] Check `select count(*) from user_devices where user_id = '<A>'` is 1 after linking, not 2.
+- [ ] Try to insert a 4th `user_devices` row for A (SQL as A): refused with `device_limit_reached`.
+- [ ] Send more than 120 messages in a minute with a script: the extra are refused.
+- [ ] Response headers on the live site include `Content-Security-Policy` and `Strict-Transport-Security`; `/api/users` has `Cache-Control: no-store`.
+- [ ] Errors: as an ordinary user, cause a failure (for example save a profile before migration `011` is applied, or block the network) and confirm the message is a plain sentence with no database or migration text; as an admin the same failure also shows an "Admin detail" part.
+- [ ] Theme: with no saved choice, a light-mode device shows the light theme and a dark-mode device the dark theme, and switching the device setting changes the app without reloading. Choosing Dark or Light in Settings sticks.
+
+## Checklist for the admin error log (migration 019)
+
+Run after applying `019`. Use an admin account and an ordinary account.
+
+- [ ] As the admin, Admin, Errors and Activity open without an error note (if you see "not available", `019` is missing).
+- [ ] As an ordinary user cause a failure (for example turn off the network and send a message, or save a profile before `011` is applied). Within a minute the admin sees it under Errors, marked Browser, with the user's name and no message text, keys or email addresses.
+- [ ] Repeat the same failure: the row's count goes up and no second row appears.
+- [ ] Mark it resolved, then cause it again: it reopens. Activity shows who resolved it.
+- [ ] Promote another account to admin: Activity shows who did it. That new admin can read Errors without any Supabase access.
+- [ ] As the ordinary user, open the Admin area (or query `error_logs` with the API): nothing is returned.
+- [ ] Clear resolved removes only resolved entries and is recorded in Activity.
+- [ ] Force a server error (for example upload with the Storage bucket missing) and confirm it appears as Server.
+
 ## Not yet done
 
 - A CI workflow that runs the four commands above on every pull request.
 - Browser end-to-end tests (Playwright) for the journeys above.
-- Live database tests (pgTAP or the Supabase CLI) for row level security.
+- Row level security tests against a real Supabase project (pgTAP or the Supabase CLI). RLS is currently tested on an in-process Postgres with an emulated Supabase (`tests/security/rls.test.ts`).

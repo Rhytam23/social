@@ -1,8 +1,9 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import type { MessagingCrypto } from '../messaging/messagingCrypto';
 import type { CallOutcome, MessageEnvelope } from '../messaging/envelope';
+import { UserMessageError, userError } from '../ui/errors';
 
-export type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'connected';
+type CallPhase = 'idle' | 'outgoing' | 'incoming' | 'connecting' | 'connected';
 
 export interface CallState {
   phase: CallPhase;
@@ -220,14 +221,14 @@ export class CallManager {
   }
 
   private async openMedia(video: boolean): Promise<MediaStream> {
-    if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser cannot make calls (no camera or microphone access).');
+    if (!navigator.mediaDevices?.getUserMedia) throw new UserMessageError('This browser cannot make calls (no camera or microphone access).');
     try {
       return await navigator.mediaDevices.getUserMedia({ audio: true, video });
     } catch (err) {
       const name = (err as DOMException)?.name;
-      if (name === 'NotAllowedError') throw new Error(`Allow ${video ? 'camera and microphone' : 'the microphone'} access in your browser to make calls.`);
-      if (name === 'NotFoundError') throw new Error(`No ${video ? 'camera or microphone' : 'microphone'} was found.`);
-      throw new Error('Could not start your microphone or camera.');
+      if (name === 'NotAllowedError') throw new UserMessageError(`Allow ${video ? 'camera and microphone' : 'the microphone'} access in your browser to make calls.`);
+      if (name === 'NotFoundError') throw new UserMessageError(`No ${video ? 'camera or microphone' : 'microphone'} was found.`);
+      throw new UserMessageError('Could not start your microphone or camera.');
     }
   }
 
@@ -292,7 +293,7 @@ export class CallManager {
       this.ringTimer = setTimeout(() => void this.finish('missed', true), RING_TIMEOUT_MS);
     } catch (err) {
       this.cleanup();
-      this.set({ ...IDLE, error: err instanceof Error ? err.message : 'Could not start the call.' });
+      this.set({ ...IDLE, error: userError(err, 'Could not start the call.') });
     }
   }
 
@@ -313,7 +314,7 @@ export class CallManager {
       await this.pc!.setLocalDescription(answer);
       await this.send(peerId, { callId, signal: 'answer', video, sdp: answer.sdp });
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Could not answer the call.';
+      const message = userError(err, 'Could not answer the call.');
       void this.send(peerId, { callId, signal: 'decline', video }).catch(() => {});
       this.cleanup();
       this.set({ ...IDLE, error: message });

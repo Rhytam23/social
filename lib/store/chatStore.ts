@@ -12,8 +12,9 @@ import { uploadEncryptedAttachment, downloadAndDecryptAttachment, MAX_ATTACHMENT
 import type { MessageEnvelope, CallOutcome } from '../messaging/envelope';
 import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } from '../messaging/envelopeDisplay';
 import { computeDeviceFingerprint, computeSafetyNumber } from '../../crypto';
+import { userError, adminDetail, technicalNote } from '../ui/errors';
 
-export type StoreMode = 'connected' | 'demo';
+type StoreMode = 'connected' | 'demo';
 
 /** Shape of a `messages` row as delivered by Supabase Realtime postgres_changes. */
 export interface RealtimeMessageRow {
@@ -345,7 +346,7 @@ export class ChatStore {
     try {
       await Promise.all([this.loadConversationsReal(), this.loadAllUsersReal(), this.loadDevicesReal()]);
     } catch (err) {
-      this.setState({ error: err instanceof Error ? err.message : 'Failed to load your data' });
+      this.setState({ error: userError(err, 'Failed to load your data') });
     } finally {
       this.setState({ isLoading: false });
     }
@@ -512,7 +513,7 @@ export class ChatStore {
       void this.loadReactionsAndReceipts(conversationId);
       if (conversationId === this.state.activeConversationId) void this.markConversationRead(conversationId);
     } catch (err) {
-      this.setState({ error: err instanceof Error ? err.message : 'Failed to load messages' });
+      this.setState({ error: userError(err, 'Failed to load messages') });
     } finally {
       this.state.messagesLoading = { ...this.state.messagesLoading, [conversationId]: false };
       this.notify();
@@ -552,7 +553,7 @@ export class ChatStore {
       }
       return { ...base, envelope };
     } catch (err) {
-      return { ...base, envelope: null, decryptError: err instanceof Error ? err.message : 'Decryption failed' };
+      return { ...base, envelope: null, decryptError: adminDetail(err, 'this message could not be read on this device') };
     }
   }
 
@@ -703,7 +704,7 @@ export class ChatStore {
       this.notify();
     } catch (err) {
       this.updateMessage(conversationId, localId, { status: 'failed' });
-      this.setState({ error: err instanceof Error ? err.message : 'Failed to send message' });
+      this.setState({ error: userError(err, 'Failed to send message') });
     }
   }
 
@@ -740,7 +741,7 @@ export class ChatStore {
       const current = this.state.messagesMap[conversationId] || [];
       const target = current.find((m) => m.id === messageId);
       this.updateMessage(conversationId, messageId, {
-        attachments: target?.attachments?.map((a) => (a.id === attachmentId ? { ...a, isDownloading: false, downloadError: err instanceof Error ? err.message : 'Download failed' } : a)),
+        attachments: target?.attachments?.map((a) => (a.id === attachmentId ? { ...a, isDownloading: false, downloadError: userError(err, 'Download failed') } : a)),
       });
     }
   }
@@ -776,7 +777,7 @@ export class ChatStore {
 
       this.updateMessage(conversationId, msgId, { content: newContent, isEdited: true });
     } catch (err) {
-      this.setState({ error: err instanceof Error ? err.message : 'Failed to edit message' });
+      this.setState({ error: userError(err, 'Failed to edit message') });
     }
   }
 
@@ -794,7 +795,7 @@ export class ChatStore {
       }
       this.updateMessage(this.state.activeConversationId, msgId, { isDeletedLocally: true, content: '' });
     } catch (err) {
-      this.setState({ error: err instanceof Error ? err.message : 'Failed to delete message' });
+      this.setState({ error: userError(err, 'Failed to delete message') });
     }
   }
 
@@ -820,7 +821,7 @@ export class ChatStore {
       }
     } catch (err) {
       this.updateMessage(convId, msgId, { reactions: msg.reactions }); // roll back
-      this.setState({ error: err instanceof Error ? err.message : 'Failed to react to message' });
+      this.setState({ error: userError(err, 'Failed to react to message') });
     }
   }
 
@@ -1258,7 +1259,7 @@ export class ChatStore {
       this.notify();
       void this.loadReactionsAndReceipts(conversationId);
     } catch (err) {
-      this.setState({ error: err instanceof Error ? err.message : 'Failed to load earlier messages' });
+      this.setState({ error: userError(err, 'Failed to load earlier messages') });
     }
   }
 
@@ -1322,7 +1323,7 @@ export class ChatStore {
       }
     } catch (err) {
       this.state.messagesMap = { ...this.state.messagesMap, [msg.conversationId]: (this.state.messagesMap[msg.conversationId] || []).map((m) => (m.id === messageId ? { ...m, isStarred: already } : m)) };
-      this.setState({ saved: this.state.saved.filter((s) => s.messageId !== messageId).concat(already ? [{ messageId, conversationId: msg.conversationId }] : []), error: err instanceof Error ? err.message : 'Could not update saved messages' });
+      this.setState({ saved: this.state.saved.filter((s) => s.messageId !== messageId).concat(already ? [{ messageId, conversationId: msg.conversationId }] : []), error: userError(err, 'Could not update saved messages') });
     }
   }
 
@@ -1373,7 +1374,7 @@ export class ChatStore {
         const nextVersion = ((await this.crypto?.ensureGroupKey(summary.id))?.version || 0) + 1;
         await this.distributeNewGroupKey(summary.id, summary.memberIds, nextVersion);
       } catch (err) {
-        this.setState({ error: err instanceof Error ? err.message : 'Could not rotate the group key after a member left' });
+        this.setState({ error: userError(err, 'Could not rotate the group key after a member left') });
       }
     }
   }
@@ -1501,7 +1502,7 @@ export class ChatStore {
     const { data, error } = await this.raw.rpc(fn, args);
     if (error) {
       const needsMigration = /function .* does not exist|schema cache|Could not find the function/i.test(error.message);
-      this.setState({ error: needsMigration ? 'Communities need the latest database update (migration 014).' : error.message });
+      this.setState({ error: needsMigration ? technicalNote('Communities need the latest database update (migration 014).', 'Communities are not available right now. Please contact an administrator.') : userError(error, 'That did not work. Please try again.') });
       return null;
     }
     return data as T;
@@ -1597,7 +1598,7 @@ export class ChatStore {
     if (this.state.mode !== 'connected' || !this.raw) return;
     const { error } = await this.raw.from('blocks').insert({ blocker_id: this.state.currentUser.id, blocked_id: userId } as never);
     if (error) {
-      this.setState({ error: /blocks/.test(error.message) ? 'Blocking needs the latest database update (migration 015).' : error.message });
+      this.setState({ error: /blocks/.test(error.message) ? technicalNote('Blocking needs the latest database update (migration 015).', 'Blocking is not available right now. Please contact an administrator.') : userError(error, 'Could not block this person. Please try again.') });
       return;
     }
     this.setState({ blocked: [...new Set([...this.state.blocked, userId])] });
@@ -1607,7 +1608,7 @@ export class ChatStore {
     if (this.state.mode !== 'connected' || !this.raw) return;
     const { error } = await this.raw.from('blocks').delete().eq('blocker_id', this.state.currentUser.id).eq('blocked_id', userId);
     if (error) {
-      this.setState({ error: error.message });
+      this.setState({ error: userError(error, 'Could not unblock this person. Please try again.') });
       return;
     }
     this.setState({ blocked: this.state.blocked.filter((id) => id !== userId) });
@@ -1627,7 +1628,7 @@ export class ChatStore {
       excerpt: includeText ? msg.content.slice(0, 2000) : null,
     } as never);
     if (error) {
-      this.setState({ error: /reports/.test(error.message) ? 'Reporting needs the latest database update (migration 015).' : error.message });
+      this.setState({ error: /reports/.test(error.message) ? technicalNote('Reporting needs the latest database update (migration 015).', 'Reporting is not available right now. Please contact an administrator.') : userError(error, 'Could not send the report. Please try again.') });
       return false;
     }
     return true;

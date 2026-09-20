@@ -7,6 +7,7 @@ import { IconLock, IconShield, IconUsers } from '../ui/icons';
 import { createClient } from '../../lib/supabase/client';
 import { isSupabaseConfigured } from '../../lib/supabase/env';
 import { saveOwnProfile } from '../../lib/profile/profileClient';
+import { userError } from '../../lib/ui/errors';
 import { updatePreferences } from '../../lib/prefs/preferences';
 
 export interface OnboardingModalProps {
@@ -64,7 +65,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       onProfileUpdated(displayName.trim());
       setStep(2);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to save your profile. Please try again.');
+      setSaveError(userError(err, 'Could not save your profile. Please try again.'));
     } finally {
       setIsSaving(false);
     }
@@ -83,7 +84,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       setBackupDone(true);
       setPassphrase('');
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Could not create the backup.');
+      setSaveError(userError(err, 'Could not create the backup. Please try again.'));
     } finally {
       setIsSaving(false);
     }

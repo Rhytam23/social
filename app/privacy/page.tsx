@@ -57,15 +57,17 @@ export default function PrivacyPolicyPage() {
           </p>
           <ul className="list-disc pl-5 flex flex-col gap-1.5 text-slate-400">
             <li><strong>Account Identity:</strong> Display name, optional @username, and email address for login verification.</li>
-            <li><strong>Cryptographic Prekeys:</strong> Public identity keys and prekey bundles required to establish Signal Double Ratchet sessions with your contacts.</li>
-            <li><strong>Encrypted Ciphertext:</strong> Encrypted message payloads and initialization vectors stored temporarily for offline delivery.</li>
+            <li><strong>Public Encryption Key:</strong> The public half of your account key, which your contacts use to encrypt messages to you. The private half never leaves your devices.</li>
+            <li><strong>Encrypted Ciphertext:</strong> Encrypted message payloads and their nonces, stored until they are deleted (or expire, if you turn on disappearing messages). We cannot read them.</li>
+            <li><strong>Anonymous Page-View Statistics:</strong> We use Vercel Web Analytics to count visits to our pages. It uses no cookies and is not linked to your account or your messages. We send it only the page path, never the part of an address after a question mark (so invite codes and sign-in links are not shared), and it records general information such as approximate country, browser and device type, as described in Vercel&apos;s documentation.</li>
+            <li><strong>Error Reports:</strong> When something goes wrong, a short technical error description (never message text, keys or passwords) may be sent to our administrators so they can fix it. These are deleted after 30 days.</li>
           </ul>
         </section>
 
         <section className="flex flex-col gap-3">
           <h2 className="text-sm font-bold text-slate-100">4. Key Storage and Local Backups</h2>
           <p>
-            Your Signal identity keys and session ratchets are stored locally within your browser storage. You may export passphrase-protected backups encrypted with Argon2id at any time under Settings → Security.
+            Your private encryption key is stored locally within your browser storage. You may export a passphrase-protected backup encrypted with Argon2id at any time under Settings → Security, and use it to link another device to your account.
           </p>
         </section>
 

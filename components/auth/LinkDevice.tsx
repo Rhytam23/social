@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import { userError } from '../../lib/ui/errors';
 
 interface LinkDeviceProps {
   /** Restores the encrypted backup into this browser. Throws with a readable message on failure. */
@@ -43,7 +44,7 @@ export const LinkDevice: React.FC<LinkDeviceProps> = ({ onLink, onStartFresh, on
     try {
       await action();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setError(userError(err, 'Could not link this device. Check the backup file and passphrase, then try again.'));
       setBusy(false);
     }
   };

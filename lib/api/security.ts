@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { checkRateLimit, type RateLimitOptions } from '../rate-limit/rateLimiter';
+import { writeErrorLog } from '../logging/errorLog';
 
 /**
  * Shared request hardening for API routes: who is calling, is the request
@@ -29,7 +30,7 @@ export function clientIp(request: Pick<NextRequest, 'headers'>): string {
   return /^[0-9a-fA-F:.]{2,45}$/.test(raw) ? raw : 'unknown';
 }
 
-export const tooManyRequests = () => NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429, headers: { 'Retry-After': '60' } });
+const tooManyRequests = () => NextResponse.json({ error: 'Rate limit exceeded.' }, { status: 429, headers: { 'Retry-After': '60' } });
 
 /** Rate limits per IP before authentication. Returns a 429 response when exceeded, otherwise null. */
 export async function limitByIp(request: NextRequest, bucket: string, options: RateLimitOptions): Promise<NextResponse | null> {
@@ -86,9 +87,21 @@ export async function readJson(request: NextRequest, maxBytes = 64 * 1024): Prom
   }
 }
 
-/** Logs the real error on the server and returns a generic message: database and stack details are never sent to clients. */
-export function serverError(context: string, err: unknown, status = 500, publicMessage = 'Something went wrong. Please try again.'): NextResponse {
-  console.error(`[api] ${context}:`, err instanceof Error ? err.message : err);
+/**
+ * Logs the real error on the server and returns a generic message: database and stack details are never sent
+ * to clients. The error is also written to the admin error log (Admin > Errors) after the response is sent,
+ * so admins can see it without access to the hosting or database dashboards.
+ */
+export function serverError(context: string, err: unknown, status = 500, publicMessage = 'Something went wrong. Please try again.', userId?: string): NextResponse {
+  const text = err instanceof Error ? err.message : String(err ?? '');
+  console.error(`[api] ${context}:`, text);
+  const write = () => writeErrorLog({ source: 'server', area: context, message: text || 'Unknown error', detail: err instanceof Error ? err.stack?.split(String.fromCharCode(10)).slice(0, 6).join(String.fromCharCode(10)) : null, userId });
+  try {
+    after(write);
+  } catch {
+    // Not inside a request (for example a unit test): write without waiting.
+    void write();
+  }
   return NextResponse.json({ error: publicMessage }, { status });
 }
 

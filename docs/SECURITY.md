@@ -1,71 +1,116 @@
 # Security
 
-What the app protects, what it deliberately does not, the rules contributors must keep, and the gaps we know about. It is an honest account, not a certification: the system has not had an independent audit.
+What the app protects, what it deliberately does not, the rules contributors must keep, and the gaps we know about. It is an honest account, not a certification: the system has not had an independent audit. The most recent internal review (September 2026) and its findings are in [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md); this page is the standing description.
+
+**Nothing here means the application is "completely secure".** It means these specific controls exist, and the tests named below check them.
 
 ## Threat model
 
 | Adversary | Protection |
 |---|---|
 | Someone with **database or storage access** (a leaked backup, a Supabase admin) | Message text, attachment contents, file names and types are ciphertext. They can see conversation membership, timestamps and sizes |
-| **Another signed-in user** trying to read conversations they are not in | Row level security on every table; explicit membership checks in the API; private storage buckets |
+| **Another signed-in user** trying to read or change conversations they are not in | Row level security on every table; explicit membership checks in the API; private storage buckets. Tested on a real Postgres ([Testing](TESTING.md)) |
+| **A malicious member** of a conversation | Cannot forge senders, rewrite message metadata, plant group keys, promote themselves, or (once blocked) message the person who blocked them |
 | **A passive network attacker** | HTTPS with HSTS |
-| **An anonymous internet user** | Auth required for all data routes; rate limiting; email confirmation on signup |
-| **A malicious or compromised server** | Cannot read past or current messages. Could, however, substitute public keys to intercept *new* messages (see [E2EE](E2EE.md#limitations)); safety numbers are how to detect it |
+| **An anonymous internet user** | Auth required for all data routes; rate limits; email confirmation on signup |
+| **Someone flooding the service** | Per-address and per-account rate limits, body-size caps, database write limits. Not a defence against a volumetric DDoS: see [Denial of service](#denial-of-service) |
+| **A malicious or compromised server** | Cannot read past or current messages. Could substitute public keys to intercept *new* messages ([E2EE](E2EE.md#limitations)); safety numbers detect it |
 | **Malware or a hostile browser extension on your device** | Not protected against |
-| **Someone who steals your private key** | Can read everything you ever exchanged that was captured as ciphertext (no forward secrecy) |
+| **Someone who steals a linked device or the backup file and passphrase** | Gets the account key: can read everything exchanged that was captured as ciphertext (no forward secrecy) |
 
 ## Controls in place
 
+**Data and access**
 - **Zero plaintext storage.** `messages` has no content column. Everything about a message, including attachment metadata, is inside the encrypted envelope.
-- **Row level security on all ten tables**, with helper functions that fix their `search_path` ([Database](DATABASE.md#row-level-security-summary)).
-- **Admin is a database fact.** `profiles.is_admin` is the only source, checked server side (`lib/auth/roles.ts`, `middleware.ts`). A trigger stops signed-in users from setting it. The first account created becomes admin.
-- **Service-role key is server only** and used only for admin role changes. It is never imported by browser code.
-- **Fail closed.** In production a missing or placeholder Supabase configuration returns HTTP 500. Demo mode exists only when `NODE_ENV` is not `production`.
-- **Signup requires a confirmed email** (with Supabase's Confirm email setting on) or a Google account.
-- **Open-redirect protection** on `/auth/confirm`: `next` must be a same-site path.
-- **People are found by exact username only**: `/api/users?username=` never searches or returns display name, email, phone or bio-based matches, and never returns email or phone. Migration `016` also stops clients calling the old email/phone lookup function. **Limit:** any signed-in user can still read the non-private `profiles` columns (username, display name, photo, bio) with the Supabase API directly, so the username-only rule is enforced by the app and its API route, not by row-level security. Tightening that means restricting `profiles` reads to contacts, which touches every screen that shows a name and needs testing on a live project.
+- **Row level security on every table**, with helper functions that fix their `search_path` ([Database](DATABASE.md#row-level-security-summary)). Policies that query other tables use `SECURITY DEFINER` helpers where the caller would otherwise be filtered out (the cause of the blocking bug, see the audit).
+- **Integrity triggers.** After insert, a message's conversation, sender, reply target and timestamps cannot be changed; membership rows cannot be moved; receipts cannot be re-pointed.
+- **Group key envelopes can only be created by a group owner or admin**, for an active member's registered key.
+- **Blocking is enforced by the database**, not the interface.
+- **Admin is a database fact.** `profiles.is_admin` is the only source, checked server side (`lib/auth/roles.ts`, `middleware.ts`). A trigger stops signed-in users setting it. **The first account created on a fresh install becomes admin**: sign up as yourself first.
+- **The service-role key is server only**, used only in `lib/supabase/admin.ts` for admin role changes. It is not a `NEXT_PUBLIC_` variable and is absent from the client bundle (checked).
+- **People are found by exact username only** (`/api/users?username=`); email and phone are never returned and are hidden by column privileges (`011`, `016`). **Limit:** any signed-in user can still read the non-private `profiles` columns (username, display name, photo, bio) with the Supabase API, so username-only lookup is enforced by the app, not by RLS.
 - **Private conversations are capped at two members** by a trigger.
-- **Encrypted uploads** into a private bucket, 25 MB limit, path scoped to the conversation.
-- **Rate limits** on every API route.
-- **Headers**: `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy` (camera and microphone for this site only), HSTS.
-- **Errors surfaced to the login page are length-capped and rendered as plain text.** Only reasons from Supabase or the callback are shown.
+- **Storage.** Encrypted uploads into a private bucket, 25 MB and `application/octet-stream` enforced by the bucket itself, path scoped to the conversation, random file names.
+- **Profile photo URLs** must be the project's avatars bucket or Google's image host.
+
+**Requests**
+- **Every API route** authenticates, validates ids (UUID), caps body sizes, rate limits per address and per account, refuses cross-site state-changing requests (Origin check), returns generic errors, and sends `Cache-Control: no-store`. The helpers are in `lib/api/security.ts`; a new route must use them.
+- **Fail closed.** In production a missing or placeholder Supabase configuration returns HTTP 500. Demo mode exists only when `NODE_ENV` is not `production`.
+- **Open-redirect protection** on `/auth/confirm`: `next` must be a same-site path.
+- **Errors shown on the login page are length-capped and rendered as plain text.**
+- **Technical error detail is for admins only.** People see a short friendly message; platform admins also see the technical detail (database messages, migration hints, decrypt reasons) after it. Implemented in `lib/ui/errors.ts` (`userError`, `technicalNote`, `adminDetail`, `UserMessageError`); the viewer's admin status is set at sign-in from `profiles.is_admin`. **This is a display rule, not an access control:** calls the browser makes straight to Supabase carry the database's own message, which someone inspecting the network tab can still read. The real protection is the database rules; the API routes already return only generic errors.
+
+**Admin error and activity log** (`019`)
+- Admins can see server and browser errors and what other admins did inside the app (Admin, Errors and Activity), so 3 or 4 admins do not need Supabase or hosting access. Readable by **admins only, enforced by row level security**; clients cannot write to the tables at all (ingest is by server-only functions), and the audit log is append-only.
+- **What is never recorded:** message content, keys, tokens, passwords, email addresses, request bodies. Text is scrubbed (`lib/logging/scrub.ts`), length-capped, and shown as plain text. Entries are kept 30 days and the table is capped at 5,000 rows.
+- The browser reporting route is authenticated, rate limited and size limited, and the affected user comes from the session, never from the request body.
+
+**Analytics** (`components/analytics/WebAnalytics.tsx`)
+- Vercel Web Analytics counts page views. Production builds only; cookieless; the address is reduced to origin and path before it is sent (`lib/analytics.ts`), so invite links (`?join=CODE`) and sign-in parameters never leave the browser. It is served from this site's own `/_vercel/insights/` path, so the Content-Security-Policy needs no extra origin. The privacy policy page says so.
+
+**Browser hardening** (`next.config.ts`)
+- **Content-Security-Policy**: scripts, styles, images, fonts, connections and frames limited to this site and the Supabase project; `frame-ancestors 'none'`; `object-src 'none'`; `upgrade-insecure-requests` in production.
+- HSTS (2 years, preload), `Cross-Origin-Opener-Policy` and `Cross-Origin-Resource-Policy` `same-origin`, `X-Content-Type-Options`, `Referrer-Policy`, a restrictive `Permissions-Policy` (camera and microphone for this site only), no `X-Powered-By`.
+- Message formatting is parsed into a data tree and rendered as React elements, never HTML; only `http(s)` links are recognised.
+
+**Realtime**
+- Typing and call-signalling channels are **private** with policies on `realtime.messages` (`017`). Call signalling payloads are additionally end-to-end encrypted; TURN credentials are short-lived.
+
+**Devices**
+- At most 3 registered keys per account (`018`); a browser without a key on an account that already has one must link with the backup instead of silently creating a new key ([E2EE](E2EE.md#keys-and-linking-devices)).
+
+## Denial of service
+
+Layers, from the outside in. Only the last two are in this repository; the rest are settings you must apply.
+
+1. **A network firewall in front of the app** (Vercel Firewall or attack-challenge mode, or Cloudflare). This is the only defence against a volumetric flood that saturates bandwidth. **The app cannot provide it.** Turn it on for a public deployment.
+2. **Supabase's own limits** for sign-up, sign-in, password reset and email: set them in Supabase → Authentication → Rate Limits, and use custom SMTP. Add a CAPTCHA (for example Cloudflare Turnstile) to sign-up if you get bot accounts; it needs keys from you and is not built in.
+3. **`middleware.ts`**: a per-address limit before any Supabase call (300 requests a minute for `/api` and `/auth`, 600 for pages), so junk traffic never costs an authentication lookup, and a 2 MB body cap on `/api`.
+4. **Per-route and per-account limits** in `app/api/*` (`lib/api/security.ts`). Keyed on the platform's trusted client-address header, and on the account, so changing a header does not help.
+5. **Database write limits** (`018`): 120 messages and 200 reactions a minute and 30 new conversations an hour per account, enforced by triggers so they also stop someone who calls Supabase directly.
+
+Weak points: in-memory limits are per server instance (on serverless they are weaker than they look) unless Upstash Redis is configured; direct uploads to Storage are size-limited but not rate limited; sign-up is limited by Supabase, not by this code.
 
 ## Rules for contributors
 
 1. **No plaintext message content on the server**: no `content` column, no logging of decrypted text, no plaintext fallback.
 2. **Never expose the service-role key.** No `NEXT_PUBLIC_` prefix, no client imports.
 3. **Derive admin from `profiles.is_admin`**, never from JWT `app_metadata` or client input.
-4. **No `USING (true)` policies** on tables holding private data without a written reason, and no policy that lets users grant themselves access.
-5. **Do not delete or weaken security tests** to make a change pass.
+4. **No `USING (true)` policies** on tables holding private data without a written reason, and no policy that lets users grant themselves access. Remember a policy that reads another table is filtered by that table's RLS.
+5. **Do not delete or weaken security tests** to make a change pass. `tests/security/rls.test.ts` runs the real migrations: if it fails, a database rule no longer holds.
 6. **Do not fake success.** Never mark a message delivered when the server rejected it, or show a "saved/backed up" message that did nothing.
-7. **Add new environment variables to `.env.example`**, and document whether they are secret.
-8. **No analytics, advertising or tracking scripts.**
+7. **Add new environment variables to `.env.example`**, and document whether they are secret. Never commit `.env*` (only `.env.example`).
+8. **No advertising or tracking scripts, and no analytics beyond Vercel Web Analytics** (anonymous page-view counts, no cookies, production only). It may only ever receive the origin and path: query strings and fragments (invite codes, sign-in redirects) are stripped in `lib/analytics.ts`. Do not add another third-party script, and do not send anything from inside the app (a chat, a person, a group) to any analytics service.
 9. **Schema changes go through a new migration**, with matching updates to `types/database.ts` and tests.
-
-## Added controls (unverified against a live project)
-
-- Group roles with a database trigger so a member cannot promote themselves (`013`); owner-only role changes.
-- Blocking enforced by the messages insert rule, not just the interface (`015`).
-- Disappearing messages enforced by a trigger (`015`).
-- App lock: PBKDF2-SHA256 (310,000 iterations, random salt) PIN check with backoff after five wrong attempts. It is a screen lock on one device and **does not encrypt the keys stored in the browser**.
-- Call signalling encrypted end to end; TURN credentials short-lived.
-- Message formatting is parsed into a data tree and rendered as React elements, never as HTML; only `http(s)` links are recognised.
-- Security-relevant limitation of live features: the presence, typing and call-signal Realtime channels are readable by any signed-in client of the project (Realtime Authorization is not enabled). They carry ids and statuses, or encrypted payloads, never message text.
+10. **New API routes use `lib/api/security.ts`** (auth, validation, limits, origin check, generic errors) and get a test in `tests/security/apiSecurity.test.ts`.
+11. **Never put secrets, keys or private data in URLs, logs or client storage used as a security control.**
+13. **Never write message content, keys, tokens, passwords or request bodies to the error log or to `console`.** Log through `serverError()` (server) or `userError()`/`reportClientError()` (browser); they scrub and cap the text.
+12. **Never show a raw exception, database or migration message to a user.** Wrap it: `userError(err, 'Friendly sentence.')`, `technicalNote(detail, generic)` or `adminDetail(err, fallback)` from `lib/ui/errors.ts`. Throw `UserMessageError` only for messages written for people (for example "Use 4 to 8 digits").
 
 ## Known gaps
 
-Ordered roughly by importance. These are tracked in the [Roadmap](ROADMAP.md).
+Ordered roughly by importance. Also tracked in the [Roadmap](ROADMAP.md).
 
-1. **(Fixed by migration `011`, not yet verified on a live project.)** ~~Profile email and phone are readable by any signed-in user.~~ Column privileges now hide them; **run `011` and confirm** with a second account that `select email from profiles` fails. Original description: **Profile email and phone are readable by any signed-in user.** The `profiles` table has a read policy of `USING (true)` for all authenticated users, and migration `005` added the `email` and `phone_number` columns without restricting them. The `/api/users` route hides them, but a signed-in user can query the Supabase API directly and read every profile's email and phone. This was identified by reading the policies and has not been tested against a live project. The fix is to move those columns into a private table (or restrict them with column privileges) and update the app.
-2. **(Fixed in code, needs migration `013`.)** **`DELETE /api/groups/members` relied on row level security alone**, with no route-level authorization. RLS limits it to removing yourself or being a platform admin, but the route should verify this explicitly.
-3. **The `conversation_members` insert rule lets a conversation's creator add any user id**, without that user's consent. Plain members can no longer add people to a group (`013`), but there is still no consent step for being added.
-4. **Rate limiting is weak.** The limiter is fixed-window (not sliding), keyed on the `x-forwarded-for` header (spoofable unless your proxy overwrites it), and in memory per server instance unless Upstash is configured.
-5. **No Content Security Policy.** A cross-site scripting bug would expose the key store in IndexedDB.
-6. **No forward secrecy, no real multi-device support, key substitution risk**: see [E2EE limitations](E2EE.md#limitations).
-7. **Argon2id and key generation run on the main thread** and can briefly freeze the interface.
-8. **Security headers are not present on middleware redirects or the production misconfiguration 500**, because those responses are built separately.
-9. **No audit log** of admin actions.
-10. **No CI**: nothing forces the checks to run before a merge.
+1. **No forward secrecy.** A stolen account key exposes every captured message ([E2EE](E2EE.md#limitations)).
+2. **Linked devices share one key.** Losing any device exposes the account; "revoke device" cannot take the key back.
+3. **The key is unencrypted in the browser's IndexedDB.** A script-injection bug would expose it. The CSP reduces this but still allows inline scripts (framework requirement). The app lock is only a screen lock.
+4. **Presence is one shared channel** (`pc-presence`): any signed-in user can see who is online and their status.
+5. **The first account becomes platform admin.** Check `profiles.is_admin` after installing.
+6. **Profile columns are readable by any signed-in user** (username, display name, photo, bio); username-only search is an application rule.
+7. **A group admin's device must be online** to share group keys with a new member or a new community member.
+8. **In-memory rate limits are per instance** without Upstash; direct storage uploads are not rate limited.
+9. **Security headers are not present on middleware redirects** and the production misconfiguration 500, because those responses are built separately.
+10. **No audit log** of admin actions beyond a server log line.
+11. **No CI**: nothing forces the checks to run before a merge.
+12. **Argon2id and key generation run on the main thread** and can briefly freeze the interface.
+13. **The error log accepts reports from any signed-in user.** A malicious user could send junk entries; this is bounded by the per-account rate limit, the once-a-minute de-duplication and the 5,000-row cap, but it can push real entries out. Browser errors that happen before sign-in are not captured (server errors always are).
+14. **Live Supabase behaviour is unverified by automated tests.** RLS is tested on real Postgres with an emulated Supabase, not on a Supabase project. Use the [manual checklist](TESTING.md#manual-checklist).
+
+**Fixed and kept here so nobody reintroduces them:** blocking that did nothing; any member planting group keys; a creator re-adding themselves as owner; rewriting message columns; rate limits keyed on a spoofable header; no CSP; open realtime channels; unrestricted avatar URLs; missing storage limits; database error text returned to clients; vulnerable `postcss` and `vitest`; a second browser silently replacing the account key. Details and tests are in [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md).
+
+## Secrets
+
+If a secret is ever committed, rotate it at the source. Removing it from the working tree does not remove it from git history. In September 2026 a database connection string and `JWT_SECRET` from an earlier project were found in the history of this public repository; the required rotations are listed in `SECURITY_AUDIT.md` section 6.
 
 ## Reporting a problem
 

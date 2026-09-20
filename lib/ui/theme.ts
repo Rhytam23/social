@@ -6,7 +6,7 @@ export type ThemePreference = 'dark' | 'light' | 'system';
 const KEY = THEME_STORAGE_KEY;
 const listeners = new Set<() => void>();
 
-export function readTheme(): ThemePreference {
+function readTheme(): ThemePreference {
   try {
     const v = localStorage.getItem(KEY);
     if (v === 'dark' || v === 'light' || v === 'system') return v;

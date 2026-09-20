@@ -9,7 +9,7 @@
  * chapter of the story (x right, y up, z toward the viewer, radians).
  */
 
-export type CardKind = 'message' | 'profile' | 'channels' | 'file' | 'call' | 'envelope' | 'post';
+type CardKind = 'message' | 'profile' | 'channels' | 'file' | 'call' | 'envelope' | 'post';
 
 export interface Pose {
   p: [number, number, number];

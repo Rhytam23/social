@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { UserMessageError } from '../ui/errors';
 
 /**
  * App lock: a PIN screen in front of the app on this device.
@@ -43,7 +44,7 @@ export function isValidPin(pin: string): boolean {
 }
 
 export async function createPinRecord(pin: string): Promise<PinRecord> {
-  if (!isValidPin(pin)) throw new Error('Use 4 to 8 digits');
+  if (!isValidPin(pin)) throw new UserMessageError('Use 4 to 8 digits');
   const salt = crypto.getRandomValues(new Uint8Array(16));
   return { salt: toB64(salt), hash: await derive(pin, salt, ITERATIONS), iterations: ITERATIONS };
 }

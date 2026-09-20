@@ -24,13 +24,13 @@
 - **The browser does the cryptography.** Keys never leave it. The server and database only handle ciphertext plus the metadata needed to route it.
 - **Supabase is the source of truth.** Conversations, messages, memberships and files all live there. The browser keeps a working copy in the store and a few view preferences in `localStorage`.
 - **Two ways to reach the database**: through the Next.js API routes (which add rate limiting and explicit membership checks) and directly through the Supabase client from the browser for some reads and writes (reactions, storage downloads, realtime). Row level security protects both.
-- **Middleware** refreshes the session on each request, protects routes and sets security headers.
+- **Middleware** first applies a flood limit (before any Supabase call), then refreshes the session on each request, protects routes and sets security headers. `next.config.ts` adds the Content-Security-Policy and the other response headers.
 
 ## Modules
 
 | Path | Responsibility |
 |---|---|
-| `app/page.tsx` | The single-page app. Boots the session, creates the store and crypto session, opens the Realtime channel, renders the landing page, login or chat shell |
+| `app/page.tsx` | The single-page app. Boots the session, creates the store and crypto session, opens the Realtime channel, renders the landing page, login, the **Link this device** screen (`components/auth/LinkDevice.tsx`, shown when this browser has no key but the account does), or the chat shell |
 | `app/api/*` | Route handlers ([API reference](API.md)) |
 | `app/auth/confirm/route.ts` | Landing point for email confirmation, password reset and Google sign-in redirects |
 | `app/(auth)/*` | `/login`, `/signup`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` (`/invite` just redirects to `/signup`), all rendering the same auth components |
@@ -41,13 +41,19 @@
 | `crypto/` | Cryptographic primitives ([E2EE](E2EE.md)) |
 | `lib/supabase/` | Browser, server and admin clients, env helpers, middleware session refresh |
 | `lib/auth/roles.ts` | Server-side admin check against `profiles.is_admin` |
-| `lib/rate-limit/rateLimiter.ts` | Per-IP rate limiting (Upstash Redis or in-memory) |
+| `lib/api/security.ts` | Helpers every API route uses: UUID and date validation, trusted client address, per-address and per-account limits, cross-site (Origin) check, bounded JSON reader, generic server errors, file-name sanitiser |
+| `lib/rate-limit/rateLimiter.ts` | The rate limiter (Upstash Redis, or in memory per server instance) |
+| `lib/logging/` | The admin error log: `scrub.ts` (removes secrets and personal data), `errorLog.ts` (server writer using the service role), `clientLogger.ts` (browser reporter with throttling and de-duplication), `errorRows.ts` (list filters). `lib/ui/errors.ts` sends every handled UI error to the reporter; `serverError()` in `lib/api/security.ts` writes every server error after responding |
+| `components/analytics/`, `lib/analytics.ts` | Vercel Web Analytics wrapper (production only) and the function that strips query strings and fragments from every address before it is sent |
+| `lib/ui/errors.ts` | Decides who sees how much of an error: everyone gets a friendly message, platform admins also get the technical detail |
+| `lib/ui/theme.ts`, `lib/ui/themeScript.ts` | Theme preference. Default is `system` (follows the device); an inline script sets `data-theme` before first paint so there is no flash |
+| `lib/calls/`, `lib/realtime/` | WebRTC calls and the presence and typing channels (typing and call channels are private, see [Database](DATABASE.md#realtime)) |
 | `database/` | Migrations, the source of truth for the schema ([Database](DATABASE.md)) |
 | `types/database.ts` | Typed mirror of the schema; update it with every migration |
 
 ### Components by area
 
-`layout/` (AppShell, Header, NavDeck, MobileNav) · `chat/` (ChatCanvas, InspectorDeck, NewConversationModal) · `messages/` (MessageItem, MessageComposer, VoiceMessagePreview, ForwardMessageModal, MessageInfoModal) · `people/` · `groups/` · `settings/` (SettingsView) · `admin/` · `auth/` (LoginForm, AuthLayout, ForgotPasswordForm, ResetPasswordForm) · `onboarding/` · `landing/` · `search/` · `profile/` · `ui/` (Button, Dialog, Input, Badge, icons).
+`admin/` (AdminDashboard with People and reports, Errors and Activity tabs) · `layout/` (AppShell, NavDeck, MobileNav) · `chat/` (ChatCanvas, InspectorDeck) · `messages/` (MessageItem, MessageComposer, ...) · `people/` · `groups/` · `community/` · `settings/` (one file per section) · `admin/` · `auth/` (LoginForm, AuthLayout, LinkDevice, ...) · `onboarding/` · `landing/` (the 3D landing page, see [Design](DESIGN.md)) · `calls/` · `notifications/` · `privacy/` · `saved/` · `search/` · `profile/` · `ui/` (Button, Dialog, Input, Avatar, ...).
 
 ## State management
 
@@ -74,7 +80,7 @@ sequenceDiagram
   A->>A: status = sending, wrap text in an envelope
   A->>A: encrypt for the recipient (or with the group key)
   A->>API: conversationId, ciphertext, nonce, encryptionVersion
-  API->>API: authenticate, rate limit, check membership
+  API->>API: check Origin, rate limit (address and account), authenticate, validate ids and sizes, check membership
   API->>DB: insert row (ciphertext only)
   API-->>A: row id → status = sent
   DB-->>RT: INSERT event (RLS filtered)
@@ -95,7 +101,7 @@ On conversation open, history comes from `GET /api/messages` (newest first, page
 ### Attachments and voice notes
 
 1. The browser generates a random AES-256-GCM key and encrypts the file.
-2. The ciphertext is uploaded through `POST /api/uploads` into the private `encrypted_attachments` bucket at `<conversationId>/<timestamp>_<name>`.
+2. The ciphertext is uploaded through `POST /api/uploads` into the private `encrypted_attachments` bucket at `<conversationId>/<random uuid>_<safe name>`.
 3. The storage path, key, IV, file name, type and size go **inside** the encrypted message envelope. The database never sees them.
 4. Recipients download the ciphertext with the Supabase client (row level security on storage) and decrypt in the browser on demand.
 
@@ -132,6 +138,26 @@ Unknown kinds from a newer app version render as "not supported" rather than fai
 
 ## Configuration and hardening
 
-- `middleware.ts` protects `/chat`, `/people`, `/groups`, `/settings` and `/admin`; admin access is verified against `profiles.is_admin`; missing Supabase configuration is a 500 in production.
-- Response headers (`next.config.ts` and `middleware.ts`): `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy: camera=(self), microphone=(self), geolocation=()`, and HSTS.
+- `middleware.ts` rate limits by address, protects `/chat`, `/people`, `/groups`, `/settings` and `/admin`; admin access is verified against `profiles.is_admin`; missing Supabase configuration is a 500 in production.
+- Response headers (`next.config.ts`, mirrored in `middleware.ts`): a Content-Security-Policy, HSTS, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy` (camera and microphone for this site only), cross-origin isolation headers, and `Cache-Control: no-store` for `/api`.
+- **Theme.** The app follows the device's light or dark setting unless the person picked one in Settings. Colours are CSS variables; `data-theme` on `<html>` is `system`, `dark` or `light`. The landing page's floating product cards are deliberately pinned to the dark palette.
 - Layout: the chat shell is a fixed full-height container; other pages scroll normally.
+
+## Linking a second device
+
+```mermaid
+sequenceDiagram
+  participant N as New browser
+  participant DB as user_devices
+  N->>N: no key in IndexedDB
+  N->>DB: does this account already have a registered key?
+  alt no key registered
+    N->>N: generate the account key, register it
+  else key exists
+    N->>N: show "Link this device" (no key is created)
+    N->>N: restore the backup file with its passphrase
+    N->>DB: register the restored key (same device id)
+  end
+```
+
+All linked devices then hold the same key. Details and trade-offs are in [E2EE](E2EE.md#keys-and-linking-devices).

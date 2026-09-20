@@ -5,6 +5,7 @@ import { Avatar } from '../ui/avatar';
 import { Badge, SettingRow, Switch } from '../ui/primitives';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
+import { technicalNote } from '../../lib/ui/errors';
 import { ROLE_LABEL, canAddMembers, canChangeRole, canEditGroup, canRemoveMember, type GroupRole } from '../../lib/groups/roles';
 
 export interface GroupSpaceViewProps {
@@ -250,7 +251,7 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
               })}
             </ul>
             {!rolesAvailable && (
-              <p className="text-[11px] text-[var(--text-muted)]">Group roles turn on after the latest database update (migration 013) is applied.</p>
+              <p className="text-[11px] text-[var(--text-muted)]">{technicalNote('Group roles turn on after the latest database update (migration 013) is applied.', 'Group roles are not available yet.')}</p>
             )}
           </div>
         )}

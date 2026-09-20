@@ -17,6 +17,10 @@ The browser tried to open a `*.supabase.co` address that does not exist, almost 
 
 To check that a URL exists: `curl -I https://<ref>.supabase.co/auth/v1/health` should answer (`401` is fine); a DNS failure means the ref is wrong. Your anon key contains the project ref too; decode its middle section with `node -e "console.log(JSON.parse(Buffer.from(process.argv[1].split('.')[1],'base64url')).ref)" <anon key>` to see which project it belongs to.
 
+## SQL error: `function public.is_group_admin(uuid) does not exist` (or another missing function or table)
+
+A migration was run before the ones it depends on. `017` needs `013` to `016`; `014` needs `013`; and so on. Run the check queries in [Setup](SETUP.md#3-run-the-database-migrations) to see which migrations are missing, then run the missing ones **in numeric order**, one file at a time.
+
 ## SQL error: `column "role" does not exist`
 
 You ran `002_rls_policies.sql` on a database that already has `003` applied. `003` removes that column. Do not re-run old migrations; see [Setup](SETUP.md#3-run-the-database-migrations) for the status check that tells you what is missing.
@@ -86,7 +90,7 @@ The deployment has Vercel **Deployment Protection** turned on, so only members o
 
 ## Confirmation email does not arrive, or the link fails
 
-- Supabase's built-in mailer allows only a few emails per hour. Wait, check spam, or configure your own SMTP.
+- Supabase's built-in mailer allows only a few emails per hour, and shows "Too many emails have been sent recently" when exceeded. Wait, check spam, or configure your own SMTP (and raise the email rate limit) in Supabase, Project Settings, Authentication.
 - The **Resend** button has a 60 second cooldown and shows Supabase's error if it is rate limited.
 - "Confirmation link expired": sign in with your email and password; you will be offered a new link.
 - The link only signs you in when opened in the **same browser** that signed up. Elsewhere your email is still confirmed; just sign in normally.
@@ -94,11 +98,37 @@ The deployment has Vercel **Deployment Protection** turned on, so only members o
 
 ## New messages only appear after a refresh
 
-Realtime is not delivering. Run migration `008_realtime_publication.sql`, then check Supabase → Database → Replication that `messages` is in the `supabase_realtime` publication. Also confirm you are on a build that includes live updates, and open the browser console for websocket errors.
+Realtime is not delivering. The usual cause is that the tables are not in the `supabase_realtime` publication (migration `008`; `014` for communities), or Realtime is off for the project. Check with `select tablename from pg_publication_tables where pubname = 'supabase_realtime';`.
+
+Details: Run migration `008_realtime_publication.sql`, then check Supabase → Database → Replication that `messages` is in the `supabase_realtime` publication. Also confirm you are on a build that includes live updates, and open the browser console for websocket errors.
 
 ## "[Unable to decrypt: …]" in a chat
 
-The message was encrypted for a different key than the one this browser holds. Typical cause: you signed in on a new browser or cleared site data, which created a new key. Restore your key backup (Settings → Privacy & Security) with its passphrase. If you have no backup, earlier messages cannot be recovered.
+The message was encrypted for a different key than the one this browser holds. Typical causes: you cleared site data (the key lived in the browser), or you chose "Start fresh" on some device. Restore your key backup (Settings, Security) with its passphrase. If you have no backup, earlier messages cannot be recovered.
+
+## The app shows "Link this device" after I sign in
+
+This browser has no encryption key, but your account already has one on another device. The app deliberately does not create a second key (that would cut your first device off). Choose the backup file you exported on the first device (Settings, Security, Export backup) and type its passphrase. If you have no backup, "Start fresh" creates a new key but your old messages become unreadable and your contacts see a "security code changed" warning. See [E2EE](E2EE.md#keys-and-linking-devices).
+
+## Admin, Errors says "not available right now" (or is always empty)
+
+Migration `019_admin_logs.sql` has not been applied, so the tables `error_logs` and `admin_audit_log` do not exist. Run it after `001` to `018`, then reload. If it is applied but stays empty: nothing has failed yet, the app is running in demo mode (nothing is collected without Supabase), or `SUPABASE_SERVICE_ROLE_KEY` is not set on the server (the server needs it to write the log). Only platform admins can see the tab.
+
+## `device_limit_reached`
+
+An account can register at most 3 keys (migration `018`). This appears if something repeatedly created new keys. In the SQL editor, `select device_id, last_seen_at from user_devices where user_id = '<id>';` shows them; delete the stale ones you do not use, then link with the backup instead of creating new keys.
+
+## `rate_limit_exceeded` or "Rate limit exceeded."
+
+You hit a limit: too many requests from one address or account (HTTP 429, wait for the `Retry-After` seconds), or more than 120 messages a minute, 200 reactions a minute or 30 new conversations an hour from one account (database triggers from `018`). Normal use does not reach these. The limits are in `lib/api/security.ts`, `middleware.ts` and `018_devices_and_flood_limits.sql`.
+
+## Typing indicators or calls stop working after applying migration 017
+
+They now use private Realtime channels that need Realtime Authorization and the `pc_*` policies on `realtime.messages`. Confirm the policies exist (the check query in [Setup](SETUP.md#3-run-the-database-migrations)) and that Realtime Authorization is on for the project (Project Settings, Realtime). Also confirm `017` really ran: its realtime part is skipped silently if `realtime.messages` does not exist.
+
+## A blocked user can still message me
+
+The fix for blocking is in migration `017`. Apply it and check that `is_blocked_in_conversation` exists.
 
 ## A group member cannot read messages
 
