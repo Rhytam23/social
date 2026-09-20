@@ -285,7 +285,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               <div className="flex flex-col truncate">
                 <span className="font-medium text-slate-200 truncate text-xs">{selectedFile.name}</span>
                 <span className="text-[10px] text-slate-400 font-mono">
-                  {(selectedFile.size / 1024).toFixed(1)} KB • Encrypted attachment
+                  {selectedFile.size >= 1024 * 1024 ? `${(selectedFile.size / (1024 * 1024)).toFixed(1)} MB` : `${(selectedFile.size / 1024).toFixed(1)} KB`}
                 </span>
               </div>
             </div>
@@ -342,20 +342,9 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               onClick={() => fileInputRef.current?.click()}
               disabled={disabled}
               className="p-2.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-all disabled:opacity-40 shrink-0"
-              title="Attach encrypted document or image"
+              title="Attach a file" aria-label="Attach a file"
             >
               <IconPaperclip className="w-5 h-5" />
-            </button>
-
-            {/* Record Voice Note Button */}
-            <button
-              type="button"
-              onClick={handleStartVoiceRecord}
-              disabled={disabled}
-              className="p-2.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-all disabled:opacity-40 shrink-0"
-              title="Record encrypted voice note"
-            >
-              <IconMic className="w-5 h-5" />
             </button>
 
             {/* Text Area */}
@@ -390,7 +379,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
                   setMentionIndex(0);
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder={editingMessage ? 'Edit message...' : 'Write an encrypted message...'}
+                placeholder={editingMessage ? 'Edit message' : 'Write a message'}
                 aria-label="Message"
                 disabled={disabled}
                 rows={1}
@@ -398,7 +387,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
               />
             </div>
 
-            {/* Send Button */}
+            {/* Send when there is something to send, otherwise record a voice note */}
+            {canSend ? (
             <button
               type="button"
               onClick={handleSend}
@@ -413,6 +403,17 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
             >
               <IconSend className="w-4 h-4 translate-x-[0.5px]" />
             </button>
+            ) : (
+            <button
+              type="button"
+              onClick={handleStartVoiceRecord}
+              disabled={disabled}
+              className="p-2.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-xl transition-all disabled:opacity-40 shrink-0"
+              title="Record a voice note" aria-label="Record a voice note"
+            >
+              <IconMic className="w-5 h-5" />
+            </button>
+            )}
           </div>
         )}
       </div>

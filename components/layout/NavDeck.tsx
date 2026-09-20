@@ -7,8 +7,6 @@ import {
   IconPin,
   IconPlus,
   IconSearch,
-  IconSettings,
-  IconShield,
 } from '../ui/icons';
 import { Avatar } from '../ui/avatar';
 import { StatusMenu } from './StatusMenu';
@@ -17,7 +15,6 @@ import { CountBadge, ConversationListSkeleton } from '../ui/primitives';
 
 export interface NavDeckProps {
   currentUserName: string;
-  currentUserRegistrationId: number;
   userRole: 'admin' | 'member';
   activeCategory: ViewCategory;
   onSelectCategory: (cat: ViewCategory) => void;
@@ -28,7 +25,6 @@ export interface NavDeckProps {
   onNewMessage: () => void;
   /** Create or join a group (Groups). */
   onNewGroup?: () => void;
-  onOpenSettings?: () => void;
   /** Unread in direct chats. */
   unreadTotal: number;
   /** Unread in groups. */
@@ -48,7 +44,6 @@ export interface NavDeckProps {
 
 export const NavDeck: React.FC<NavDeckProps> = ({
   currentUserName,
-  currentUserRegistrationId,
   userRole,
   activeCategory,
   onSelectCategory,
@@ -57,7 +52,6 @@ export const NavDeck: React.FC<NavDeckProps> = ({
   onSelectConversation,
   onNewMessage,
   onNewGroup,
-  onOpenSettings,
   unreadTotal,
   groupUnreadTotal = 0,
   isLoading,
@@ -118,10 +112,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
       <div className="h-16 px-4 bg-slate-950/40 border-b border-[var(--border-subtle)] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <StatusMenu name={currentUserName} onChanged={onStatusChanged} />
-          <div className="flex flex-col">
-            <span className="text-xs font-bold text-slate-100 leading-tight">{currentUserName}</span>
-            <span className="text-[10px] font-mono text-slate-400">#{currentUserRegistrationId}</span>
-          </div>
+          <span className="text-sm font-semibold text-[var(--text-primary)] leading-tight truncate">{currentUserName}</span>
         </div>
 
         <div className="flex items-center gap-1">
@@ -364,27 +355,6 @@ export const NavDeck: React.FC<NavDeckProps> = ({
         )}
       </div>
 
-      {/* Footer: Settings, plus the encryption note */}
-      <div className="p-2 border-t border-[var(--border-subtle)] bg-slate-950/30 flex items-center justify-between gap-2 shrink-0">
-        {onOpenSettings && (
-          <button
-            onClick={onOpenSettings}
-            aria-current={activeCategory === 'settings' ? 'page' : undefined}
-            className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-colors ${
-              activeCategory === 'settings'
-                ? 'bg-slate-800 text-slate-100'
-                : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-            }`}
-          >
-            <IconSettings className="w-4 h-4" />
-            Settings
-          </button>
-        )}
-        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 pr-2">
-          <IconShield className="w-3.5 h-3.5 text-emerald-400" />
-          End-to-end encrypted
-        </span>
-      </div>
     </nav>
   );
 };

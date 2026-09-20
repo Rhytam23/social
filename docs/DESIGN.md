@@ -48,3 +48,7 @@ All motion uses the tokens above and is switched off by the `prefers-reduced-mot
 Earlier versions used a scroll-driven three.js scene with illustrative message cards. It was removed: it cost roughly 325 kB of JavaScript on the first visit, depended on made-up content, and hid the real page text from anything that does not run scripts.
 
 Signed-in visitors do not see the landing page: `/` opens the app directly.
+
+## The chat screen
+
+Say things once. "End-to-end encrypted" appears only in the chat header. Controls that are used rarely live in menus: the header has voice and video call and one options menu (`ChatHeaderMenu`), and each message has quick reactions, Reply and one "more" menu. Consecutive messages from one person in the same minute are grouped so the name and photo are not repeated. There is no footer anywhere inside the signed-in app; Settings is at the bottom of the left rail on desktop and in the bottom bar on phones. Warnings that matter (changed security code, failed delivery, offline) stay visible and are not folded into menus.

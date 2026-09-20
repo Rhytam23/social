@@ -4,6 +4,14 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Calmer chat interface (September 2026).** No database changes.
+
+- **Encryption is stated once**, in the chat header. Removed the repeated pill inside the conversation, the composer placeholder ("Write a message") and the sidebar footer.
+- **Chat header**: name, one status line, voice and video call, and one options menu (search in conversation, security details, notifications, disappearing messages). It replaces four separate buttons, including the labelled "Security Context" one (`components/chat/ChatHeaderMenu.tsx`; the old `NotifyMenu` and `DisappearMenu` popovers are gone).
+- **Messages**: consecutive messages from one person in the same minute share one name and photo; time shows on hover for the rest; delivery marks only appear on your own messages. The hover toolbar is three quick reactions, Reply and one "more" menu with labelled items (copy, forward, thread, pin, star, edit, info, report, delete on this device) instead of thirteen icons.
+- **Composer**: one row; the microphone shows when there is nothing to send and is replaced by Send when there is.
+- **Navigation**: the sidebar footer is gone, Settings sits at the bottom of the left rail (phones keep it in the bottom bar), and the meaningless "#registration number" under your name was removed. No feature was removed. The rail and the Chats, Groups, Saved, People and Admin tabs are unchanged for now.
+
 **Uploads fixed and limited (September 2026).** Needs migration `021` (deploy the app first).
 
 - **Bug fixed: attachments over 2 MB failed.** The request-size cap added to middleware in the security pass (2 MB on every `/api` route) also caught the upload route, which still advertised 25 MB, and serverless functions cannot take bodies over 4.5 MB anyway.

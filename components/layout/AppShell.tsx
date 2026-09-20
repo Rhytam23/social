@@ -354,6 +354,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             onSelectHome={selectHome}
             onSelectCommunity={selectCommunity}
             onAdd={() => setGroupsDialogOpen(true)}
+            onOpenSettings={() => setActiveCategory('settings')}
           />
         </div>
       )}
@@ -386,7 +387,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           ) : (
           <NavDeck
             currentUserName={currentUserName}
-            currentUserRegistrationId={currentUserRegistrationId}
             userRole={currentUserRole}
             activeCategory={activeCategory}
             onSelectCategory={(cat) => {
@@ -404,7 +404,6 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
             onNewMessage={onNewMessage}
             onNewGroup={() => setGroupsDialogOpen(true)}
-            onOpenSettings={() => setActiveCategory('settings')}
             unreadTotal={unreadTotal}
             groupUnreadTotal={groupUnreadTotal}
             isLoading={isLoading}

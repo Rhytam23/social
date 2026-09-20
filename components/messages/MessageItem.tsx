@@ -1,17 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RichText } from './RichText';
 import { MessageData } from '../../types/ui';
 import {
   IconCheck,
   IconCheckCheck,
-  IconCopy,
   IconDownload,
-  IconEdit,
   IconFile,
-  IconForward,
   IconPin,
   IconStar,
-  IconTrash,
+  IconMoreVertical,
   IconThread,
   IconX,
 } from '../ui/icons';
@@ -35,6 +32,8 @@ export interface MessageItemProps {
   threadReplyCount?: number;
   /** Report someone else's message to platform administrators. */
   onReportMessage?: (msg: MessageData) => void;
+  /** True when the previous message is from the same person in the same minute: the name and photo are not repeated. */
+  continuation?: boolean;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -51,9 +50,28 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onOpenThread,
   threadReplyCount = 0,
   onReportMessage,
+  continuation = false,
 }) => {
   const isSelf = message.isSelf;
   const [actionsOpen, setActionsOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(e.target as Node)) setMoreOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoreOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [moreOpen]);
   const [showInfoModal, setShowInfoModal] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
@@ -85,31 +103,45 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     ),
   };
 
-  const quickEmojis = ['👍', '❤️', '💡', '🔥'];
+  const quickEmojis = ['👍', '❤️', '😂'];
 
 
   const handleCopyText = () => {
     navigator.clipboard.writeText(message.content);
   };
 
+  const moreItems: Array<{ key: string; label: string; run: () => void; danger?: boolean; hidden?: boolean }> = [
+    { key: 'copy', label: 'Copy text', run: handleCopyText },
+    { key: 'forward', label: 'Forward', run: () => onForwardMessage?.(message), hidden: !onForwardMessage },
+    { key: 'thread', label: 'Reply in thread', run: () => onOpenThread?.(message), hidden: !(onOpenThread && !message.threadRootId) },
+    { key: 'pin', label: message.isPinned ? 'Unpin' : 'Pin', run: () => onPinMessage?.(message.id), hidden: !onPinMessage },
+    { key: 'star', label: message.isStarred ? 'Unstar' : 'Star', run: () => onStarMessage?.(message.id), hidden: !onStarMessage },
+    { key: 'edit', label: 'Edit', run: () => onEditMessage?.(message), hidden: !(isSelf && onEditMessage) },
+    { key: 'info', label: 'Message info', run: () => setShowInfoModal(true) },
+    { key: 'report', label: 'Report', run: () => onReportMessage?.(message), danger: true, hidden: isSelf || !onReportMessage },
+    { key: 'delete', label: 'Delete on this device', run: () => onDeleteMessage?.(message.id), danger: true, hidden: !(isSelf && onDeleteMessage) },
+  ];
+
   return (
     <>
       <div
-        className={`anim-message flex items-start gap-3 my-2 max-w-[88%] sm:max-w-[72%] font-sans ${
+        className={`anim-message flex items-start gap-3 ${continuation ? 'mt-0' : 'mt-4'} mb-0.5 max-w-[88%] sm:max-w-[72%] font-sans ${
           isSelf ? 'self-end flex-row-reverse' : 'self-start flex-row'
         }`}
       >
         {/* User Avatar */}
-        <Avatar name={isSelf ? 'You' : message.senderName} size="sm" className="mt-0.5" />
+        {continuation ? <span className="w-8 shrink-0" aria-hidden="true" /> : <Avatar name={isSelf ? 'You' : message.senderName} size="sm" className="mt-0.5" />}
 
         <div className={`flex flex-col gap-1 min-w-0 ${isSelf ? 'items-end' : 'items-start'}`}>
-          {/* Header Metadata Line */}
+          {/* Name and time once per run of messages; flags always show */}
+          {(!continuation || message.isEdited || message.isPinned || message.isStarred) && (
           <div className="flex items-center gap-2 px-1 text-[11px] text-slate-400">
-            <span className="font-semibold text-slate-300">
-              {isSelf ? 'You' : message.senderName}
-            </span>
-            <span className="text-slate-600">•</span>
-            <span>{message.timestamp}</span>
+            {!continuation && (
+              <>
+                <span className="font-semibold text-slate-300">{isSelf ? 'You' : message.senderName}</span>
+                <span>{message.timestamp}</span>
+              </>
+            )}
 
             {message.isEdited && (
               <span className="text-[10px] text-slate-500 italic">(edited)</span>
@@ -126,10 +158,12 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               <IconStar className="w-3 h-3 text-amber-400" />
             )}
           </div>
+          )}
 
           {/* Bubble Box */}
           <div
-            className={`px-3.5 py-2.5 rounded-2xl border text-sm leading-relaxed relative group transition-colors min-w-0 max-w-full ${
+            title={continuation ? message.timestamp : undefined}
+            className={`px-3.5 py-2 rounded-2xl border text-sm leading-relaxed relative group transition-colors min-w-0 max-w-full ${
               isSelf
                 ? 'bg-[var(--accent-subtle)] border-emerald-500/20 text-slate-100 rounded-tr-md'
                 : 'bg-[var(--surface-1)] border-[var(--border-subtle)] text-slate-200 rounded-tl-md shadow-[var(--edge-light)]'
@@ -272,9 +306,9 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               &#8943;
             </button>
 
-            {/* Contextual Action Hover Toolbar (Desktop & Mobile Touch Menu) */}
+            {/* Hover toolbar: quick reactions, reply, and one menu for everything else */}
             <div
-              className={`absolute -top-3.5 ${actionsOpen ? 'flex' : 'hidden'} group-hover:flex group-focus-within:flex items-center gap-1 floating !rounded-xl p-1 z-20 ${
+              className={`absolute -top-3.5 ${actionsOpen || moreOpen ? 'flex' : 'hidden'} group-hover:flex group-focus-within:flex items-center gap-0.5 floating !rounded-xl p-1 z-20 ${
                 isSelf ? 'right-2' : 'left-2'
               }`}
             >
@@ -282,114 +316,61 @@ export const MessageItem: React.FC<MessageItemProps> = ({
                 <button
                   key={e}
                   onClick={() => onReactToMessage(message.id, e)}
-                  className="p-1 hover:bg-slate-800 text-xs rounded-lg transition-colors"
+                  className="p-1 hover:bg-[var(--surface-2)] text-xs rounded-lg transition-colors"
                   title={`React with ${e}`}
                 >
                   {e}
                 </button>
               ))}
 
-              <div className="w-[1px] h-3.5 bg-slate-800 mx-0.5" />
+              <div className="w-px h-3.5 bg-[var(--border-strong)] mx-0.5" />
 
               <button
                 onClick={() => onReplyToMessage(message)}
-                className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
+                className="px-1.5 py-1 text-xs text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] rounded-lg"
                 title="Reply"
               >
                 Reply
               </button>
 
-              <button
-                onClick={handleCopyText}
-                className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
-                title="Copy text"
-              >
-                <IconCopy className="w-3.5 h-3.5" />
-              </button>
-
-              {onForwardMessage && (
+              <div ref={moreRef} className="relative">
                 <button
-                  onClick={() => onForwardMessage(message)}
-                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
-                  title="Forward message"
+                  type="button"
+                  onClick={() => setMoreOpen((o) => !o)}
+                  aria-haspopup="menu"
+                  aria-expanded={moreOpen}
+                  aria-label="More message actions"
+                  title="More"
+                  className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] rounded-lg"
                 >
-                  <IconForward className="w-3.5 h-3.5" />
+                  <IconMoreVertical className="w-3.5 h-3.5" />
                 </button>
-              )}
-
-              {onOpenThread && !message.threadRootId && (
-                <button
-                  onClick={() => onOpenThread(message)}
-                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
-                  title="Reply in thread"
-                >
-                  <IconThread className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              {onPinMessage && (
-                <button
-                  onClick={() => onPinMessage(message.id)}
-                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
-                  title={message.isPinned ? 'Unpin message' : 'Pin message'}
-                >
-                  <IconPin className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              {onStarMessage && (
-                <button
-                  onClick={() => onStarMessage(message.id)}
-                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
-                  title={message.isStarred ? 'Unstar message' : 'Star message'}
-                >
-                  <IconStar className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              {!isSelf && onReportMessage && (
-                <button
-                  onClick={() => onReportMessage(message)}
-                  className="p-1 text-slate-300 hover:text-rose-400 hover:bg-slate-800 rounded-lg text-xs leading-none"
-                  title="Report message"
-                  aria-label="Report message"
-                >
-                  &#9873;
-                </button>
-              )}
-
-              {isSelf && onEditMessage && (
-                <button
-                  onClick={() => onEditMessage(message)}
-                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg"
-                  title="Edit message"
-                >
-                  <IconEdit className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              {isSelf && onDeleteMessage && (
-                <button
-                  onClick={() => onDeleteMessage(message.id)}
-                  className="p-1 text-rose-400 hover:text-rose-300 hover:bg-slate-800 rounded-lg"
-                  title="Delete message locally"
-                >
-                  <IconTrash className="w-3.5 h-3.5" />
-                </button>
-              )}
-
-              <button
-                onClick={() => setShowInfoModal(true)}
-                className="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg"
-                title="Message info"
-              >
-                Info
-              </button>
+                {moreOpen && (
+                  <div role="menu" className={`absolute top-8 z-30 w-44 p-1 floating animate-in zoom-in-95 ${isSelf ? 'right-0' : 'left-0'}`}>
+                    {moreItems
+                      .filter((item) => !item.hidden)
+                      .map((item) => (
+                        <button
+                          key={item.key}
+                          role="menuitem"
+                          onClick={() => {
+                            item.run();
+                            setMoreOpen(false);
+                            setActionsOpen(false);
+                          }}
+                          className={`w-full px-3 py-1.5 rounded-lg text-left text-xs hover:bg-[var(--surface-2)] ${item.danger ? 'text-[var(--danger-neutral)]' : 'text-[var(--text-primary)]'}`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Delivery Status Indicator */}
-          <div className="px-1 flex items-center gap-1">{statusIndicators[message.status]}</div>
+          {isSelf && <div className="px-1 flex items-center gap-1">{statusIndicators[message.status]}</div>}
         </div>
       </div>
 

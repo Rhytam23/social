@@ -2,11 +2,10 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ConversationItem, MessageData, ReplyReference } from '../../types/ui';
 import { MessageItem } from '../messages/MessageItem';
 import { MessageComposer } from '../messages/MessageComposer';
-import { IconChevronDown, IconLock, IconPin, IconSearch, IconShield, IconX } from '../ui/icons';
+import { IconChevronDown, IconLock, IconPin, IconSearch, IconX } from '../ui/icons';
 import { PRESENCE_LABEL } from '../ui/avatar';
 import { MessageListSkeleton, TypingDots } from '../ui/primitives';
-import { NotifyMenu } from '../notifications/NotifyMenu';
-import { DisappearMenu } from '../privacy/DisappearMenu';
+import { ChatHeaderMenu } from './ChatHeaderMenu';
 
 export interface ChatCanvasProps {
   conversation: ConversationItem;
@@ -218,29 +217,14 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
               </button>
             </>
           )}
-          {onSetDisappear && <DisappearMenu current={conversation.disappearAfter} onChange={onSetDisappear} />}
-          {onSetNotify && <NotifyMenu conversation={conversation} onChange={onSetNotify} />}
-          <button
-            onClick={() => setShowInChatSearch(!showInChatSearch)}
-            className={`p-2 rounded-xl transition-colors ${
-              showInChatSearch
-                ? 'bg-slate-800 text-white'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
-            }`}
-            title="Search in conversation"
-          >
-            <IconSearch className="w-4 h-4" />
-          </button>
-
-          {onToggleInspector && (
-            <button
-              onClick={onToggleInspector}
-              className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5"
-            >
-              <IconShield className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Security Context</span>
-            </button>
-          )}
+          <ChatHeaderMenu
+            conversation={conversation}
+            searchOpen={showInChatSearch}
+            onToggleSearch={() => setShowInChatSearch(!showInChatSearch)}
+            onOpenSecurity={onToggleInspector}
+            onSetNotify={onSetNotify}
+            onSetDisappear={onSetDisappear}
+          />
         </div>
       </div>
 
@@ -305,15 +289,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-3 relative"
       >
-        <div className="w-full max-w-4xl mx-auto flex flex-col gap-2">
-          {/* Security Badge Pill */}
-          <div className="py-1.5 px-3 my-2 bg-slate-900/60 border border-slate-800/80 rounded-full text-xs text-center flex items-center justify-center gap-2 max-w-fit mx-auto shadow-xs text-slate-400">
-            <IconLock className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[11px] font-medium text-slate-300">
-              End-to-end encrypted with {conversation.type === 'group' ? 'a shared group key' : 'X25519 and XSalsa20-Poly1305'}
-            </span>
-          </div>
-
+        <div className="w-full max-w-4xl mx-auto flex flex-col">
           {canLoadOlder && !inChatSearchQuery && (
             <button
               onClick={onLoadOlder}
@@ -330,11 +306,14 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
             <div className="my-auto text-center text-xs text-slate-500 p-12">
               {inChatSearchQuery
                 ? `No messages in this chat match "${inChatSearchQuery}"`
-                : 'No messages yet. Anything you send is encrypted on your device first.'}
+                : 'No messages yet. Say hello.'}
             </div>
           ) : (
             displayedMessages.map((msg, index) => {
               const isFirstUnread = conversation.unreadCount > 0 && index === displayedMessages.length - conversation.unreadCount;
+              const prev = displayedMessages[index - 1];
+              // Same person, same minute, nothing in between: the name and photo are not repeated.
+              const continuation = !!prev && !isFirstUnread && !prev.isDeletedLocally && prev.senderId === msg.senderId && prev.isSelf === msg.isSelf && prev.timestamp === msg.timestamp;
               return (
                 <React.Fragment key={msg.id}>
                   {isFirstUnread && (
@@ -360,6 +339,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                     onOpenThread={onOpenThread}
                     onReportMessage={onReportMessage}
                     threadReplyCount={threadCounts.get(msg.id) ?? 0}
+                    continuation={continuation}
                   />
                 </React.Fragment>
               );
