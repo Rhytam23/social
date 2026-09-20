@@ -12,7 +12,7 @@ const TABS: Array<{ id: SiteSection; label: string; href: string }> = [
   { id: 'contact', label: 'Contact', href: '/contact' },
 ];
 
-const link = 'text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]';
+const link = 'inline-flex items-center min-h-11 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]';
 
 /**
  * The header of the public pages (home, features, security, help, contact, privacy, terms). A server
@@ -23,7 +23,7 @@ export function SiteHeader({ current }: { current?: SiteSection }) {
   return (
     <header className="border-b border-[var(--border-subtle)] bg-[var(--canvas-bg)]">
       <div className="max-w-6xl mx-auto h-14 px-5 sm:px-8 flex items-center justify-between gap-4">
-        <Link href="/" aria-label={`${SITE_NAME}, home`} aria-current={current === 'home' ? 'page' : undefined}>
+        <Link href="/" aria-label={`${SITE_NAME}, home`} aria-current={current === 'home' ? 'page' : undefined} className="inline-flex items-center min-h-11">
           <Logo />
         </Link>
 
@@ -36,15 +36,15 @@ export function SiteHeader({ current }: { current?: SiteSection }) {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link href="/login" className="hidden sm:inline-flex items-center h-8 px-3 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]">
+          <Link href="/login" className="hidden sm:inline-flex items-center h-8 [@media(pointer:coarse)]:h-11 px-3 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--surface-2)] hover:text-[var(--text-primary)]">
             Sign in
           </Link>
-          <Link href="/signup" className="inline-flex items-center h-8 px-3 rounded-lg text-xs font-semibold bg-[var(--accent-primary)] text-[var(--accent-contrast)] hover:bg-[var(--accent-primary-hover)]">
+          <Link href="/signup" className="inline-flex items-center h-8 [@media(pointer:coarse)]:h-11 px-3 rounded-lg text-xs font-semibold bg-[var(--accent-primary)] text-[var(--accent-contrast)] hover:bg-[var(--accent-primary-hover)]">
             Create account
           </Link>
 
           <details className="md:hidden relative">
-            <summary aria-label="Menu" className="list-none [&::-webkit-details-marker]:hidden cursor-pointer w-8 h-8 rounded-lg flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-2)]">
+            <summary aria-label="Menu" className="list-none [&::-webkit-details-marker]:hidden cursor-pointer w-8 h-8 [@media(pointer:coarse)]:w-11 [@media(pointer:coarse)]:h-11 rounded-lg flex items-center justify-center text-[var(--text-secondary)] hover:bg-[var(--surface-2)]">
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" aria-hidden="true">
                 <path d="M4 7h16M4 12h16M4 17h16" />
               </svg>

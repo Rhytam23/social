@@ -346,8 +346,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-slate-300 font-semibold text-xs">Display Name</label>
+                <label htmlFor="pf-name" className="text-slate-300 font-semibold text-xs">Display Name</label>
                 <input
+                  id="pf-name"
                   type="text"
                   required
                   value={displayName}
@@ -417,8 +418,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-slate-300 font-semibold text-xs">Email Address</label>
+                <label htmlFor="pf-email" className="text-slate-300 font-semibold text-xs">Email Address</label>
                 <input
+                  id="pf-email"
                   type="email"
                   disabled
                   value={currentUser.email || 'Registered account'}
@@ -427,8 +429,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-slate-300 font-semibold text-xs">Phone number (private)</label>
+                <label htmlFor="pf-phone" className="text-slate-300 font-semibold text-xs">Phone number (private)</label>
                 <input
+                  id="pf-phone"
                   type="tel"
                   placeholder="+1 555-0199"
                   value={phoneNumber}

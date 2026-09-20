@@ -308,7 +308,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               onClick={() => setActionsOpen((o) => !o)}
               aria-label="Message actions"
               aria-expanded={actionsOpen}
-              className="md:hidden absolute top-1 right-1 w-6 h-6 rounded-full text-slate-400 hover:bg-slate-800 flex items-center justify-center text-sm leading-none"
+              className="md:hidden absolute top-0 right-0 w-9 h-9 rounded-full text-slate-400 hover:bg-slate-800 flex items-center justify-center text-sm leading-none"
             >
               &#8943;
             </button>

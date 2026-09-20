@@ -155,7 +155,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
               onSelectCategory(cat.key);
               if (showArchived) setShowArchived(false);
             }}
-            className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 [@media(pointer:coarse)]:min-h-11 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
               activeCategory === cat.key && !showArchived
                 ? 'bg-slate-800 text-slate-100 border border-slate-700/80 shadow-xs'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -173,7 +173,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
         {archivedCount > 0 && (
           <button
             onClick={() => setShowArchived(!showArchived)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
+            className={`px-3 py-1.5 [@media(pointer:coarse)]:min-h-11 text-xs font-medium rounded-xl transition-all flex items-center gap-1.5 shrink-0 ${
               showArchived
                 ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
@@ -201,7 +201,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
           {onGlobalSearchTrigger && (
             <button
               onClick={onGlobalSearchTrigger}
-              className="absolute right-2.5 font-mono text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 hover:text-white"
+              className="absolute right-2.5 [@media(pointer:coarse)]:hidden font-mono text-[10px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded border border-slate-700 hover:text-white"
               title="Global search (Ctrl+K)"
             >
               Ctrl+K

@@ -40,7 +40,7 @@ export function SiteFooter() {
     <footer className="border-t border-[var(--border-subtle)] bg-[var(--canvas-bg)]">
       <div className="max-w-6xl mx-auto px-5 sm:px-8 py-12 grid gap-10 md:grid-cols-[minmax(0,1.4fr)_repeat(3,minmax(0,1fr))]">
         <div>
-          <Link href="/" aria-label={`${SITE_NAME}, home`}>
+          <Link href="/" aria-label={`${SITE_NAME}, home`} className="inline-flex items-center min-h-11">
             <Logo />
           </Link>
           <p className="mt-3 max-w-xs text-xs leading-relaxed text-[var(--text-muted)]">End-to-end encrypted messaging. The server only ever holds ciphertext.</p>
@@ -52,11 +52,11 @@ export function SiteFooter() {
               {col.links.map((l) => (
                 <li key={l.label}>
                   {l.external ? (
-                    <a href={l.href} target="_blank" rel="noopener noreferrer" className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                    <a href={l.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center [@media(pointer:coarse)]:min-h-11 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                       {l.label}
                     </a>
                   ) : (
-                    <Link href={l.href} className="text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                    <Link href={l.href} className="inline-flex items-center [@media(pointer:coarse)]:min-h-11 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
                       {l.label}
                     </Link>
                   )}
