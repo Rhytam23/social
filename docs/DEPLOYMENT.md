@@ -53,11 +53,12 @@ Preview deployments use whatever variables are set for the Preview environment. 
 
 **Build and tests**
 - [ ] `npx tsc --noEmit`, `npm run lint`, `npm test`, `npm run build` all pass
-- [ ] No secrets in git (`.env*` files are ignored; the service-role key is only in host settings)
+- [ ] No secrets in git (`.env*` files are ignored except `.env.example`; the service-role key is only in host settings). If a secret was ever committed, it must be **rotated**: removing it from the code does not remove it from git history
 
 **Database and Supabase**
-- [ ] All migrations `001`-`009` applied (run the check query in [Setup](SETUP.md#3-run-the-database-migrations))
-- [ ] Realtime is on for `messages`
+- [ ] All migrations `001` to `018` applied in order (run the check queries in [Setup](SETUP.md#3-run-the-database-migrations)); `017` and `018` carry security fixes
+- [ ] Realtime is on for `messages`, and Realtime Authorization is set up so the private typing and call channels work
+- [ ] `select username, is_admin from profiles;` shows only the people who should be admin (the first account created is admin)
 - [ ] Storage buckets exist; `encrypted_attachments` is private
 - [ ] **Confirm email** is on; Site URL and Redirect URLs are the production ones
 - [ ] Custom SMTP is configured (the default mailer is heavily rate limited)
@@ -68,6 +69,11 @@ Preview deployments use whatever variables are set for the Preview environment. 
 - [ ] A third account cannot read their conversation
 - [ ] Attachment and voice note round trip
 - [ ] Layout at 390px wide and at desktop width
+
+**Abuse protection** (settings you apply; the app cannot do these for you)
+- [ ] Host firewall or attack-challenge mode is available and you know how to turn it on (Vercel Firewall, or Cloudflare in front)
+- [ ] Supabase, Authentication, Rate Limits reviewed, minimum password length set, custom SMTP configured
+- [ ] Optional: Upstash Redis variables set so rate limits are shared across instances; a CAPTCHA on sign-up if bots appear
 
 **Operations**
 - [ ] `/privacy` and `/terms` reviewed for your deployment
@@ -80,11 +86,12 @@ The main page loads about 380 kB of JavaScript on first load, mostly the libsodi
 ## 6. Incident and rollback
 
 - **Bad release**: redeploy the previous build from the host's deployment list. Migrations are forward-only, so avoid shipping a schema change and the code that needs it in a way that can't be rolled back independently.
-- **Leaked service-role key**: in Supabase → Project Settings → API, generate a new one, update the host's variable, redeploy.
+- **Leaked service-role key or any other secret**: rotate it at the source (Supabase → Project Settings → API for the service-role key; the provider's console for a database password or `JWT_SECRET`), update the host's variable, redeploy. Treat anything that ever appeared in public git history as permanently public.
 - **Compromised admin account**: in the SQL Editor run `update public.profiles set is_admin = false where id = '<user id>';` and delete or disable the user under Authentication → Users.
-- **A user lost their key**: their old messages cannot be recovered on a new device without the key backup file and passphrase. This is inherent to end-to-end encryption.
+- **A user lost their key**: their old messages cannot be recovered on a new device without the key backup file and passphrase. This is inherent to end-to-end encryption. With the backup they can link a new browser; without it "Start fresh" creates a new key.
+- **Under flood**: turn on the host's attack-challenge mode or Cloudflare, tighten Supabase Auth rate limits, and look at which route is being hit before changing code.
 
 ## 7. Known operational limits
 
-- Rate limiting is per IP and, without Upstash, per server instance. See [Security](SECURITY.md#known-gaps).
+- Rate limiting is per address and per account and, without Upstash, per server instance. It stops cheap floods, not a volumetric DDoS. See [Security](SECURITY.md#denial-of-service).
 - There is no CI pipeline in the repository yet; run the checks above before merging.

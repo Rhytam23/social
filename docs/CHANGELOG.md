@@ -4,6 +4,17 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Security hardening, multiple devices, flood protection and system theme (September 2026).** Needs migrations `017` and `018`. Full findings in [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md).
+
+- **Security fixes (`017`).** Blocking now works (the old rule could not see the `blocks` table); only group admins can create group key envelopes (any member could plant a key); a conversation's creator can no longer re-add themselves as owner; message and receipt identity columns cannot be rewritten; private Realtime channels with policies for typing and calls; avatar URLs restricted; storage buckets limited to 25 MB of `application/octet-stream`; invite lifetime and uses capped.
+- **API and headers.** Every route now validates ids, caps body sizes, rate limits by address and by account (using the platform's trusted client address, not a spoofable header), refuses cross-site writes and returns generic errors (`lib/api/security.ts`). Content-Security-Policy, HSTS with preload, cross-origin isolation headers, `no-store` on `/api`.
+- **Dependencies.** `postcss` (high) and `vitest` (moderate) vulnerabilities fixed; `npm audit` reports none.
+- **Several devices.** A browser with no key on an account that already has one shows **Link this device** and links with the encrypted backup instead of silently creating a new key that cut the first device off. `018` caps registered keys at 3 per account.
+- **Flood protection.** Per-address limit in middleware before any Supabase call, 2 MB body cap on `/api`, and database limits per account (120 messages and 200 reactions a minute, 30 new conversations an hour) in `018`.
+- **System theme.** The app follows the device's light or dark setting by default; explicit choices are respected. Landing, sign-in and app-lock screens follow the theme.
+- **Tests.** 242 tests (was 111). New: the real migrations run on an in-process Postgres and attacked as several users (`tests/security/rls.test.ts`), API route security tests, device linking, flood limits, theme default.
+- **Documentation.** Every page brought up to date; new [Maintainer guide](MAINTAINER_GUIDE.md).
+
 **Platform release: design system, profiles, chat polish, groups, threads, notifications, communities, privacy and calls.** Needs migrations `011` to `015` and has **not been run against a live Supabase project**; see [Roadmap](ROADMAP.md#what-is-verified).
 
 - **Design system.** Theme tokens with dark, light and system themes; accessible dialog, toast, avatar, badge, switch, skeleton, empty and error states; Ctrl+K quick switcher and shortcuts list; skip link, landmarks, offline banner; the animation classes the app already used now actually animate.

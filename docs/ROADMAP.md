@@ -13,10 +13,13 @@ What is done, what is planned, and what is known to be missing. Each phase ships
 | Real failure reasons on the sign-in error screen | PR #5 |
 | Documentation rewrite | PR #7 |
 | Dead-code cleanup: removed the obsolete invite feature (API, admin panel, store, tests), unused components and helpers | this cleanup |
+| Settings area, Chat/Groups split, username-only people search | PR #13 |
+| Unified design system and 3D landing page | PR #13 |
+| Security hardening, several devices, flood protection, system theme, documentation | September 2026 (`SECURITY_AUDIT.md`) |
 
 ## What is verified
 
-Everything in the **platform release** (see [Changelog](CHANGELOG.md)) passes type checking, lint, the production build and 111 unit tests, and the interface was exercised in local demo mode (themes, quick switcher, rich text, threads, notification menus, privacy settings). It has **not** been run against a live Supabase project: migrations `011` to `015`, real-time delivery, receipts, presence, communities, role enforcement, key rotation on departure, blocking, disappearing messages and calls are all written but untested end to end. Treat the first deployment as a test: apply the migrations in a staging project and walk through the checklist in [Testing](TESTING.md).
+Everything passes type checking, lint, the production build, `npm audit` and 242 automated tests. The **database rules** (migrations `001` to `018`) are tested by running the real migrations on an in-process Postgres and attacking them as different users. The interface was exercised in local demo mode. **Not verified against a live Supabase project:** real sign-in and email, real Realtime delivery and Realtime Authorization, real Storage, communities end to end, key rotation on departure, disappearing messages, calls, and linking a second device in two real browsers. Migrations `013` to `017` were applied by the project owner to a live project in September 2026 and the presence of `017`'s objects was confirmed with check queries (`018` was added afterwards and its application has not been confirmed here); the behaviours above were not walked through. Use the checklists in [Testing](TESTING.md).
 
 ## Planned next
 
@@ -24,29 +27,33 @@ Everything in the **platform release** (see [Changelog](CHANGELOG.md)) passes ty
 - Group calls and screen sharing
 - Second-device linking by QR code
 - Stickers and GIFs, scheduled messages, custom community roles, channel categories, public community discovery
-- Server-enforced authorization for presence, typing and call channels (Realtime Authorization)
+- Per-conversation presence instead of one global presence channel
+- Per-device keys with fan-out encryption (would replace the shared account key; see [ADR 010](DECISIONS.md#adr-010-several-devices-share-one-account-key))
+- Forward secrecy (a Double-Ratchet-style protocol; a redesign)
+- A nonce-based Content-Security-Policy so inline scripts can be forbidden
+- Encrypt the stored key at rest in the browser
 - Account deletion and a full data export that includes decrypted history
-- Move Argon2id and key generation to a Web Worker; Content Security Policy; CI workflow
+- Move Argon2id and key generation to a Web Worker; CI workflow
 
 ## Security and hardening backlog
 
-From [Security](SECURITY.md#known-gaps), in priority order:
+Fixed in September 2026 (see [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md)): profile email and phone exposure, the group-members authorization, the rate limiter and its client address, the Content-Security-Policy, Realtime channel authorization, and the vulnerabilities listed there. What remains, from [Security](SECURITY.md#known-gaps), in priority order:
 
-1. Stop exposing profile email and phone to other signed-in users
-2. Add an explicit authorization check to `DELETE /api/groups/members`; tighten who can add members
-3. Fix the rate limiter (sliding window, trustworthy client address)
-4. Add a Content Security Policy
-5. Move Argon2id and key generation to a Web Worker
-6. Put security headers on redirects and error responses
-7. Drop the unused `invites` table and `consume_invite()` function in a migration
-8. Add a CI workflow that runs type check, lint, tests and build on every pull request
-9. Add an admin audit log
+1. Rotate the credentials found in git history (owner action, `SECURITY_AUDIT.md` section 6)
+2. Add a CI workflow that runs type check, lint, tests, audit and build on every pull request
+3. Run RLS tests against a real Supabase project (pgTAP or the Supabase CLI)
+4. Move Argon2id and key generation to a Web Worker
+5. Put security headers on redirects and error responses
+6. Drop the unused `invites` table and `consume_invite()` function in a migration
+7. Add an admin audit log table
+8. Rate limit direct Storage uploads
+9. Tighten `profiles` reads to contacts (touches every screen that shows a name)
 
 ## Known product gaps
 
 - Pins and stars are stored only in the browser
 - "Mark identity verified" in the conversation inspector is not connected
 - The admin dashboard's per-user device count is a fixed `1`
-- No real multi-device support
+- Devices share one key: losing one exposes the account, and "revoke device" cannot take the key back
 - The landing page contains a static example conversation with made-up people; it should become a neutral illustration
 - Live behaviour (Realtime, live row level security, email) has not been verified by automated tests; use the [manual checklist](TESTING.md#manual-checklist)

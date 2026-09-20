@@ -8,6 +8,7 @@
 > - Migrations `007`, `008` and `009` exist, and there are now 64 automated tests (this report says 68; the invite tests were removed with the invite feature).
 > - Google sign-in was confirmed working against a real Supabase project by the project owner. **Everything else listed as unverified in section 4 is still unverified** by automated means; use the [manual checklist](TESTING.md#manual-checklist).
 > - The old numbered documentation files this report mentions were replaced; see [docs/README](README.md).
+> - A later security review (September 2026) found and fixed further vulnerabilities in the database rules, API routes and headers: see [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md). Statements below that the security posture was sound reflect what was known at the time.
 
 This replaces the previous version of this file, which claimed every area was
 "WORKING" across the board. That was false. This document is the result of a

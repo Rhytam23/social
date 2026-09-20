@@ -6,12 +6,13 @@ Follow [Setup](SETUP.md). You can work on most of the UI without a backend in de
 
 ## Workflow
 
-1. Branch from `main`: `feat/...`, `fix/...`, `docs/...`.
+1. Branch from `main`: `feat/...`, `fix/...`, `docs/...` (the maintainers also use one long-running `test-branch` that is merged into `main` by a pull request the owner merges).
 2. Make the smallest change that solves the problem. Do not mix unrelated cleanup into a feature.
 3. Run the checks (all four must pass):
    ```bash
    npx tsc --noEmit && npm run lint && npm test && npm run build
    ```
+   and `npm audit` should report nothing new.
 4. Open a pull request against `main`. In the description say what changed and why, what you tested, and **what you could not verify**. Never claim something was tested when it was not.
 5. Update the documentation in the same pull request (see below).
 
@@ -21,7 +22,7 @@ Commit messages follow the conventional style already in the history: `feat(auth
 
 - Add a new numbered file in `database/migrations/`. Never edit a migration that has been applied anywhere.
 - Make it safe to run twice (`IF NOT EXISTS`, `CREATE OR REPLACE`, `DROP POLICY IF EXISTS` before `CREATE POLICY`).
-- Update `types/database.ts` to match, and add or adjust tests in `tests/security/`.
+- Update `types/database.ts` to match, and add or adjust tests in `tests/security/`. **Add a case to `tests/security/rls.test.ts`**: it runs every migration on a real Postgres, so your new rule is proven to hold (and to fail before your migration, if it is a fix).
 - Update [Database](DATABASE.md) and the migration table in [Setup](SETUP.md).
 - Remember `handle_new_user()` is replaced by several migrations; the newest one wins.
 
@@ -35,7 +36,7 @@ Read [Security](SECURITY.md#rules-for-contributors). In short: no plaintext mess
 - Match the surrounding style; keep comments for non-obvious reasons only.
 - Client state changes go through `ChatStore`; do not mutate `this.state` without going through `notify()` (see [Architecture](ARCHITECTURE.md#state-management)).
 - New environment variables must be added to `.env.example` and documented.
-- New API routes need authentication, a rate limit, and a test in `tests/integration/apiRoutes.test.ts`.
+- New API routes must use `lib/api/security.ts` (authentication, UUID validation, size caps, per-address and per-account limits, Origin check, generic errors), and need tests in `tests/integration/apiRoutes.test.ts` and `tests/security/apiSecurity.test.ts`. Route files may export only HTTP handlers.
 
 ## Documentation
 
@@ -59,4 +60,5 @@ Write what the code does, not what it is meant to do. If something is unverified
 - Read the relevant code before changing it; do not trust documentation over the source.
 - Run the four checks after every change.
 - Do not commit or push unless asked, and do not skip hooks.
+- Never claim the application is "completely secure" or that something is tested when it was not.
 - Never log or print decrypted message content, keys or secrets.
