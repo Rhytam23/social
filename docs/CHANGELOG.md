@@ -4,6 +4,19 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Production audit: design, performance and search (September 2026).** Migration `020` is optional.
+
+- **Landing page rebuilt as plain HTML.** The home page is now a server component that says only what the product does today: no invented conversations or screenshots, no 3D scene, no decorative effects. Buttons are real links to `/login` and `/signup`. Removed `three`, `@types/three` and the scene code. The old copy that said "one device per account" was wrong since multi-device linking and is fixed.
+- **Smaller first load.** The chat application (crypto, realtime, every screen) is a separate chunk, loaded only for visitors with a session (`components/app/HomeGate.tsx`, `AppRoot.tsx`). First load JS for `/` went from 433 kB to 108 kB, and for sign-in and sign-up from 362 kB to 182 kB. Real HTML for the landing page also means search engines and link previews can read it (before, the server sent only a loading spinner).
+- **Search and sharing.** `lib/site.ts` (address from `NEXT_PUBLIC_SITE_URL`, or the Vercel production domain), unique titles and descriptions per page, canonical links, Open Graph and Twitter cards with a generated preview image, `robots.txt`, `sitemap.xml`, web manifest, favicon, JSON-LD (`WebApplication`, no ratings or prices), `noindex` for sign-in, app, admin and API pages, `lang` and colour-scheme hints.
+- **One request instead of N for sidebar previews.** Loading the conversation list used one `/api/messages` request per conversation. `GET /api/messages/latest` and migration `020` (`get_latest_messages`) answer for all of them in a single query; without `020` the app falls back to the old behaviour.
+- **Fewer server round trips.** Middleware no longer asks Supabase Auth about the caller on public pages and API routes (each API route verifies the caller itself); the sitemap, robots, manifest and preview image bypass it entirely.
+- **Analytics only where it exists.** The Vercel analytics script is now loaded only on Vercel, so self-hosted and local production builds no longer log a failed request.
+- **Realtime filter** is dropped above 100 conversations (Supabase's limit for that filter); row level security still scopes the feed.
+- **Privacy and Terms rewritten as server pages.** They said the app used the Signal Double Ratchet (it does not), that it was "zero-knowledge", and that accounts could be deleted from Settings (there is no such feature). Now accurate.
+- **Interface clean-up.** Removed the film-grain overlay, radial glows, gradients on the composer, profile header and call controls, backdrop blur on headers and the mobile bar, the pinging recording dot and the always-on floating animation; text glyphs (checkmarks, crosses, a phone symbol) replaced by the icon set; avatars load lazily. Sign-in button text no longer says "Unlock Keys" and "Generate Keys". The `/design-system` preview pages answer 404 in production builds.
+- **Tests.** 306 (landing scene tests removed; new tests for the site address, the sign-in hint, the latest-message query and route).
+
 **Security hardening, multiple devices, flood protection and system theme (September 2026).** Needs migrations `017` and `018`. Full findings in [`SECURITY_AUDIT.md`](../SECURITY_AUDIT.md).
 
 - **Security fixes (`017`).** Blocking now works (the old rule could not see the `blocks` table); only group admins can create group key envelopes (any member could plant a key); a conversation's creator can no longer re-add themselves as owner; message and receipt identity columns cannot be rewritten; private Realtime channels with policies for typing and calls; avatar URLs restricted; storage buckets limited to 25 MB of `application/octet-stream`; invite lifetime and uses capped.

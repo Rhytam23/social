@@ -13,6 +13,7 @@ import {
   IconStar,
   IconTrash,
   IconThread,
+  IconX,
 } from '../ui/icons';
 import { VoiceMessagePreview } from './VoiceMessagePreview';
 import { Avatar } from '../ui/avatar';
@@ -404,15 +405,17 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
           <button
             onClick={() => setPreviewImage(null)}
-            className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white bg-slate-800 rounded-full"
+            aria-label="Close preview"
+            className="absolute top-4 right-4 p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] bg-[var(--surface-2)] rounded-full"
           >
-            ✕
+            <IconX className="w-4 h-4" />
           </button>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={previewImage}
             alt="Attachment preview"
-            className="max-w-full max-h-[85vh] rounded-2xl border border-slate-800 shadow-2xl"
+            decoding="async"
+            className="max-w-full max-h-[85vh] rounded-xl border border-[var(--border-strong)] shadow-[var(--shadow-pop)]"
           />
         </div>
       )}

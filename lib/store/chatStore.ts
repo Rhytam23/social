@@ -7,7 +7,7 @@ import { isGroupRole } from '../groups/roles';
 import { extractMentionIds } from '../notifications/rules';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from '../messaging/messagingCrypto';
-import { fetchConversations, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
+import { fetchConversations, fetchLatestMessages, fetchMessageHistory, sendEnvelope, type ConversationSummary, type DecryptedMessageRow } from '../messaging/messageService';
 import { uploadEncryptedAttachment, downloadAndDecryptAttachment, MAX_ATTACHMENT_BYTES } from '../messaging/attachments';
 import type { MessageEnvelope, CallOutcome } from '../messaging/envelope';
 import { envelopeToDisplay, isHiddenEnvelope, formatFileSize, formatDuration } from '../messaging/envelopeDisplay';
@@ -395,26 +395,33 @@ export class ChatStore {
       this.notify();
     }
 
-    // Best-effort last-message preview for each conversation.
-    await Promise.all(
-      summaries.map(async (s) => {
-        try {
-          const history = await fetchMessageHistory(this.crypto!, s, 1);
-          const last = history[history.length - 1];
-          if (!last) return;
-          const lastVisible = [...history].reverse().find((m) => !isHiddenEnvelope(m.envelope));
-          if (!lastVisible) return;
-          const { snippet } = envelopeToDisplay(lastVisible.envelope, lastVisible.decryptError);
-          this.state.conversations = this.state.conversations.map((c) =>
-            c.id === s.id
-              ? { ...c, lastMessage: { snippet, timestamp: new Date(lastVisible.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) } }
-              : c
-          );
-        } catch {
-          // Preview is best-effort only; leave the default snippet.
-        }
-      })
-    );
+    // Best-effort last-message preview for each conversation: one request for all of them, or (until
+    // migration 020 is applied) one per conversation.
+    const applyPreview = (conversationId: string, message: DecryptedMessageRow | undefined) => {
+      if (!message || isHiddenEnvelope(message.envelope)) return;
+      const { snippet } = envelopeToDisplay(message.envelope, message.decryptError);
+      const timestamp = new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      this.state.conversations = this.state.conversations.map((c) => (c.id === conversationId ? { ...c, lastMessage: { snippet, timestamp } } : c));
+    };
+    try {
+      const latest = await fetchLatestMessages(this.crypto!, summaries);
+      if (latest) {
+        for (const [conversationId, message] of latest) applyPreview(conversationId, message);
+      } else {
+        await Promise.all(
+          summaries.map(async (s) => {
+            try {
+              const history = await fetchMessageHistory(this.crypto!, s, 1);
+              applyPreview(s.id, history[history.length - 1]);
+            } catch {
+              // Preview is best-effort only; leave the default snippet.
+            }
+          })
+        );
+      }
+    } catch {
+      // Preview is best-effort only; leave the default snippet.
+    }
     this.notify();
     void this.loadUnreadCounts();
   }

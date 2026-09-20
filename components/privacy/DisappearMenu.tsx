@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import { IconCheck } from '../ui/icons';
 
 const DAY = 86400;
 const OPTIONS: { label: string; seconds: number | null }[] = [
@@ -71,7 +72,7 @@ export const DisappearMenu: React.FC<{ current?: number; onChange: (seconds: num
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)]"
             >
               {o.label}
-              {(current ?? null) === o.seconds && <span className="text-[var(--accent-text)]">✓</span>}
+              {(current ?? null) === o.seconds && <IconCheck className="w-3.5 h-3.5 text-[var(--accent-text)]" />}
             </button>
           ))}
         </div>

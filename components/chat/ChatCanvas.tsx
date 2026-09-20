@@ -146,7 +146,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
     >
       {/* Drag Over Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-40 bg-emerald-950/80 backdrop-blur-xs border-2 border-dashed border-emerald-400 flex flex-col items-center justify-center text-emerald-300 font-sans gap-2">
+        <div className="absolute inset-0 z-40 bg-[var(--surface-1)]/90 border-2 border-dashed border-[var(--accent-primary)] flex flex-col items-center justify-center text-[var(--accent-text)] font-sans gap-2">
           <IconLock className="w-8 h-8 text-emerald-400" />
           <span className="font-bold text-base">Drop File to Encrypt & Attach</span>
           <span className="text-xs text-emerald-400">File will be encrypted client-side before upload</span>
@@ -154,7 +154,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
       )}
 
       {/* Header Bar */}
-      <div className="h-14 bg-[var(--surface-1)]/90 backdrop-blur-md border-b border-[var(--border-subtle)] px-4 sm:px-6 flex items-center justify-between shrink-0 z-10">
+      <div className="h-14 bg-[var(--surface-1)] border-b border-[var(--border-subtle)] px-4 sm:px-6 flex items-center justify-between shrink-0 z-10">
         <div className="flex items-center gap-3 truncate">
           {onBackToList && (
             <button
@@ -310,7 +310,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
           <div className="py-1.5 px-3 my-2 bg-slate-900/60 border border-slate-800/80 rounded-full text-xs text-center flex items-center justify-center gap-2 max-w-fit mx-auto shadow-xs text-slate-400">
             <IconLock className="w-3.5 h-3.5 text-emerald-400" />
             <span className="text-[11px] font-medium text-slate-300">
-              End-to-End Encrypted via {conversation.type === 'group' ? 'Per-Device Group Key Distribution' : 'X25519 Authenticated Encryption'}
+              End-to-end encrypted with {conversation.type === 'group' ? 'a shared group key' : 'X25519 and XSalsa20-Poly1305'}
             </span>
           </div>
 
@@ -330,7 +330,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
             <div className="my-auto text-center text-xs text-slate-500 p-12">
               {inChatSearchQuery
                 ? `No messages in this chat match "${inChatSearchQuery}"`
-                : 'No messages in this conversation yet. Send a message to establish session ratchet.'}
+                : 'No messages yet. Anything you send is encrypted on your device first.'}
             </div>
           ) : (
             displayedMessages.map((msg, index) => {
@@ -388,7 +388,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
       {showScrollBottomBtn && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-20 right-6 p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white shadow-xl border border-slate-700 transition-all z-20"
+          className="absolute bottom-20 right-6 p-2.5 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] shadow-[var(--shadow-2)] border border-[var(--border-strong)] transition-all z-20"
           title="Scroll to bottom"
         >
           <IconChevronDown className="w-4 h-4" />

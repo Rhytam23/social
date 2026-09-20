@@ -226,7 +226,7 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
   const canSend = (content.trim().length > 0 || selectedFile !== null || editingMessage !== undefined) && !disabled;
 
   return (
-    <div className="p-3 sm:p-4 bg-gradient-to-t from-[var(--canvas-bg)] to-transparent flex flex-col gap-2 font-sans shrink-0">
+    <div className="p-3 sm:p-4 bg-[var(--canvas-bg)] flex flex-col gap-2 font-sans shrink-0">
       <div className="panel p-2.5 flex flex-col gap-2 transition-[border-color,box-shadow] focus-within:border-[var(--accent-line)] focus-within:shadow-[0_0_0_3px_var(--accent-subtle)]">
 
         {composerError && (
@@ -302,11 +302,8 @@ export const MessageComposer: React.FC<MessageComposerProps> = ({
         {isRecordingVoice ? (
           <div className="flex items-center justify-between px-3 py-2 bg-rose-950/30 border border-rose-500/30 rounded-xl text-xs">
             <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500"></span>
-              </span>
-              <span className="font-semibold text-rose-300">Recording Encrypted Voice Note...</span>
+              <span className="inline-flex rounded-full h-2.5 w-2.5 bg-rose-500" aria-hidden="true"></span>
+              <span className="font-semibold text-rose-300">Recording voice note</span>
               <span className="font-mono text-slate-300">{Math.floor(recordingSeconds / 60)}:{(recordingSeconds % 60).toString().padStart(2, '0')}</span>
             </div>
 

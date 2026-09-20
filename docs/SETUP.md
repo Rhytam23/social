@@ -18,6 +18,8 @@ cp .env.example .env.local
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://<project-ref>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+# Production only: the public address of the site (canonical links, sitemap, link previews)
+# NEXT_PUBLIC_SITE_URL=https://chat.example.com
 SUPABASE_SERVICE_ROLE_KEY=<service_role key>
 
 # Optional: shared rate limiting across several server instances
@@ -55,8 +57,9 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 017 | `017_security_hardening.sql` | Security fixes: blocking that works, group key envelopes only from admins, membership and message integrity guards, storage limits, realtime authorization. **Required for the security fixes to take effect.** |
 | 018 | `018_devices_and_flood_limits.sql` | At most 3 registered device identities per account, and per-account write limits (messages, reactions, new conversations) enforced in the database. |
 | 019 | `019_admin_logs.sql` | The admin error log and admin activity log (Admin, Errors and Activity), so admins can see problems without Supabase access. |
+| 020 | `020_latest_messages.sql` | One query for the newest message of every conversation (sidebar previews). Optional: without it the app makes one request per conversation. |
 
-Migrations 011 to 019 are safe to re-run. **Each one needs the ones before it**: running `017` on a project that is missing `013` fails with `function public.is_group_admin(uuid) does not exist`. Run them strictly in order, once each. The app keeps working if some late ones are missing: each feature that needs one says so instead of failing, but **`017` and `018` carry security fixes and should always be applied.**
+Migrations 011 to 020 are safe to re-run. **Each one needs the ones before it**: running `017` on a project that is missing `013` fails with `function public.is_group_admin(uuid) does not exist`. Run them strictly in order, once each. The app keeps working if some late ones are missing: each feature that needs one says so instead of failing, but **`017` and `018` carry security fixes and should always be applied.**
 
 To confirm the later migrations took effect, run this read-only check (all `true`):
 
@@ -71,7 +74,8 @@ select
   exists (select 1 from pg_trigger where tgname = 'trigger_limit_devices_per_user') as m018_device_cap,
   exists (select 1 from pg_trigger where tgname = 'trigger_rate_messages')      as m018_write_limits,
   to_regclass('public.error_logs') is not null                                  as m019_error_logs,
-  to_regclass('public.admin_audit_log') is not null                             as m019_audit_log;
+  to_regclass('public.admin_audit_log') is not null                             as m019_audit_log,
+  to_regprocedure('public.get_latest_messages(uuid[])') is not null            as m020_latest_messages;
 ```
 
 **Do not re-run old migrations on an existing project.** `002` and `003` are not re-runnable: `002` refers to a column that `003` removes, so running it again fails with `column "role" does not exist`. If you are unsure what has been applied, run this read-only check and only run what is missing:

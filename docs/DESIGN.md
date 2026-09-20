@@ -37,18 +37,14 @@ The living style guide is at `/design-system` (development only).
 
 ## Motion and accessibility
 
-All motion uses the tokens above and is switched off by the `prefers-reduced-motion` rule in `globals.css`. The landing scene checks the same setting and does not start at all. Focus rings, labels and contrast are part of the primitives.
+All motion uses the tokens above and is switched off by the `prefers-reduced-motion` rule in `globals.css`. Focus rings, labels and contrast are part of the primitives.
 
 ## Landing page
 
-[`components/landing/`](../components/landing). A scroll-driven story (messages, threads, communities, then "Enter app") over a WebGL scene.
+[`components/landing/Landing.tsx`](../components/landing/Landing.tsx) is a server component: plain HTML with no client JavaScript, so it paints at once and search engines read it. It says only what the product does today (how messages are protected, what the server can see, the feature list, the known limits) and shows no invented conversations or screenshots. The buttons are links to `/login` and `/signup`, so they work before any script loads. Privacy and Terms use [`LegalPage.tsx`](../components/landing/LegalPage.tsx).
 
-- **One source of content.** [`sceneContent.ts`](../components/landing/sceneContent.ts) lists the sample objects (a message, a profile, a channel list, an envelope showing the plaintext and the ciphertext the server stores) and where each sits in every chapter. The WebGL scene ([`HeroScene.tsx`](../components/landing/HeroScene.tsx), textures from [`paintCards.ts`](../components/landing/paintCards.ts)) and the DOM version ([`SceneCards.tsx`](../components/landing/SceneCards.tsx)) both read it. Everything shown is sample content.
-- **Plain three.js**, not React Three Fiber (its peer range does not accept the React version in this project). It loads through `next/dynamic` from the landing page only, so the signed-in app never downloads it.
-- **Progressive.** The first paint is the DOM version, which is also the poster while the scene loads. The scene starts only when `shouldRender3D` ([`sceneMath.ts`](../components/landing/sceneMath.ts)) says the device can take it: not with reduced motion, data saver, no WebGL, 2 GB of memory or fewer, or 2 cores or fewer. Those visitors get the same story as still compositions.
-- **Self-protecting.** The scene renders only while visible, caps pixel ratio at 1.5, and measures its own frame time: if it is slow it drops shadows and resolution, and if that is not enough it hands over to the still version. A lost WebGL context does the same.
-- **Preview.** `/design-system/landing` shows the landing page without a Supabase project (`?still=1` forces the still version). Development only.
+[`HomeGate`](../components/app/HomeGate.tsx) wraps it. A pre-paint script ([`lib/ui/themeScript.ts`](../lib/ui/themeScript.ts)) sets `data-session` on `<html>` when a Supabase sign-in cookie exists; CSS then hides the landing page and the gate loads the chat application ([`AppRoot`](../components/app/AppRoot.tsx)) on demand. A stale cookie is harmless: the application checks with the server and shows the landing page again.
 
-The page and the sign-in screens follow the theme. The floating product cards are deliberately pinned to the dark palette (`data-theme="dark"` on the stage in `SceneCards.tsx`; the WebGL cards use fixed colours in `paintCards.ts`) because they are mock product screens. The voice and video call overlay is also always dark.
+Earlier versions used a scroll-driven three.js scene with illustrative message cards. It was removed: it cost roughly 325 kB of JavaScript on the first visit, depended on made-up content, and hid the real page text from anything that does not run scripts.
 
-Signed-in visitors never see the landing page: `/` opens the app directly. Everyone else reaches the existing sign-in and sign-up screens from "Enter app" and "Create account".
+Signed-in visitors do not see the landing page: `/` opens the app directly.

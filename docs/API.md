@@ -52,6 +52,11 @@ Body `{ groupId, userId, role }` where role is `owner`, `admin` or `member`. Own
 
 ## Messages
 
+### `GET /api/messages/latest` (120/min per address, 60/min per account)
+The newest message (ciphertext, same fields as the list below) of every conversation you are an active member of, in one request. The sidebar uses it for previews instead of one request per conversation. The conversation list comes from your own memberships, never from the request.
+- `200` array, one row per conversation that has messages.
+- `501` migration `020` is not applied (the app then falls back to one request per conversation) · `401` signed out.
+
 ### `GET /api/messages?conversationId=&limit=&before=` (120/min)
 History for an active member. `limit` defaults to 100 (1 to 200). `before` is an ISO timestamp; only older messages are returned.
 - `200` array, **oldest first**, of `{ id, conversation_id, sender_id, ciphertext, nonce, encryption_version, reply_to_message_id, created_at, edited_at, deleted_at }`.

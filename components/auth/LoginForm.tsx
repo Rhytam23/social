@@ -3,9 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import { AuthLayout } from './AuthLayout';
 import { createClient } from '../../lib/supabase/client';
-import { getChatStore } from '../../lib/store/chatStore';
 import { isSupabaseConfigured as checkSupabaseConfigured } from '../../lib/supabase/env';
-import { IconCheck, IconLock } from '../ui/icons';
+import { IconCheck, IconLock, IconX } from '../ui/icons';
 import { Button } from '../ui/button';
 
 import Link from 'next/link';
@@ -212,7 +211,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           }
         }
       } else {
-        // Local mode fallback
+        // Local mode fallback (development only). The store is loaded on demand so real sign-in never pays for it.
+        const { getChatStore } = await import('../../lib/store/chatStore');
         const store = getChatStore();
         const users = store.getState().allUsers;
         const matched = users.find(
@@ -290,7 +290,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
     }
   };
 
-  const handleQuickDemoLogin = (userId: string, userEmail: string) => {
+  const handleQuickDemoLogin = async (userId: string, userEmail: string) => {
+    const { getChatStore } = await import('../../lib/store/chatStore');
     const store = getChatStore();
     store.switchDemoUser(userId);
     if (onLoginSuccess) onLoginSuccess(userEmail);
@@ -442,7 +443,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-3.5">
           {errorMsg && (
             <div role="alert" className="p-3 bg-rose-500/10 border border-rose-500/30 text-rose-400 rounded-xl leading-relaxed">
-              ✕ {errorMsg}
+              <span className="inline-flex items-start gap-2"><IconX className="w-3.5 h-3.5 mt-0.5 shrink-0" />{errorMsg}</span>
             </div>
           )}
 
@@ -543,7 +544,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
                       key={rule.id}
                       className={`text-[11px] flex items-center gap-1.5 ${met ? 'text-emerald-400' : 'text-slate-500'}`}
                     >
-                      <span aria-hidden="true">{met ? '✓' : '○'}</span>
+                      <span aria-hidden="true" className="w-3.5 h-3.5 inline-flex items-center justify-center">{met ? <IconCheck className="w-3 h-3" /> : <span className="w-1.5 h-1.5 rounded-full border border-current" />}</span>
                       <span>{rule.label}</span>
                     </li>
                   );
@@ -577,11 +578,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <span>
               {isSubmitting
                 ? tab === 'signup'
-                  ? 'Creating Cryptographic Identity...'
-                  : 'Unlocking Key Store...'
+                  ? 'Creating your account'
+                  : 'Signing in'
                 : tab === 'signup'
-                ? 'Create Account & Generate Keys'
-                : 'Sign In & Unlock Keys'}
+                ? 'Create account'
+                : 'Sign in'}
             </span>
           </Button>
 

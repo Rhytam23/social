@@ -12,18 +12,10 @@ export interface AuthLayoutProps {
 /** The frame for every sign-in, sign-up and password screen. */
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle, currentStep, totalSteps }) => {
   return (
-    <div
-      className="grain relative min-h-screen bg-[var(--canvas-bg)] text-[var(--text-primary)] flex flex-col items-center justify-center p-4 sm:p-6 font-sans"
-    >
-      <div
-        aria-hidden="true"
-        className="pointer-events-none fixed inset-0"
-        style={{ background: 'radial-gradient(48rem 26rem at 50% -6%, rgba(124,195,232,0.09), transparent 62%)' }}
-      />
-
+    <div className="relative min-h-screen bg-[var(--canvas-bg)] text-[var(--text-primary)] flex flex-col items-center justify-center p-4 sm:p-6 font-sans">
       <div className="relative z-10 w-full max-w-md flex flex-col gap-6 anim-slide-up">
         <div className="flex flex-col items-center text-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[var(--surface-2)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--accent-text)] shadow-[var(--edge-light),var(--shadow-2)]">
+          <div className="w-11 h-11 rounded-xl bg-[var(--surface-2)] border border-[var(--border-strong)] flex items-center justify-center text-[var(--accent-text)] ">
             <IconLock className="w-5 h-5" />
           </div>
           <div className="flex flex-col gap-1">

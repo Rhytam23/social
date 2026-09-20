@@ -11,6 +11,7 @@ import {
   IconLock,
   IconMobile,
   IconShield,
+  IconX,
 } from '../ui/icons';
 import { createClient } from '../../lib/supabase/client';
 import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
@@ -305,7 +306,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {errorMessage && (
         <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium rounded-xl flex items-center gap-2 mb-4">
-          <span>✕ {errorMessage}</span>
+          <IconX className="w-3.5 h-3.5 shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
@@ -317,7 +319,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className="relative w-14 h-14 rounded-2xl bg-emerald-600 text-white font-bold flex items-center justify-center text-lg shadow-md shrink-0 cursor-pointer overflow-hidden group">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                  <img src={avatarUrl} alt={displayName} decoding="async" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 ) : (
                   displayName.slice(0, 2).toUpperCase() || 'U'
                 )}

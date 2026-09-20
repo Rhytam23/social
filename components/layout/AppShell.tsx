@@ -24,7 +24,7 @@ import { toast } from '../../lib/ui/toastStore';
 import { UserProfileModal } from '../profile/UserProfileModal';
 import { GroupSpaceView } from '../groups/GroupSpaceView';
 import { ForwardMessageModal } from '../messages/ForwardMessageModal';
-import { IconLock, IconPlus } from '../ui/icons';
+import { IconLock, IconPlus, IconX } from '../ui/icons';
 import { Button } from '../ui/button';
 
 export interface AppShellProps {
@@ -511,14 +511,15 @@ export const AppShell: React.FC<AppShellProps> = ({
 
               {/* Context Inspector Deck (Desktop slide-over) */}
               {showInspector && (
-                <div className="absolute top-0 right-0 bottom-0 w-80 lg:w-96 bg-[var(--surface-1)] border-l border-[var(--border-subtle)] shadow-2xl z-30 flex flex-col animate-in slide-in-from-right duration-200">
+                <div className="absolute top-0 right-0 bottom-0 w-80 lg:w-96 bg-[var(--surface-1)] border-l border-[var(--border-subtle)] shadow-[var(--shadow-pop)] z-30 flex flex-col animate-in slide-in-from-right duration-200">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] bg-slate-950/40">
                     <span className="text-xs font-bold text-slate-100">Conversation Details</span>
                     <button
                       onClick={() => setShowInspector(false)}
-                      className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                      aria-label="Close details"
+                      className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-2)]"
                     >
-                      ✕
+                      <IconX className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="flex-1 overflow-y-auto">

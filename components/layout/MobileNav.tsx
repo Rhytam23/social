@@ -27,7 +27,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({ activeCategory, onSelectCa
   return (
     <nav
       aria-label="Primary"
-      className="md:hidden fixed bottom-0 left-0 right-0 min-h-16 bg-[var(--surface-1)]/95 backdrop-blur-md border-t border-[var(--border-subtle)] flex items-center justify-around z-30 font-sans px-2 safe-bottom"
+      className="md:hidden fixed bottom-0 left-0 right-0 min-h-16 bg-[var(--surface-1)] border-t border-[var(--border-subtle)] flex items-center justify-around z-30 font-sans px-2 safe-bottom"
     >
       {navItems.map((item) => {
         const isActive = activeCategory === item.key;

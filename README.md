@@ -38,7 +38,7 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 - Profile photo upload, notification permission, key backup and device list
 - Admin dashboard: roles, reports, the error log and admin activity
 
-**Platform features** (need migrations 011 to 019; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
+**Platform features** (need migrations 011 to 020; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
 - Themes: **follows the device's light or dark setting by default**, or choose Dark or Light; quick switcher (Ctrl+K), keyboard shortcuts, accessible dialogs
 - Profiles with bio, pronouns and time zone; presence statuses; typing indicators; read receipts
 - Group roles, admin-only posting, threads, saved messages, @mentions, message formatting
@@ -68,7 +68,7 @@ cp .env.example .env.local     # then fill in the three Supabase values
 ```
 
 1. Create a Supabase project and copy the **Project URL**, **anon key** and **service_role key** (Project Settings → API) into `.env.local`.
-2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in strict numeric order** (`001` to `019`). Each needs the ones before it. `017` and `018` carry security fixes.
+2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in strict numeric order** (`001` to `020`). Each needs the ones before it. `017` and `018` carry security fixes; `020` is a performance improvement the app works without.
 3. In Supabase → Authentication, turn on **Confirm email** and add `http://localhost:3000/auth/confirm` to the Redirect URLs. Make sure Realtime Authorization is set up so typing indicators and calls work (see [Setup](docs/SETUP.md#6-verify-the-storage-buckets-and-realtime)).
 4. Start the app:
 
@@ -136,7 +136,7 @@ components/   UI by area: auth, chat, messages, groups, community, calls, settin
 crypto/       Browser encryption: keys, 1:1, groups, attachments, backup (libsodium, WebCrypto)
 lib/          store/ (ChatStore), messaging/ (crypto orchestration, envelopes), api/ (shared route security helpers),
               rate-limit/, supabase/, auth/, calls/, realtime/, ui/ (theme)
-database/     SQL migrations 001-019: the only definition of the schema
+database/     SQL migrations 001-020: the only definition of the schema
 docs/         Documentation (start at docs/README.md or docs/MAINTAINER_GUIDE.md)
 hooks/        React hooks
 tests/        Vitest suites (tests/security runs the real migrations on an in-process Postgres)
@@ -151,13 +151,13 @@ types/        Shared TypeScript types, database types
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-304 automated tests (at the time of writing) cover the encryption layer, the database security rules (the real migrations run on an in-process Postgres and attacked as several users), API route security, device linking, flood limits, the message store and the UI logic. They do **not** cover the UI in a real browser, two real browsers linking a device, or anything that needs a live Supabase project (Realtime delivery, real email, Realtime Authorization). [`docs/TESTING.md`](docs/TESTING.md) has manual checklists for those.
+306 automated tests (at the time of writing) cover the encryption layer, the database security rules (the real migrations run on an in-process Postgres and attacked as several users), API route security, device linking, flood limits, the message store and the UI logic. They do **not** cover the UI in a real browser, two real browsers linking a device, or anything that needs a live Supabase project (Realtime delivery, real email, Realtime Authorization). [`docs/TESTING.md`](docs/TESTING.md) has manual checklists for those.
 
 ---
 
 ## Deployment
 
-Deploy to Vercel (or any Node host): set the three Supabase variables (mark the service-role key as sensitive), add your production URL to Supabase's Site URL and Redirect URLs, and redeploy after any `NEXT_PUBLIC_*` change. Put a firewall in front for abuse protection: the app's own limits stop cheap floods, not a volumetric DDoS. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [Security](docs/SECURITY.md#denial-of-service).
+Deploy to Vercel (or any Node host): set the three Supabase variables (mark the service-role key as sensitive) and `NEXT_PUBLIC_SITE_URL` (your production address, used for canonical links, the sitemap and link previews), add your production URL to Supabase's Site URL and Redirect URLs, and redeploy after any `NEXT_PUBLIC_*` change. Put a firewall in front for abuse protection: the app's own limits stop cheap floods, not a volumetric DDoS. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [Security](docs/SECURITY.md#denial-of-service).
 
 ---
 

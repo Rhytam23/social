@@ -1,11 +1,6 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import React from 'react';
-import { useRouter } from 'next/navigation';
-import { LoginForm } from '../../../components/auth/LoginForm';
-
+/** Old address for sign-up. */
 export default function RegisterPage() {
-  const router = useRouter();
-
-  return <LoginForm initialTab="signup" onLoginSuccess={() => router.push('/')} />;
+  redirect('/signup');
 }

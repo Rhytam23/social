@@ -294,7 +294,7 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
               </Button>
               {saved && <span role="status" className="text-xs text-[var(--accent-text)]">Saved</span>}
             </div>
-            <SettingRow title="Only admins can post" description="Members can still read and react. Enforced by the database, not just the app.">
+            <SettingRow title="Only admins can post" description="Members can still read and react. Enforced by the database.">
               <Switch
                 label="Only admins can post"
                 checked={!!group.groupMeta?.onlyAdminsPost}

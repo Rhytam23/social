@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { NextConfig } from "next";
 
 const isProd = process.env.NODE_ENV === "production";
@@ -46,6 +47,8 @@ function contentSecurityPolicy(): string {
 }
 
 const nextConfig: NextConfig = {
+  // Pin the project root so a lockfile elsewhere on the machine is never picked as the workspace root.
+  outputFileTracingRoot: path.join(__dirname),
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
   async headers() {
@@ -66,7 +69,10 @@ const nextConfig: NextConfig = {
       {
         // API responses carry per-user data: never cache them in a browser or shared cache.
         source: "/api/:path*",
-        headers: [{ key: "Cache-Control", value: "no-store, max-age=0" }],
+        headers: [
+          { key: "Cache-Control", value: "no-store, max-age=0" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
       },
     ];
   },

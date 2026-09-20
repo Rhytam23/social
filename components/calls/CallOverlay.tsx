@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { CallState } from '../../lib/calls/CallManager';
 import { Avatar } from '../ui/avatar';
-import { IconLock, IconMic } from '../ui/icons';
+import { IconCheck, IconLock, IconMic, IconPhone, IconX } from '../ui/icons';
 
 export interface CallOverlayProps {
   state: CallState;
@@ -102,14 +102,14 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({ state, onAccept, onDec
         />
       )}
 
-      <div className="relative z-10 p-6 pb-8 flex items-center justify-center gap-5 bg-gradient-to-t from-black/60 to-transparent">
+      <div className="relative z-10 p-6 pb-8 flex items-center justify-center gap-5 bg-black/50">
         {state.phase === 'incoming' ? (
           <>
             <button onClick={onDecline} aria-label="Decline call" className={`${roundBtn} bg-rose-600 hover:bg-rose-500 w-14 h-14`}>
-              ✕
+              <IconX className="w-6 h-6" />
             </button>
             <button onClick={onAccept} aria-label="Accept call" className={`${roundBtn} bg-emerald-500 hover:bg-emerald-400 w-14 h-14 text-black`}>
-              ✓
+              <IconCheck className="w-6 h-6" />
             </button>
           </>
         ) : (
@@ -135,7 +135,7 @@ export const CallOverlay: React.FC<CallOverlayProps> = ({ state, onAccept, onDec
               </button>
             )}
             <button onClick={onHangup} aria-label="End call" className={`${roundBtn} bg-rose-600 hover:bg-rose-500 w-14 h-14`}>
-              ☎
+              <IconPhone className="w-6 h-6 rotate-[135deg]" />
             </button>
           </>
         )}

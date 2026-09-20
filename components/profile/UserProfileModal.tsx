@@ -44,7 +44,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 font-sans">
       <div className="w-full max-w-sm floating overflow-hidden flex flex-col">
         {/* Header Banner */}
-        <div className="h-20 bg-gradient-to-r from-slate-900 to-slate-800 relative flex items-start justify-end p-3">
+        <div className="h-20 bg-[var(--surface-2)] relative flex items-start justify-end p-3">
           <button
             onClick={onClose}
             className="p-1.5 text-slate-400 hover:text-white rounded-full bg-slate-900/60 border border-slate-700/60 transition-colors"

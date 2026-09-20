@@ -20,7 +20,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 
 | Path | What is there |
 |---|---|
-| `app/` | Next.js App Router. `page.tsx` is the single-page app (landing, sign-in gate, "Link this device" screen, chat shell). `app/api/*` are the route handlers. `app/auth/confirm` handles email and Google sign-in redirects. `app/(auth)/*` are sign-in pages. `app/design-system/*` are development-only preview pages |
+| `app/` | Next.js App Router. `page.tsx` is a server component: the public landing page (real HTML for search engines) wrapped in `components/app/HomeGate.tsx`, which loads the chat application (`components/app/AppRoot.tsx`: boot, sign-in gate, "Link this device" screen, chat shell) only for visitors with a session. `robots.ts`, `sitemap.ts`, `manifest.ts`, `icon.svg` and `opengraph-image.tsx` are the search and sharing files (address from `lib/site.ts`). `app/api/*` are the route handlers. `app/auth/confirm` handles email and Google sign-in redirects. `app/(auth)/*` are sign-in pages. `app/design-system/*` are development-only preview pages |
 | `middleware.ts` | Runs before every page and API request: a first flood limit, session refresh, route protection, security headers |
 | `next.config.ts` | Content-Security-Policy and other response headers |
 | `components/` | UI grouped by area (`chat`, `messages`, `groups`, `community`, `settings`, `calls`, `landing`, `auth`, `ui`, ...) |
@@ -32,7 +32,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 | `lib/logging/` | The admin error log: scrubbing, the server writer, the browser reporter |
 | `lib/calls/`, `lib/realtime/` | WebRTC calls; presence and typing channels |
 | `crypto/` | The cryptographic primitives (libsodium, WebCrypto, Argon2id). Small and self-contained on purpose |
-| `database/migrations/` | **The schema.** `001` to `019` |
+| `database/migrations/` | **The schema.** `001` to `020` |
 | `types/database.ts` | Hand-maintained TypeScript mirror of the schema |
 | `tests/` | Vitest suites. `tests/security/` runs the real migrations on an in-process Postgres and attacks them |
 | `docs/` | This documentation |
@@ -78,7 +78,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-At the time of writing this gives: no type or lint errors, **304 tests passing in 26 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
+At the time of writing this gives: no type or lint errors, **306 tests passing in 28 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
 
 ## What will change over ten years (and what to check)
 
@@ -89,7 +89,7 @@ At the time of writing this gives: no type or lint errors, **304 tests passing i
 | **libsodium-wrappers** | `crypto_box`, `crypto_secretbox`, `crypto_box_seal` (X25519, XSalsa20-Poly1305) | These are sound today. If they are ever weakened, use the per-message `encryption_version` field to introduce a new scheme and keep reading old messages |
 | **hash-wasm (Argon2id)** | 64 MiB, 3 iterations, parallelism 4 | Raise the parameters as hardware improves. The backup file stores its parameters, so old backups still open |
 | **Web platform** | IndexedDB, Web Crypto (AES-GCM), WebAssembly, WebRTC, `matchMedia` | Stable, but browsers do tighten IndexedDB storage rules and WebRTC privacy behaviour |
-| **Tailwind 3, three.js, Geist** | Design tokens are CSS variables; the landing scene uses plain three.js | Cosmetic. Tailwind 4 changes configuration |
+| **Tailwind 3, Geist** | Design tokens are CSS variables | Cosmetic. Tailwind 4 changes configuration |
 | **Vercel** | Hosting and Deployment Protection settings | Any Node host works. See [Deployment](DEPLOYMENT.md) |
 | **Upstash Redis** | Optional shared rate-limit store, used through its REST API | If absent, limits are per server instance and weaker |
 

@@ -30,7 +30,8 @@
 
 | Path | Responsibility |
 |---|---|
-| `app/page.tsx` | The single-page app. Boots the session, creates the store and crypto session, opens the Realtime channel, renders the landing page, login, the **Link this device** screen (`components/auth/LinkDevice.tsx`, shown when this browser has no key but the account does), or the chat shell |
+| `app/page.tsx` | Server component: renders the public landing page (`components/landing/Landing.tsx`, plain HTML) inside `components/app/HomeGate.tsx`. The gate loads the chat application only when a sign-in cookie, an invite link or local demo mode says one is needed, so visitors without a session download about 108 kB instead of the whole app |
+| `components/app/AppRoot.tsx` | The signed-in application, loaded on demand. Boots the session, creates the store and crypto session, opens the Realtime channel, shows the **Link this device** screen (`components/auth/LinkDevice.tsx`, when this browser has no key but the account does) or the chat shell, and falls back to the landing page when there is no valid session |
 | `app/api/*` | Route handlers ([API reference](API.md)) |
 | `app/auth/confirm/route.ts` | Landing point for email confirmation, password reset and Google sign-in redirects |
 | `app/(auth)/*` | `/login`, `/signup`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` (`/invite` just redirects to `/signup`), all rendering the same auth components |
@@ -44,7 +45,7 @@
 | `lib/api/security.ts` | Helpers every API route uses: UUID and date validation, trusted client address, per-address and per-account limits, cross-site (Origin) check, bounded JSON reader, generic server errors, file-name sanitiser |
 | `lib/rate-limit/rateLimiter.ts` | The rate limiter (Upstash Redis, or in memory per server instance) |
 | `lib/logging/` | The admin error log: `scrub.ts` (removes secrets and personal data), `errorLog.ts` (server writer using the service role), `clientLogger.ts` (browser reporter with throttling and de-duplication), `errorRows.ts` (list filters). `lib/ui/errors.ts` sends every handled UI error to the reporter; `serverError()` in `lib/api/security.ts` writes every server error after responding |
-| `components/analytics/`, `lib/analytics.ts` | Vercel Web Analytics wrapper (production only) and the function that strips query strings and fragments from every address before it is sent |
+| `components/analytics/`, `lib/analytics.ts` | Vercel Web Analytics wrapper (production builds on Vercel only) and the function that strips query strings and fragments from every address before it is sent |
 | `lib/ui/errors.ts` | Decides who sees how much of an error: everyone gets a friendly message, platform admins also get the technical detail |
 | `lib/ui/theme.ts`, `lib/ui/themeScript.ts` | Theme preference. Default is `system` (follows the device); an inline script sets `data-theme` before first paint so there is no flash |
 | `lib/calls/`, `lib/realtime/` | WebRTC calls and the presence and typing channels (typing and call channels are private, see [Database](DATABASE.md#realtime)) |
@@ -64,7 +65,7 @@
 
 **Modes**
 - `connected`: Supabase is configured. Conversations and history are fetched from the database.
-- `demo`: development only. Seeded example data with cross-tab sync through `BroadcastChannel`. Selected in `app/page.tsx` when Supabase is not configured *and* `isDemoModeAllowed()` (non-production). In a production build a missing configuration is an error.
+- `demo`: development only. Seeded example data with cross-tab sync through `BroadcastChannel`. Selected in `components/app/AppRoot.tsx` when Supabase is not configured *and* `isDemoModeAllowed()` (non-production). In a production build a missing configuration is an error.
 
 ## Flows
 
@@ -94,7 +95,7 @@ In groups the `nonce` column holds JSON: `{"nonce": ..., "keyVersion": ...}`.
 
 ### Receiving and live updates
 
-`app/page.tsx` opens one Realtime channel with `postgres_changes` listeners on `messages` for `INSERT` (new messages) and `UPDATE` (edits and soft deletes), filtered to your conversation ids. Row level security is the real access control; the filter is an additional narrowing. Unknown conversations (for example you were just added to a group) trigger a conversation reload.
+`components/app/AppRoot.tsx` opens one Realtime channel with `postgres_changes` listeners on `messages` for `INSERT` (new messages) and `UPDATE` (edits and soft deletes), filtered to your conversation ids (when you have more than 100, Supabase's limit for that filter, the filter is dropped and row level security alone scopes the feed). Row level security is the real access control; the filter is an additional narrowing. Unknown conversations (for example you were just added to a group) trigger a conversation reload.
 
 On conversation open, history comes from `GET /api/messages` (newest first, paged by `before`), is decrypted locally and displayed oldest first.
 

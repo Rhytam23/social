@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { ConversationItem } from '../../types/ui';
+import { IconCheck } from '../ui/icons';
 
 const HOUR = 3600_000;
 const OPTIONS: { key: string; label: string; level: 'all' | 'mentions' | 'none' | 'default'; ms?: number }[] = [
@@ -78,7 +79,7 @@ export const NotifyMenu: React.FC<{
               className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-left text-xs text-[var(--text-primary)] hover:bg-[var(--surface-2)]"
             >
               {o.label}
-              {key === o.key && <span className="text-[var(--accent-text)]">✓</span>}
+              {key === o.key && <IconCheck className="w-3.5 h-3.5 text-[var(--accent-text)]" />}
             </button>
           ))}
           {key === 'timed' && conversation.mutedUntil && (
