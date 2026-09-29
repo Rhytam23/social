@@ -1,6 +1,7 @@
 import { type EmailOtpType } from '@supabase/supabase-js';
 import { type NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
+import { writeErrorLog } from '@/lib/logging/errorLog';
 import { clientIp } from '@/lib/api/security';
 import { checkRateLimit } from '@/lib/rate-limit/rateLimiter';
 
@@ -10,14 +11,15 @@ import { checkRateLimit } from '@/lib/rate-limit/rateLimiter';
  * {{ .ConfirmationURL }} email template) and `?token_hash=&type=` (custom
  * {{ .TokenHash }} template). Failures redirect to /login?error=<reason>.
  */
-const MAX_DETAIL_LENGTH = 160;
 
-/** Redirects to /login with a reason code and, when known, the provider's own explanation. */
-function failureRedirect(origin: string, reason: string, detail?: string | null) {
+/**
+ * Redirects to /login with a reason code only. The provider's own explanation is never put in the address
+ * (people should not see technical errors); it goes to the admin error log instead.
+ */
+async function failureRedirect(origin: string, reason: string, detail?: string | null) {
   const url = new URL('/login', origin);
   url.searchParams.set('error', reason);
-  const cleaned = detail?.replace(/\s+/g, ' ').trim().slice(0, MAX_DETAIL_LENGTH);
-  if (cleaned) url.searchParams.set('detail', cleaned);
+  if (detail) await writeErrorLog({ source: 'server', level: 'warn', area: `auth.confirm.${reason}`, message: detail });
   return NextResponse.redirect(url);
 }
 

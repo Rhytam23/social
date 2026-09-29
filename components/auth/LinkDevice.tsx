@@ -60,6 +60,11 @@ export const LinkDevice: React.FC<LinkDeviceProps> = ({ onLink, onStartFresh, on
           </p>
         </div>
 
+        <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+          You only do this once per browser. Your key is kept in this browser afterwards, so signing in again will not ask for it. You will be asked again if you
+          clear this site&apos;s data or use a private window.
+        </p>
+
         <label className="flex flex-col gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
           Backup file
           <input type="file" accept="application/json,.json" onChange={pickFile} className="field text-xs" />

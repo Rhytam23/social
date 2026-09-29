@@ -27,6 +27,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { Button } from '../../components/ui/button';
 import { Dialog } from '../../components/ui/dialog';
 import { LinkDevice } from '../../components/auth/LinkDevice';
+import { parseGroupLinkCode, rememberGroupLink, takeRememberedGroupLink } from '../../lib/community/invite';
 import { setErrorReporter, setErrorViewer, userError } from '../../lib/ui/errors';
 import { reportClientError, startClientLogging, stopClientLogging } from '../../lib/logging/clientLogger';
 /**
@@ -46,6 +47,8 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
   const [bootError, setBootError] = useState<string | null>(null);
   const [linkCrypto, setLinkCrypto] = useState<MessagingCrypto | null>(null);
   const [inviteCode, setInviteCode] = useState<string | undefined>(undefined);
+  // Set after opening a group link: the app shows that group.
+  const [focusGroupId, setFocusGroupId] = useState<string | undefined>(undefined);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
   const cryptoRef = useRef<MessagingCrypto | null>(null);
   const initedRef = useRef(false);
@@ -303,6 +306,31 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
       window.clearInterval(timer);
     };
   }, [isAuthenticated, state.mode, store]);
+
+  // A group link (?g=CODE) is remembered (also across a new tab for the confirmation email), then opened once signed in.
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const group = parseGroupLinkCode(params.get('g') ?? '');
+      if (params.has('g')) {
+        if (group.length >= 6) rememberGroupLink(group);
+        params.delete('g');
+        const qs = params.toString();
+        window.history.replaceState(null, '', window.location.pathname + (qs ? `?${qs}` : ''));
+      }
+    } catch {
+      // ignore: the link simply has to be opened again
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || state.mode !== 'connected' || linkCrypto) return;
+    const code = takeRememberedGroupLink();
+    if (!code) return;
+    void store.joinGroupByLink(code).then((id) => {
+      if (id) setFocusGroupId(id);
+    });
+  }, [isAuthenticated, state.mode, linkCrypto, store]);
 
   // An invite link (?join=CODE) is remembered across the sign-in redirect, then offered once signed in.
   useEffect(() => {
@@ -680,8 +708,6 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
         onUnblockUser={(id) => void store.unblockUser(id)}
         onReportMessage={state.mode === 'connected' ? (id, reason, includeText) => store.reportMessage(id, reason, includeText) : undefined}
         onSetDisappearing={state.mode === 'connected' ? (id, seconds) => void store.setDisappearing(id, seconds) : undefined}
-        onVerifyPeer={(id) => store.verifyConversationPeer(id)}
-        onAcceptKeyChange={(id) => store.acceptKeyChange(id)}
         privacyProps={{
           blockedUsers: state.blocked.map((id) => {
             const u = state.allUsers.find((x) => x.id === id);
@@ -702,6 +728,9 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
         onJoinCommunity={(code) => store.joinCommunity(code)}
         onCreateChannel={(communityId, name, isPrivate, memberIds) => store.createChannel(communityId, name, isPrivate, memberIds)}
         onCreateInvite={(id) => store.createInvite(id)}
+        focusGroupId={focusGroupId}
+        onCreateGroupInviteLink={(groupId) => store.createGroupInviteLink(groupId)}
+        onRevokeGroupInviteLinks={(groupId) => store.revokeGroupInviteLinks(groupId)}
         onSetCommunityRole={(id, userId, role) => store.setCommunityRole(id, userId, role)}
         onRemoveCommunityMember={(id, userId) => store.removeCommunityMember(id, userId)}
         onLeaveCommunity={(id) => store.leaveCommunity(id)}

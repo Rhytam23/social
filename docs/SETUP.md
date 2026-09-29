@@ -63,6 +63,7 @@ Open **SQL Editor → New query** and run each file from `database/migrations/` 
 | 026 | `026_message_requests.sql` | A person you have never talked to can send 3 messages until you reply. |
 | 027 | `027_group_invites.sql` | People you do not know must accept an invitation to join a group. **Deploy the app first, then run this straight away:** the old app cannot create groups after it, and the new app cannot add people before it. |
 | 028 | `028_profile_visibility.sql` | Strangers can no longer read profiles; search runs on the server. **Deploy the app first, and have `SUPABASE_SERVICE_ROLE_KEY` set** or search stops working. |
+| 029 | `029_group_invite_links.sql` | Adds group invite links. Only adds a table and functions. |
 | 022 | `022_support_requests.sql` | The support inbox behind the Contact page and Settings, Report a problem (Admin, Support). |
 | 021 | `021_upload_limits.sql` | Attachments can only be uploaded through the server's signed addresses; per-account daily upload quota; bucket and avatar limits. Deploy the matching app first, then run it. |
 | 020 | `020_latest_messages.sql` | One query for the newest message of every conversation (sidebar previews). Optional: without it the app makes one request per conversation. |

@@ -23,7 +23,8 @@ import { isGroupManager, type GroupRole } from '../../lib/groups/roles';
 import { setTheme, effectiveTheme } from '../../lib/ui/theme';
 import { toast } from '../../lib/ui/toastStore';
 import { UserProfileModal } from '../profile/UserProfileModal';
-import { GroupSpaceView } from '../groups/GroupSpaceView';
+import { GroupSpaceView, type GroupTab } from '../groups/GroupSpaceView';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { ForwardMessageModal } from '../messages/ForwardMessageModal';
 import { IconLock, IconPlus, IconX } from '../ui/icons';
 import { Button } from '../ui/button';
@@ -97,6 +98,10 @@ export interface AppShellProps {
   onJoinCommunity?: (code: string) => Promise<string | null>;
   onCreateChannel?: (communityId: string, name: string, isPrivate: boolean, memberIds: string[]) => Promise<string | null>;
   onCreateInvite?: (communityId: string) => Promise<string | null>;
+  /** A group the app should show now (just joined through a link). */
+  focusGroupId?: string;
+  onCreateGroupInviteLink?: (groupId: string) => Promise<string | null>;
+  onRevokeGroupInviteLinks?: (groupId: string) => Promise<boolean>;
   onSetCommunityRole?: (communityId: string, userId: string, role: 'owner' | 'admin' | 'member') => Promise<void>;
   onRemoveCommunityMember?: (communityId: string, userId: string) => Promise<void>;
   onLeaveCommunity?: (communityId: string) => Promise<boolean>;
@@ -113,8 +118,6 @@ export interface AppShellProps {
   onUnblockUser?: (userId: string) => void;
   onReportMessage?: (messageId: string, reason: string, includeText: boolean) => Promise<boolean>;
   onSetDisappearing?: (conversationId: string, seconds: number | null) => void;
-  onVerifyPeer?: (conversationId: string) => void;
-  onAcceptKeyChange?: (conversationId: string) => void;
   privacyProps?: Omit<PrivacySettingsProps, 'userId'>;
   /** Places a call to a contact. Provided in connected mode only. */
   onStartCall?: (peerUserId: string, video: boolean) => void;
@@ -179,6 +182,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   onJoinCommunity,
   onCreateChannel,
   onCreateInvite,
+  focusGroupId,
+  onCreateGroupInviteLink,
+  onRevokeGroupInviteLinks,
   onSetCommunityRole,
   onRemoveCommunityMember,
   onLeaveCommunity,
@@ -190,8 +196,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   onUnblockUser,
   onReportMessage,
   onSetDisappearing,
-  onVerifyPeer,
-  onAcceptKeyChange,
   privacyProps,
   onStartCall,
   callActive,
@@ -210,9 +214,20 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
   const [groupsDialogOpen, setGroupsDialogOpen] = useState(false);
   const [groupChatOpen, setGroupChatOpen] = useState(false);
+  // "Group info" in a group chat opens the group page on this tab.
+  const [groupInfoTab, setGroupInfoTab] = useState<GroupTab | undefined>(undefined);
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
   const [communitySettingsOpen, setCommunitySettingsOpen] = useState(false);
   const [reportingMessage, setReportingMessage] = useState<MessageData | null>(null);
+
+  // Just joined a group through a link: show it.
+  useEffect(() => {
+    if (!focusGroupId) return;
+    setActiveCategory('groups');
+    setGroupInfoTab(undefined);
+    setGroupChatOpen(true);
+    setMobileChatView(true);
+  }, [focusGroupId]);
 
   // An invite link (?join=CODE) opens the join dialog once.
   useEffect(() => {
@@ -289,6 +304,18 @@ export const AppShell: React.FC<AppShellProps> = ({
   const showGroupChat = activeCategory === 'groups' && groupChatOpen && !!activeGroupConversation;
   const activeConversation = showGroupChat ? activeGroupConversation : activeChatConversation;
   const showChatCanvas = (activeCategory === 'chats' || showGroupChat) && !!activeConversation;
+
+  /** Everyone in a group (including you) for the details panel; other chats list all known people as before. */
+  const groupMembersOf = (conv: ConversationItem): UserItem[] => {
+    if (conv.type !== 'group') return users;
+    const ids = conv.groupMeta?.memberIds ?? [];
+    return [
+      ...(ids.includes(currentUserId)
+        ? [{ id: currentUserId, name: currentUserName, registrationId: currentUserRegistrationId, role: currentUserRole, deviceCount: 1, joinedAt: '', identityFingerprint: '', presence: 'online' as const }]
+        : []),
+      ...users.filter((u) => u.id !== currentUserId && ids.includes(u.id)),
+    ];
+  };
 
   const unreadTotal = directConversations.reduce((acc, c) => acc + c.unreadCount, 0);
   const groupUnreadTotal = groupConversations.reduce((acc, c) => acc + c.unreadCount, 0);
@@ -436,9 +463,12 @@ export const AppShell: React.FC<AppShellProps> = ({
         >
           {showChatCanvas && activeConversation && (
             <>
+              <ErrorBoundary label="chat" resetKey={activeConversation.id}>
               <ChatCanvas
                 conversation={activeConversation}
-                platformAdminIds={users.filter((u) => u.role === 'admin').map((u) => u.id)}
+                currentUserId={currentUserId}
+                onOpenGroupInfo={showGroupChat ? () => { setGroupInfoTab('members'); setGroupChatOpen(false); } : undefined}
+                platformAdminIds={[...users.filter((u) => u.role === 'admin').map((u) => u.id), ...(currentUserRole === 'admin' ? [currentUserId] : [])]}
                 messages={shownMessages}
                 onSendMessage={onSendMessage}
                 replyTarget={
@@ -472,8 +502,6 @@ export const AppShell: React.FC<AppShellProps> = ({
                     ? (seconds) => onSetDisappearing(activeConversation.id, seconds)
                     : undefined
                 }
-                onAcceptKeyChange={onAcceptKeyChange ? () => onAcceptKeyChange(activeConversation.id) : undefined}
-                onVerifyPeer={onVerifyPeer ? () => onVerifyPeer(activeConversation.id) : undefined}
                 onReportMessage={onReportMessage ? (m) => setReportingMessage(m) : undefined}
                 onStartCall={
                   onStartCall && !callActive && activeConversation.type === 'direct' && activeConversation.recipientUser && !blockedDirect
@@ -500,6 +528,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   setGroupChatOpen(false);
                 }}
               />
+              </ErrorBoundary>
 
               {threadRoot && (
                 <ThreadPanel
@@ -532,10 +561,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                     <InspectorDeck
                       conversation={activeConversation}
                       devices={devices}
-                      members={users}
+                      members={groupMembersOf(activeConversation)}
+                      currentUserId={currentUserId}
+                      onSetRole={onSetMemberRole ? (userId, role) => onSetMemberRole(activeConversation.id, userId, role) : undefined}
                       messages={messages}
                       onDownloadAttachment={onDownloadAttachment}
-                      onVerifyIdentityKey={onVerifyPeer ? () => onVerifyPeer(activeConversation.id) : undefined}
                     />
                   </div>
                 </div>
@@ -562,6 +592,8 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           {activeCategory === 'groups' && activeGroupConversation && !showGroupChat && (
             <GroupSpaceView
+              key={`${activeGroupConversation.id}:${groupInfoTab ?? 'overview'}`}
+              initialTab={groupInfoTab}
               group={activeGroupConversation}
               currentUserId={currentUserId}
               onSetRole={onSetMemberRole ? (userId, role) => onSetMemberRole(activeGroupConversation.id, userId, role) : undefined}
@@ -580,6 +612,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                 setGroupChatOpen(true);
                 setMobileChatView(true);
               }}
+              onCreateInviteLink={onCreateGroupInviteLink ? () => onCreateGroupInviteLink(activeGroupConversation.id) : undefined}
+              onRevokeInviteLinks={onRevokeGroupInviteLinks ? () => onRevokeGroupInviteLinks(activeGroupConversation.id) : undefined}
               onAddMember={onAddGroupMember ? (userId) => onAddGroupMember(activeGroupConversation.id, userId) : undefined}
               onRemoveMember={onRemoveGroupMember ? (userId) => onRemoveGroupMember(activeGroupConversation.id, userId) : undefined}
             />

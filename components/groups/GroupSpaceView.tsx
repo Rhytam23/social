@@ -7,6 +7,8 @@ import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 import { technicalNote } from '../../lib/ui/errors';
 import { VerifiedBadge } from '../brand/VerifiedBadge';
+import { toast } from '../../lib/ui/toastStore';
+import { groupLinkUrl } from '../../lib/community/invite';
 import { ROLE_LABEL, canAddMembers, canChangeRole, canEditGroup, canRemoveMember, type GroupRole } from '../../lib/groups/roles';
 
 export interface GroupSpaceViewProps {
@@ -18,12 +20,18 @@ export interface GroupSpaceViewProps {
   onLeaveGroup?: (groupId: string) => void | Promise<void>;
   onOpenChat: (convId: string) => void;
   onAddMember?: (userId: string) => void | Promise<void>;
+  /** Makes a shareable link; the code is returned once. Owners and admins only. */
+  onCreateInviteLink?: () => Promise<string | null>;
+  /** Stops every working link of this group. */
+  onRevokeInviteLinks?: () => Promise<boolean>;
+  /** Which tab to open first ("Group info" in the chat opens Members). */
+  initialTab?: GroupTab;
   onRemoveMember?: (userId: string) => void | Promise<void>;
   onSetRole?: (userId: string, role: GroupRole) => void | Promise<void>;
   onUpdateSettings?: (patch: { name?: string; description?: string; onlyAdminsPost?: boolean }) => Promise<boolean>;
 }
 
-type GroupTab = 'overview' | 'members' | 'files' | 'settings' | 'security';
+export type GroupTab = 'overview' | 'members' | 'files' | 'settings' | 'security';
 const inputClass =
   'w-full bg-[var(--surface-2)] border border-[var(--border-subtle)] p-2.5 rounded-xl text-xs text-[var(--text-primary)] focus:outline-none focus:border-emerald-500/60';
 
@@ -36,11 +44,16 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
   onLeaveGroup,
   onOpenChat,
   onAddMember,
+  onCreateInviteLink,
+  onRevokeInviteLinks,
+  initialTab,
   onRemoveMember,
   onSetRole,
   onUpdateSettings,
 }) => {
-  const [activeTab, setActiveTab] = useState<GroupTab>('overview');
+  const [activeTab, setActiveTab] = useState<GroupTab>(initialTab ?? 'overview');
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [linkBusy, setLinkBusy] = useState(false);
   const [showAddMember, setShowAddMember] = useState(false);
   const [pendingMemberId, setPendingMemberId] = useState<string | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
@@ -159,6 +172,67 @@ export const GroupSpaceView: React.FC<GroupSpaceViewProps> = ({
 
         {activeTab === 'members' && (
           <div className="flex flex-col gap-4 text-xs">
+            {onCreateInviteLink && mayAdd && (
+              <div className="panel flex flex-col gap-2">
+                <h3 className="text-sm font-bold text-[var(--text-primary)]">Invite with a link</h3>
+                <p className="text-[var(--text-secondary)] leading-relaxed">
+                  Anyone who opens the link and signs in joins this group straight away. Share it only with people you want here. You can stop all links at any time.
+                </p>
+                {inviteLink ? (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <input readOnly aria-label="Group invite link" value={inviteLink} onFocus={(e) => e.currentTarget.select()} className={inputClass} />
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => {
+                          void navigator.clipboard?.writeText(inviteLink);
+                          toast('Invite link copied', { kind: 'success' });
+                        }}
+                      >
+                        Copy
+                      </Button>
+                      {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                        <Button size="sm" variant="tertiary" onClick={() => void navigator.share({ title: group.title, url: inviteLink }).catch(() => {})}>
+                          Share
+                        </Button>
+                      )}
+                    </div>
+                    <span className="text-[11px] text-[var(--text-muted)]">Valid for 30 days or 100 people, whichever comes first.</span>
+                  </div>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="self-start"
+                    loading={linkBusy}
+                    onClick={async () => {
+                      setLinkBusy(true);
+                      const code = await onCreateInviteLink();
+                      setLinkBusy(false);
+                      if (code) setInviteLink(groupLinkUrl(window.location.origin, code));
+                    }}
+                  >
+                    Create invite link
+                  </Button>
+                )}
+                {onRevokeInviteLinks && (
+                  <button
+                    type="button"
+                    className="self-start text-[11px] text-[var(--text-muted)] hover:text-[var(--danger-neutral)] underline"
+                    onClick={async () => {
+                      if (await onRevokeInviteLinks()) {
+                        setInviteLink(null);
+                        toast('All invite links for this group were stopped', { kind: 'success' });
+                      }
+                    }}
+                  >
+                    Stop all invite links
+                  </button>
+                )}
+              </div>
+            )}
+
             {onAddMember && mayAdd && (
               <div className="flex flex-col gap-2">
                 {!showAddMember ? (

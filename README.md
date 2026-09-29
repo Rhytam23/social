@@ -38,7 +38,7 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 - Profile photo upload, notification permission, key backup and device list
 - Admin dashboard: roles, reports, the error log and admin activity
 
-**Platform features** (need migrations 011 to 025; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
+**Platform features** (need migrations 011 to 029; see [Roadmap](docs/ROADMAP.md#what-is-verified) for what has and has not been tested)
 - Themes: **follows the device's light or dark setting by default**, or choose Dark or Light; quick switcher (Ctrl+K), keyboard shortcuts, accessible dialogs
 - Profiles with bio, pronouns and time zone; presence statuses; typing indicators; read receipts
 - Group roles, admin-only posting, threads, saved messages, @mentions, message formatting
@@ -68,7 +68,7 @@ cp .env.example .env.local     # then fill in the three Supabase values
 ```
 
 1. Create a Supabase project and copy the **Project URL**, **anon key** and **service_role key** (Project Settings → API) into `.env.local`.
-2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in strict numeric order** (`001` to `028`). Each needs the ones before it. `017` and `018` carry security fixes; `020` is a performance improvement the app works without.
+2. In the Supabase **SQL Editor**, run every file in `database/migrations/` **once, in strict numeric order** (`001` to `029`). Each needs the ones before it. `017` and `018` carry security fixes; `020` is a performance improvement the app works without.
 3. In Supabase → Authentication, turn on **Confirm email** and add `http://localhost:3000/auth/confirm` to the Redirect URLs. Make sure Realtime Authorization is set up so typing indicators and calls work (see [Setup](docs/SETUP.md#6-verify-the-storage-buckets-and-realtime)).
 4. Start the app:
 
@@ -136,7 +136,7 @@ components/   UI by area: auth, chat, messages, groups, community, calls, settin
 crypto/       Browser encryption: keys, 1:1, groups, attachments, backup (libsodium, WebCrypto)
 lib/          store/ (ChatStore), messaging/ (crypto orchestration, envelopes), api/ (shared route security helpers),
               rate-limit/, supabase/, auth/, calls/, realtime/, ui/ (theme)
-database/     SQL migrations 001-028: the only definition of the schema
+database/     SQL migrations 001-029: the only definition of the schema
 docs/         Documentation (start at docs/README.md or docs/MAINTAINER_GUIDE.md)
 hooks/        React hooks
 tests/        Vitest suites (tests/security runs the real migrations on an in-process Postgres)

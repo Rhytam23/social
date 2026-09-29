@@ -4,6 +4,16 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Group invite links, roles in the chat, dates on messages (September 2026).** Needs migration `029`. Run it once in the Supabase SQL editor; it only adds a table and functions, nothing existing changes.
+
+- **Group invite links (`029`).** An owner or admin of a group creates a link (Group page, Members tab: "Invite with a link"). Anyone signed in who opens it joins straight away; a signed-out visitor is taken through sign-in first and then joins. Links last 30 days or 100 people, can be stopped at any time, only their hash is stored, and every failure shows the same message. People who left or were removed, or whom an owner or admin blocked, cannot get back in this way. A new member reads the group once an admin's device shares the key.
+- **Group roles are visible.** The owner and admins see their role in the chat header and next to their names in messages; the details panel lists every member with their role, and an owner can make someone a co-admin there ("Group info" opens the Members tab). Platform admins keep the separate shield badge, now shown on their own messages too.
+- **Dates on messages.** Chats show Today / Yesterday / weekday / full date separators (a new one after midnight), each message keeps its time, and tapping a time (or the message info) shows the exact date and time. The chat list shows the day for older chats.
+- **No key-verification prompts.** A contact's key is trusted automatically; the "security code changed / I verified it" banner and the manual verify button are gone. The safety number can still be viewed in the security panel.
+- **Sign-in errors are plain.** Failed sign-in or confirmation shows "You are not signed in. Please sign in first, then try again." instead of provider messages; the technical reason goes to the admin error log.
+- **Fewer key prompts, less memory.** The browser is asked to keep the encryption key from being evicted and the save is verified. Only the 8 most recently opened chats keep messages in memory (the rest reload when opened), a message arriving in an unopened chat no longer makes it look loaded with one message, and a broken chat panel shows a retry notice instead of blanking the app.
+- **Tests.** Test workers are limited to 2 (many in-process Postgres databases ran the machine out of memory) and old `.claude` worktrees are excluded.
+
 **Group invitations and private profiles (September 2026).** Needs migrations `027` and `028`. Deploy the app first, and have `SUPABASE_SERVICE_ROLE_KEY` set (search needs it).
 
 - **Group invitations (`027`).** Someone you know (a direct chat where you were answered, or a shared community) is added to a group at once; anyone else gets an invitation and joins only if they accept. Invitations show at the top of the chat list, last 14 days, stop working if the sender is no longer an admin of the group, and at most 30 wait for one person. Nobody can insert group members by writing the table any more. A person who blocked you is skipped without telling you. A new member reads the group once an admin's device shares the key.

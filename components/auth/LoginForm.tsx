@@ -19,6 +19,8 @@ export interface LoginFormProps {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const RESEND_COOLDOWN_SECONDS = 60;
+/** Shown instead of raw provider errors: people never see technical reasons on the sign-in screen. */
+const NOT_SIGNED_IN_MESSAGE = 'You are not signed in. Please sign in first, then try again.';
 
 const PASSWORD_RULES = [
   { id: 'length', label: 'At least 8 characters', test: (p: string) => p.length >= 8 },
@@ -62,21 +64,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const reason = params.get('error');
-    // Provider/Supabase explanation passed by /auth/confirm; shown as plain text only.
-    const detail = params.get('detail')?.replace(/\s+/g, ' ').trim().slice(0, 160);
-    const withDetail = (message: string) => (detail ? `${message} (Reason: ${detail})` : message);
     if (reason === 'link_expired') {
       setErrorMsg('That confirmation link has expired. Sign in with your email and password to get a new one.');
     } else if (reason === 'confirmation_failed') {
-      setErrorMsg(
-        withDetail(
-          "We couldn't complete email confirmation from that link. If you already used it, your email may be confirmed - try signing in."
-        )
-      );
+      setErrorMsg(NOT_SIGNED_IN_MESSAGE);
     } else if (reason === 'oauth_cancelled') {
       setErrorMsg('Google sign-in was cancelled. Please try again.');
     } else if (reason === 'oauth_failed') {
-      setErrorMsg(withDetail("We couldn't complete Google sign-in. Please try again, or use your email and password."));
+      setErrorMsg(NOT_SIGNED_IN_MESSAGE);
     }
   }, []);
 
@@ -182,11 +177,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             if (error.code === 'user_already_exists') {
               setShowAlreadyRegistered(true);
             } else if (error.code === 'weak_password') {
-              setErrorMsg(`Password is too weak: ${error.message}`);
+              setErrorMsg('That password is too weak. Choose a longer one that is harder to guess.');
             } else if (error.code === 'over_email_send_rate_limit') {
               setErrorMsg('Too many emails have been sent recently. Please wait a few minutes and try again.');
             } else {
-              setErrorMsg(error.message);
+              setErrorMsg("We couldn't create your account. Please try again in a moment.");
             }
             setIsSubmitting(false);
             return;
@@ -225,7 +220,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             } else if (error.code === 'user_banned') {
               setErrorMsg('This account is suspended. If you think this is a mistake, contact support from the Contact page.');
             } else {
-              setErrorMsg(error.message);
+              setErrorMsg(NOT_SIGNED_IN_MESSAGE);
             }
             setIsSubmitting(false);
             return;
@@ -248,9 +243,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
       setIsSubmitting(false);
       if (onLoginSuccess) onLoginSuccess(normalizedEmail);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Authentication failed. Please check your credentials.';
-      setErrorMsg(message);
+    } catch {
+      setErrorMsg('Something went wrong. Please check your connection and try again.');
       setIsSubmitting(false);
     }
   };
@@ -272,16 +266,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           text:
             error.code === 'over_email_send_rate_limit'
               ? 'Too many emails sent recently. Please wait a minute before trying again.'
-              : error.message,
+              : 'We could not send the email. Please try again in a moment.',
         });
       } else {
         setResendResult({ ok: true, text: `Confirmation email sent to ${pendingEmail}.` });
         setResendCooldown(RESEND_COOLDOWN_SECONDS);
       }
-    } catch (err: unknown) {
+    } catch {
       setResendResult({
         ok: false,
-        text: err instanceof Error ? err.message : 'Could not resend the confirmation email.',
+        text: 'Could not resend the confirmation email. Please try again.',
       });
     }
     setIsResending(false);
@@ -301,12 +295,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         },
       });
       if (error) {
-        setErrorMsg(error.message);
+        setErrorMsg(NOT_SIGNED_IN_MESSAGE);
         setIsGoogleLoading(false);
       }
       // On success the browser is already navigating to Google.
-    } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Could not start Google sign-in.');
+    } catch {
+      setErrorMsg(NOT_SIGNED_IN_MESSAGE);
       setIsGoogleLoading(false);
     }
   };

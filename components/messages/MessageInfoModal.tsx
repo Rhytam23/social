@@ -1,6 +1,7 @@
 import React from 'react';
 import { MessageData } from '../../types/ui';
 import { IconCheckCheck, IconLock, IconShield, IconX } from '../ui/icons';
+import { fullTimestamp } from '../../lib/ui/dateLabels';
 
 export interface MessageInfoModalProps {
   message: MessageData | null;
@@ -44,7 +45,7 @@ export const MessageInfoModal: React.FC<MessageInfoModalProps> = ({
             <span className="text-slate-400">Delivered</span>
             <span className="text-slate-200 font-mono text-[11px] flex items-center gap-1.5">
               <IconCheckCheck className="w-3.5 h-3.5 text-slate-400" />
-              {message.timestamp}
+              {message.createdAt ? fullTimestamp(message.createdAt) : message.timestamp}
             </span>
           </div>
 
@@ -52,7 +53,7 @@ export const MessageInfoModal: React.FC<MessageInfoModalProps> = ({
             <span className="text-slate-400">Read Receipt</span>
             <span className="text-emerald-400 font-mono text-[11px] flex items-center gap-1.5 font-semibold">
               <IconCheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-              {message.status === 'read' ? `${message.timestamp} (Verified)` : 'Pending'}
+              {message.status === 'read' ? 'Read' : 'Pending'}
             </span>
           </div>
 

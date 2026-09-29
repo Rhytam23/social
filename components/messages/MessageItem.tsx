@@ -16,6 +16,8 @@ import { VoiceMessagePreview } from './VoiceMessagePreview';
 import { Avatar } from '../ui/avatar';
 import { VerifiedBadge } from '../brand/VerifiedBadge';
 import { MessageInfoModal } from './MessageInfoModal';
+import { fullTimestamp } from '../../lib/ui/dateLabels';
+import { ROLE_LABEL, type GroupRole } from '../../lib/groups/roles';
 
 export interface MessageItemProps {
   message: MessageData;
@@ -37,6 +39,8 @@ export interface MessageItemProps {
   continuation?: boolean;
   /** The sender is a platform admin: show the verified badge next to the name. */
   senderVerified?: boolean;
+  /** The sender's role in this group when it is Owner or admin (a label next to the name; not the platform badge). */
+  senderGroupRole?: GroupRole;
 }
 
 export const MessageItem: React.FC<MessageItemProps> = ({
@@ -55,6 +59,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
   onReportMessage,
   continuation = false,
   senderVerified = false,
+  senderGroupRole,
 }) => {
   const isSelf = message.isSelf;
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -77,6 +82,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
     };
   }, [moreOpen]);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  const [showFullTime, setShowFullTime] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   if (message.isDeletedLocally) {
@@ -144,9 +150,26 @@ export const MessageItem: React.FC<MessageItemProps> = ({
               <>
                 <span className="font-semibold text-slate-300 inline-flex items-center gap-1">
                   {isSelf ? 'You' : message.senderName}
-                  {senderVerified && !isSelf && <VerifiedBadge className="w-3.5 h-3.5" />}
+                  {senderVerified && <VerifiedBadge className="w-3.5 h-3.5" />}
+                  {senderGroupRole && senderGroupRole !== 'member' && (
+                    <span className="px-1.5 py-px rounded border border-[var(--accent-line)] bg-[var(--accent-subtle)] text-[9px] font-semibold text-[var(--accent-text)]">
+                      {ROLE_LABEL[senderGroupRole]}
+                    </span>
+                  )}
                 </span>
-                <span>{message.timestamp}</span>
+                {message.createdAt ? (
+                  <button
+                    type="button"
+                    title={fullTimestamp(message.createdAt)}
+                    aria-label={`Sent ${fullTimestamp(message.createdAt)}`}
+                    onClick={() => setShowFullTime((v) => !v)}
+                    className="hover:text-slate-200 focus-visible:text-slate-200 underline-offset-2 hover:underline"
+                  >
+                    {showFullTime ? fullTimestamp(message.createdAt) : message.timestamp}
+                  </button>
+                ) : (
+                  <span>{message.timestamp}</span>
+                )}
               </>
             )}
 

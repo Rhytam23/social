@@ -14,6 +14,7 @@ import { NotificationCenter } from '../notifications/NotificationCenter';
 import { GroupInvites } from '../groups/GroupInvites';
 import type { GroupInviteItem } from '../../lib/groups/invites';
 import { CountBadge, ConversationListSkeleton } from '../ui/primitives';
+import { listStamp } from '../../lib/ui/dateLabels';
 
 export interface NavDeckProps {
   currentUserName: string;
@@ -262,7 +263,7 @@ export const NavDeck: React.FC<NavDeckProps> = ({
                         {conv.isMuted && <IconMute className="w-3 h-3 text-slate-500 shrink-0" />}
                       </div>
                       <span className="text-[10px] text-slate-400 shrink-0 font-sans">
-                        {conv.lastMessage?.timestamp || ''}
+                        {conv.lastMessage?.at ? listStamp(conv.lastMessage.at) : conv.lastMessage?.timestamp || ''}
                       </span>
                     </div>
 

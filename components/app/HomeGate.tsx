@@ -27,7 +27,8 @@ export function HomeGate({ landing }: { landing: React.ReactNode }) {
 
   useEffect(() => {
     const hasSession = document.documentElement.getAttribute('data-session') === '1';
-    const hasInvite = new URLSearchParams(window.location.search).has('join');
+    const query = new URLSearchParams(window.location.search);
+    const hasInvite = query.has('join') || query.has('g');
     const isDemo = !isSupabaseConfigured() && isDemoModeAllowed();
     if (hasSession || hasInvite || isDemo) setLoadApp(true);
   }, []);

@@ -1,6 +1,6 @@
 # Database
 
-The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 028**. `types/database.ts` mirrors it and must be updated with every schema change.
+The schema is defined only by the SQL files in `database/migrations/`. This page describes the **final state after migrations 001 to 029**. `types/database.ts` mirrors it and must be updated with every schema change.
 
 ## Migrations
 
@@ -32,6 +32,7 @@ Run each file once, in order, in the Supabase SQL Editor. Full instructions and 
 | `026_message_requests.sql` | Direct chats: a person who has not been answered can send 3 messages. Adds `intro_sender`, `intro_count` and `replied` to `conversations` (guarded so the API cannot edit them) and the `enforce_message_request_limit()` trigger on `messages`. Platform admins are exempt | Yes |
 | `027_group_invites.sql` | Group invitations: table `group_invites` (no client access), `is_known_contact()`, `add_group_member()`, `my_group_invites()`, `respond_group_invite()`. A person you know is added at once, anyone else must accept; clients can no longer insert group members themselves (the creator only seats themselves in a new group). Invitations expire after 14 days, at most 30 wait for one person, 30 sent per hour per person | Yes |
 | `028_profile_visibility.sql` | Profiles are visible only to people with a reason to see them (owner, platform admins, shared conversation including past members, shared community, people you blocked). Adds `shares_conversation_history_with()`, `i_blocked()` and the server-only `search_profiles_by_prefix()` | Yes |
+| `029_group_invite_links.sql` | Shareable group links: `group_invite_links` (hash only, no client access) with `create_group_invite_link()`, `revoke_group_invite_links()` and `join_group_by_link()` | Yes |
 | `022_support_requests.sql` | The support inbox: table `support_requests` (readable by platform admins only, no client writes), the server-only function `submit_support_request()` (validates, allows at most 5 requests a day per email, keeps 90 days and 5,000 rows), and `admin_set_support_status()` (admins only, audited) | Yes |
 | `021_upload_limits.sql` | Attachments only through signed uploads: drops the client upload policy, sets the bucket ceiling (100 MB) and the avatar limit (2 MB, images), adds `uploaded_bytes_last_day()` for the daily quota. **Deploy the matching app version before running it** | Yes |
 | `020_latest_messages.sql` | `get_latest_messages(uuid[])`: the newest message of each conversation in one query, for the sidebar previews. Runs with the caller's own rights, so row level security decides what is returned. Optional: without it the app makes one request per conversation | Yes |
