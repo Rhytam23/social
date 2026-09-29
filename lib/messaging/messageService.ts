@@ -2,7 +2,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/database';
 import { MessagingCrypto } from './messagingCrypto';
 import type { MessageEnvelope } from './envelope';
-import { adminDetail } from '../ui/errors';
+import { adminDetail, UserMessageError } from '../ui/errors';
+import { MESSAGE_REQUEST_CODE } from './messageRequests';
 import { isGroupRole, type GroupRole } from '../groups/roles';
 
 export interface ConversationSummary {
@@ -243,6 +244,30 @@ export async function fetchMessageHistory(
   return Promise.all(rows.map((row) => decryptRow(crypto, conversation, row)));
 }
 
+/**
+ * The newest message of every conversation, in ONE request (needs migration 020 on the server).
+ * Returns null when that is not available, so the caller can fall back to per-conversation requests.
+ * Conversations without messages are simply absent from the map.
+ */
+export async function fetchLatestMessages(
+  crypto: MessagingCrypto,
+  conversations: ConversationSummary[]
+): Promise<Map<string, DecryptedMessageRow> | null> {
+  if (conversations.length === 0) return new Map();
+  const res = await fetch('/api/messages/latest');
+  if (!res.ok) return null;
+
+  const rows = (await res.json()) as Array<Parameters<typeof decryptRow>[2]>;
+  const byId = new Map(conversations.map((c) => [c.id, c]));
+  const decrypted = await Promise.all(
+    rows.flatMap((row) => {
+      const conversation = byId.get(row.conversation_id);
+      return conversation ? [decryptRow(crypto, conversation, row).then((d) => [row.conversation_id, d] as const)] : [];
+    })
+  );
+  return new Map(decrypted);
+}
+
 interface SendResult {
   row: { id: string; conversation_id: string; sender_id: string; created_at: string };
 }
@@ -295,6 +320,7 @@ export async function sendEnvelope(
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
+    if (body.code === MESSAGE_REQUEST_CODE) throw new UserMessageError(body.error);
     throw new Error(body.error || `Failed to send message (${res.status})`);
   }
 

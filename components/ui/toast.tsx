@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { dismissToast, useToasts } from '../../lib/ui/toastStore';
+import { IconX } from './icons';
 
 const KIND_STYLES = {
   info: 'border-[var(--border-strong)]',
@@ -41,7 +42,7 @@ export const ToastHost: React.FC = () => {
             aria-label="Dismiss notification"
             className="text-[var(--text-muted)] hover:text-[var(--text-primary)] leading-none"
           >
-            ✕
+            <IconX className="w-3.5 h-3.5" />
           </button>
         </div>
       ))}

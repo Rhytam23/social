@@ -109,7 +109,7 @@ const LockScreen: React.FC<{ userId: string; onSignOut: () => void }> = ({ userI
         <div className="w-14 h-14 rounded-2xl bg-[var(--accent-subtle)] border border-emerald-500/30 flex items-center justify-center text-[var(--accent-text)]">
           <IconLock className="w-7 h-7" />
         </div>
-        <h1 className="text-base font-bold text-[var(--text-primary)]">Private Chat is locked</h1>
+        <h1 className="text-base font-bold text-[var(--text-primary)]">Nook is locked</h1>
         <label htmlFor="lock-pin" className="sr-only">PIN</label>
         <input
           id="lock-pin"

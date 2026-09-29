@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef } from 'react';
 import { Button } from './button';
+import { IconX } from './icons';
 
 export interface DialogProps {
   isOpen: boolean;
@@ -81,7 +82,7 @@ export const Dialog: React.FC<DialogProps> = ({ isOpen, onClose, title, children
             {title}
           </h2>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Close dialog">
-            ✕
+            <IconX className="w-4 h-4" />
           </Button>
         </div>
 

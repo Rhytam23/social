@@ -2,13 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { NextRequest } from 'next/server';
 
 type Row = Record<string, unknown>;
-const db: { conversation_members: Row[]; messages: Row[]; conversations: Row[]; user: string | null; failWith: string | null; uploads: string[] } = {
+const db: { conversation_members: Row[]; messages: Row[]; conversations: Row[]; user: string | null; failWith: string | null } = {
   conversation_members: [],
   messages: [],
   conversations: [],
   user: null,
   failWith: null,
-  uploads: [],
 };
 
 /** A small in-memory stand-in for the Supabase client: enough to check what the ROUTES decide. */
@@ -56,22 +55,17 @@ vi.mock('@/lib/supabase/server', () => ({
   createServerClient: async () => ({
     auth: { getUser: async () => ({ data: { user: db.user ? { id: db.user } : null }, error: db.user ? null : { message: 'no session' } }) },
     from: (t: 'conversation_members' | 'messages' | 'conversations') => table(t),
-    storage: { from: () => ({ upload: async (p: string) => (db.uploads.push(p), { data: { path: p }, error: null }) }) },
   }),
 }));
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => ({ from: () => table('conversations') }) }));
-vi.mock('@/lib/auth/roles', () => ({ isUserAdmin: async (id: string) => id === 'aaaaaaaa-0000-4000-8000-000000000004' }));
 
 import { GET as getMessages, POST as postMessage, PATCH as patchMessage } from '../../app/api/messages/route';
-import { POST as postUpload } from '../../app/api/uploads/route';
-import { PATCH as patchAdmin } from '../../app/api/admin/users/route';
 import { POST as postGroupMember } from '../../app/api/groups/members/route';
-import { clientIp, isUuid, sanitizeFileName } from '../../lib/api/security';
+import { clientIp, isUuid } from '../../lib/api/security';
 
 const A = 'aaaaaaaa-0000-4000-8000-000000000001';
 const B = 'aaaaaaaa-0000-4000-8000-000000000002';
 const C = 'aaaaaaaa-0000-4000-8000-000000000003';
-const ADMIN = 'aaaaaaaa-0000-4000-8000-000000000004';
 const F = 'aaaaaaaa-0000-4000-8000-000000000006'; // fresh accounts for the rate limit tests
 const G = 'aaaaaaaa-0000-4000-8000-000000000007';
 const H = 'aaaaaaaa-0000-4000-8000-000000000008';
@@ -93,7 +87,6 @@ const asUser = (id: string | null) => (db.user = id);
 beforeEach(() => {
   db.user = null;
   db.failWith = null;
-  db.uploads = [];
   db.conversation_members = [
     { conversation_id: CONV, user_id: A, left_at: null, role: 'owner' },
     { conversation_id: CONV, user_id: B, left_at: null, role: 'member' },
@@ -109,7 +102,6 @@ describe('authentication is enforced on the server', () => {
     expect((await getMessages(req(`/api/messages?conversationId=${CONV}`))).status).toBe(401);
     expect((await postMessage(req('/api/messages', { method: 'POST', body: { conversationId: CONV, ciphertext: 'x', nonce: 'n' } }))).status).toBe(401);
     expect((await patchMessage(req('/api/messages', { method: 'PATCH', body: { messageId: CONV, deleted: true } }))).status).toBe(401);
-    expect((await patchAdmin(req('/api/admin/users', { method: 'PATCH', body: { userId: A, isAdmin: true } }))).status).toBe(401);
     expect((await postGroupMember(req('/api/groups/members', { method: 'POST', body: { groupId: CONV, userId: C } }))).status).toBe(401);
   });
 
@@ -129,26 +121,15 @@ describe('authorization and IDOR', () => {
     asUser(B);
     expect((await getMessages(req(`/api/messages?conversationId=${CONV}`))).status).toBe(200);
   });
-  it('outsider C cannot post, and cannot upload, into the conversation', async () => {
+  it('outsider C cannot post into the conversation', async () => {
     asUser(C);
     expect((await postMessage(req('/api/messages', { method: 'POST', body: { conversationId: CONV, ciphertext: 'x', nonce: 'n' } }))).status).toBe(403);
-    const form = new FormData();
-    form.set('file', new Blob(['data']), 'a.bin');
-    form.set('conversationId', CONV);
-    expect((await postUpload(req('/api/uploads', { method: 'POST', raw: form }))).status).toBe(403);
-    expect(db.uploads).toHaveLength(0);
   });
   it('a member cannot reply to, or thread under, a message from another conversation', async () => {
     asUser(B);
     db.messages.push({ id: 'cccccccc-0000-4000-8000-000000000009', conversation_id: OTHER, sender_id: C, ciphertext: 'x', nonce: 'n' });
     const r = await postMessage(req('/api/messages', { method: 'POST', body: { conversationId: CONV, ciphertext: 'x', nonce: 'n', replyToMessageId: 'cccccccc-0000-4000-8000-000000000009' } }));
     expect(r.status).toBe(404);
-  });
-  it('a non-admin cannot use the admin route; an admin can, but not on themselves', async () => {
-    asUser(B);
-    expect((await patchAdmin(req('/api/admin/users', { method: 'PATCH', body: { userId: B, isAdmin: true } }))).status).toBe(403);
-    asUser(ADMIN);
-    expect((await patchAdmin(req('/api/admin/users', { method: 'PATCH', body: { userId: ADMIN, isAdmin: false } }))).status).toBe(400);
   });
   it('a plain member cannot add people to a group (role check)', async () => {
     asUser(B);
@@ -225,17 +206,6 @@ describe('rate limiting and abuse', () => {
     expect(statuses.filter((s) => s === 201).length).toBe(60);
     expect(statuses.slice(60).every((s) => s === 429)).toBe(true);
   });
-  it('limits uploads per account', async () => {
-    asUser(G);
-    const codes: number[] = [];
-    for (let i = 0; i < 25; i++) {
-      const form = new FormData();
-      form.set('file', new Blob(['data']), 'a.bin');
-      form.set('conversationId', CONV);
-      codes.push((await postUpload(req('/api/uploads', { method: 'POST', raw: form }))).status);
-    }
-    expect(codes.filter((c) => c === 429).length).toBeGreaterThanOrEqual(5);
-  });
 });
 
 describe('CSRF', () => {
@@ -248,33 +218,6 @@ describe('CSRF', () => {
   });
 });
 
-describe('uploads: filenames and storage paths', () => {
-  it('path traversal and control characters never reach storage', async () => {
-    asUser(B);
-    for (const name of ['../../etc/passwd', '..\\..\\windows\\system32', 'a/b/c.bin', '.htaccess', 'evil .exe', '<script>.html', '%2e%2e%2f']) {
-      const form = new FormData();
-      form.set('file', new Blob(['data']), name);
-      form.set('conversationId', CONV);
-      const r = await postUpload(req('/api/uploads', { method: 'POST', raw: form }));
-      if (r.status === 429) continue; // rate limit reached by the loop: nothing was stored
-      expect(r.status, name).toBe(201);
-    }
-    for (const p of db.uploads) {
-      expect(p.startsWith(`${CONV}/`), p).toBe(true);
-      const file = p.slice(CONV.length + 1);
-      expect(file).not.toMatch(/[\\/]|\.\.| |[<>%]/);
-      expect(file.startsWith('.')).toBe(false);
-    }
-  });
-  it('the upload must be a real file and a real UUID conversation', async () => {
-    asUser(H);
-    const form = new FormData();
-    form.set('file', 'not a file');
-    form.set('conversationId', CONV);
-    expect((await postUpload(req('/api/uploads', { method: 'POST', raw: form }))).status).toBe(400);
-  });
-});
-
 describe('helpers', () => {
   it('clientIp never trusts a client-supplied first X-Forwarded-For entry', () => {
     const h = (o: Record<string, string>) => ({ headers: new Headers(o) }) as never;
@@ -283,12 +226,8 @@ describe('helpers', () => {
     expect(clientIp(h({ 'x-forwarded-for': '1.1.1.1/../../admin' }))).toBe('unknown');
     expect(clientIp(h({}))).toBe('unknown');
   });
-  it('isUuid and sanitizeFileName', () => {
+  it('isUuid accepts UUIDs and refuses injection-shaped values', () => {
     expect(isUuid(CONV)).toBe(true);
     expect(isUuid("' or 1=1")).toBe(false);
-    const safe = sanitizeFileName('../../a b.txt');
-    expect(safe).not.toMatch(/[\/]|\.\./);
-    expect(safe.startsWith('.')).toBe(false);
-    expect(sanitizeFileName('')).toBe('file');
   });
 });

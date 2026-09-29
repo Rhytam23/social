@@ -19,7 +19,7 @@ export const PeopleDirectory: React.FC<PeopleDirectoryProps> = ({ contacts, onLo
     <div className="flex-1 bg-[var(--canvas-bg)] flex flex-col h-full overflow-y-auto p-6 sm:p-8 gap-6 font-sans max-w-3xl mx-auto w-full [&>*]:shrink-0">
       <div className="flex flex-col gap-1 border-b border-[var(--border-subtle)] pb-5">
         <h2 className="text-xl font-bold text-[var(--text-primary)] tracking-tight">Find people</h2>
-        <p className="text-xs text-[var(--text-secondary)]">Enter someone&apos;s exact username to find them, view their profile or send a message.</p>
+        <p className="text-xs text-[var(--text-secondary)]">Type the start of someone&apos;s username to find them, view their profile or send a message.</p>
       </div>
 
       <UsernameLookup

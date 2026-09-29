@@ -13,7 +13,7 @@ Also run `npm audit`. Stop `npm run dev` before `npm run build` on Windows; a ru
 
 ## Automated tests
 
-Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **304 tests in 26 files** (the counts drift; what matters is that they all pass).
+Vitest runs in a Node environment (no browser, no jsdom). At the time of writing: **495 tests in 50 files** (the counts drift; what matters is that they all pass).
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -21,6 +21,20 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/security/apiSecurity.test.ts` | 22 | The real route handlers with a stub database: 401s, forged tokens, cross-conversation replies, admin route, injection-shaped ids, malformed and oversized bodies, type confusion, mass assignment, error leakage, per-account rate limits with spoofed headers, cross-site requests, upload file names |
 | `tests/security/adminLogs.test.ts` | 17 | Migration `019` on real Postgres: only admins can read the error and audit logs; nobody (even an admin) can write, edit or delete them directly; ingest functions are not callable by signed-in users; de-duplication and reopening; admin actions refuse non-admins and write audit rows; 30-day retention and the 5,000-row cap |
 | `tests/security/logIngest.test.ts` | 13 | `POST /api/logs/client`: 401, cross-site 403, oversized 413, malformed 400, per-account rate limit, the user comes from the session; server errors are logged with the user while the client gets a generic message |
+| `tests/security/latestMessages.test.ts` | 4 | Migration `020` on real Postgres: exactly the newest message per conversation, never one from a conversation the caller is not in, empty input, signed-out refused |
+| `tests/security/latestRoute.test.ts` | 5 | `GET /api/messages/latest`: 401, uses only the caller's own conversations, only known columns returned, 501 fallback while `020` is missing, no database text in errors |
+| `tests/security/groupInvites.test.ts` | 15 | Migration `027` on real Postgres: known people added at once, strangers invited, accept and decline, nobody else can answer, expiry, the 30-waiting cap, blocked adders, admins, community channels, and that group members cannot be inserted by writing the table |
+| `tests/security/profileVisibility.test.ts` | 12 | Migration `028`: who can read which profile through the API (strangers see only themselves), the server-only search (not callable by signed-in users), starts-with matching, no admins or suspended accounts, at most 8 |
+| `tests/security/groupRoutes.test.ts` | 5 | `POST /api/groups` seats only the creator and reports who was added or invited; `POST /api/groups/members` |
+| `tests/security/messageRequests.test.ts` | 9 | Migration `026` on real Postgres: 3 messages then refused, a reply opens the chat, deleting or leaving and re-adding does not reset it, the counters cannot be edited, admins and groups are not limited |
+| `tests/security/usersRoute.test.ts` | 9 | People search: starts-with matching, at most 8, exact match first, no email or phone, blocked flag, limits |
+| `tests/security/moderation.test.ts` | 24 | Migration `024` on real Postgres: who may report whom, the 3, 10 and 20 tiers counted by different reporters, the account-age rule, dismissed reports, the ban (auth ban set, sessions ended, email and addresses blocked), the sign-up hook, admins never auto-banned, admin ban, undo and unblock, audit trail, tables closed to clients, address retention |
+| `tests/security/sessionSeenRoute.test.ts` | 8 | `POST /api/session/seen`: session required, the real address only, malformed and unknown addresses ignored, never fails the session, limited per account |
+| `tests/security/hiddenAdmins.test.ts` | 10 | Migration `023` on real Postgres: a stranger cannot list, look up or fetch an admin, ordinary profiles are unchanged, the admin appears to people who share a chat or community and disappears when they leave, anonymous visitors see nothing, `is_admin()` does not recurse |
+| `tests/security/adminChatAudit.test.ts` | 3 | A chat started by a platform admin is written to the activity log; ordinary chats and groups are not |
+| `tests/security/adminRoles.test.ts` | 21 | Migration `025` on real Postgres: nobody, not even the service role, can change `is_admin` through the API, dashboard changes work and are logged, group admins have no platform powers, group and community role rules (admins only make members admins), the 10-channel limit, reserved official-looking names (and sign-up not failing for them) |
+| `tests/security/supportRequests.test.ts` | 7 | Migration `022` on real Postgres: only admins read requests, nobody writes directly, submitting is server-only, per-email daily limit, 90-day retention, admin resolve is audited and non-admins are refused |
+| `tests/security/supportRoute.test.ts` | 9 | `POST /api/support`: signed-out and signed-in requests, honeypot, cross-site, oversized and malformed bodies, validation (including header-injection-shaped emails), control characters, rate limit, no database text in errors |
 | `tests/security/floodAndDevices.test.ts` | 8 | Migration `018` on real Postgres: the 3-key cap, per-account write limits, server writes not limited |
 | `tests/security/deviceLinking.test.ts` | 6 | A new browser links instead of creating a key; failed checks refuse to continue; restore gives the same key; wrong passphrase and empty backup refused. Uses a stubbed database |
 | `tests/security/authorization.test.ts` | 16 | Static checks of the SQL text of early migrations (`001`, `003`, `004`) |
@@ -29,7 +43,7 @@ Vitest runs in a Node environment (no browser, no jsdom). At the time of writing
 | `tests/integration/apiRoutes.test.ts` | 6 | Every data route returns `401` when signed out |
 | `tests/integration/userSearch.test.ts` | 14 | Username-only lookup rules |
 | `tests/chat/chatStore.test.ts`, `envelopeDisplay.test.ts` | 8 + 8 | The store in demo mode; how message payloads become text |
-| `tests/ui/*.test.ts` | 117 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the landing scene's maths and fallbacks, that the default theme follows the device, that technical error detail is shown only to admins (`errorVisibility.test.ts`), the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`), and that analytics only ever receives the origin and path (`analytics.test.ts`) |
+| `tests/ui/*.test.ts` | 108 | Preferences, rich text, group roles, notification rules, invites, app lock, ICE/TURN configuration, username validation, the moderation levels and that they match the migration (`moderation.test.ts`), the site address and its production fallback (`site.test.ts`), when the 3D hero may run (`capability.test.ts`: computers only), the bot-check switch, the support helpers, that the default theme follows the device and the sign-in hint used by the landing page, that technical error detail is shown only to admins (`errorVisibility.test.ts`), the error-log scrubber, fingerprints, browser throttling and admin list filters (`errorLogging.test.ts`), and that analytics only ever receives the origin and path (`analytics.test.ts`) |
 
 `tests/security/pgHarness.ts` is the test database: it creates the Supabase roles (`anon`, `authenticated`, `service_role`), `auth.uid()` and the storage and realtime tables the migrations expect, then runs every migration. **When Supabase changes how any of those work, this file is where to update the emulation.**
 
@@ -68,7 +82,10 @@ Use a real Supabase project ([Setup](SETUP.md)) and two browser profiles (or one
 
 ### Files and voice
 - [ ] Send an image and a document; the recipient can download and open them
-- [ ] A file over 25 MB is refused with a clear message
+- [ ] An image over 10 MB, a video over 100 MB (or over the ceiling you set) and any other file over 25 MB are each refused with a clear message before anything uploads
+- [ ] A 5 MB image, a 20 MB video and a 20 MB PDF upload, send and open for the other person (with migration `021` applied)
+- [ ] After `021`, a direct upload to the bucket with the Supabase client and your own session is refused
+- [ ] Uploading more than about 500 MB in a day is refused with the daily limit message; starting more than 6 uploads in a minute is slowed down
 - [ ] Record and send a voice note; it plays with a correct duration
 - [ ] In Storage, the uploaded object is unreadable bytes
 
@@ -180,3 +197,70 @@ Run after applying `019`. Use an admin account and an ordinary account.
 - A CI workflow that runs the four commands above on every pull request.
 - Browser end-to-end tests (Playwright) for the journeys above.
 - Row level security tests against a real Supabase project (pgTAP or the Supabase CLI). RLS is currently tested on an in-process Postgres with an emulated Supabase (`tests/security/rls.test.ts`).
+
+## Checklist for the public pages, support and the bot check
+
+Run after applying `022`.
+
+- [ ] Signed out: Home, Features, Security, Help, Contact, Privacy and Terms all load, show the header and footer, and the header tab of the current page is highlighted. On a phone the menu opens without JavaScript.
+- [ ] Signed in: the app shows no site header or footer anywhere.
+- [ ] Contact form: a message with a valid email sends and shows the confirmation; a missing email or a message under 10 characters is refused with a clear note; sending more than 5 in a day from one email is refused.
+- [ ] Admin, Support lists the message with its topic, email and time; Reply by email opens a mail to that address; Mark resolved and Reopen work and appear in Admin, Activity.
+- [ ] Settings, About, Report a problem sends as the signed-in account (no email field) and appears in Admin, Support with the account.
+- [ ] Landing on a computer: the 3D scene appears after the page loads; with the operating system's reduced-motion setting on, or on a phone or tablet, it never loads and the page is plain.
+- [ ] With `NEXT_PUBLIC_TURNSTILE_SITE_KEY` set and CAPTCHA enabled in Supabase: sign-up, sign-in and reset show the check and refuse to submit until it passes; a wrong password can be retried (the check refreshes).
+
+## Checklist for admin roles (migration 025)
+
+- [ ] Admin, People shows everyone read-only with no promote or demote buttons, and the verified badge next to platform admins only.
+- [ ] In the Supabase table editor, ticking `is_admin` for a test account makes the Admin section appear for them after a reload, and the change shows in Admin, Activity. Unticking it removes access. (This also confirms the dashboard connection is allowed, which the automated tests can only emulate.)
+- [ ] In the browser console, `supabase.from('profiles').update({ is_admin: true })` for your own row does nothing.
+- [ ] A group admin can make a member an admin, cannot demote the other admin or the owner, and never sees the Admin section.
+- [ ] A community admin can create channels until the community has 10 (the default one counts), then sees a clear message.
+- [ ] Renaming an ordinary account to "Nook Admin" or a name with a check mark is refused with a clear message; the platform admin can use any name.
+
+## Checklist for hidden platform admins (migration 023)
+
+- [ ] As an ordinary account that has never talked to the admin, search the admin's exact username: no result. In the browser console, `supabase.from('profiles').select('*')` does not include the admin.
+- [ ] As the admin, start a chat with that account: it appears for them, with the verified badge on the admin's name. A third account that has not talked to the admin still cannot find them.
+- [ ] Community members can see the admin's name in the member list; someone outside the community cannot.
+- [ ] Community lists, group member lists, mentions and onboarding still show everyone else correctly (this is the change most likely to break something: check it on a staging project first).
+- [ ] The admin's start of a chat appears in Admin, Activity as `admin_start_chat`.
+
+## Checklist for reports and bans (migration 024)
+
+Use throwaway accounts older than a day. Nothing below has been run against a live Supabase project.
+
+- [ ] Report a message from a chat you share; a report about someone you do not share a chat with is refused.
+- [ ] With 3 different accounts reporting one account, that account sees the warning once after its next sign-in, and it is gone after "I understand". It does not say who reported.
+- [ ] With 10 different accounts, the account is suspended: it cannot sign in ("This account is suspended"), existing sessions end, and Admin, Safety queue shows it with the ban date. Lift ban lets it sign in again.
+- [ ] After a suspension, signing up with the same email is refused (needs the Before User Created hook, see Setup). Confirm whether signing up from the same network is also refused; if not, address blocking is not working on your Supabase version.
+- [ ] Above 10 the person is shown in red; at 20 they are blocked permanently.
+- [ ] A shared address shows "shared: N accounts" and Unblock removes it.
+- [ ] A platform admin reported by many accounts is not banned.
+- [ ] Every step appears in Admin, Activity.
+
+## Checklist for people search and message requests (migration 026)
+
+Nothing below has been run against a live Supabase project.
+
+- [ ] Search box: typing 2 letters searches nothing; 3 or more shows everyone whose username starts with them (for example "ars" shows arsh and arsalan), at most 8, and never yourself, never a platform admin you have not talked to.
+- [ ] Typing quickly sends one search per pause, not one per letter (Network tab).
+- [ ] As A, message B (who has never talked to A) 3 times: all sent. The 4th shows "You can send 3 messages to someone until they reply" and no failed message is left in the chat.
+- [ ] B sends one reply: A can now send freely, both ways.
+- [ ] A deletes the 3 messages and tries again: still refused.
+- [ ] A platform admin can message anyone repeatedly; the person can answer at length.
+- [ ] Groups are not limited by the 3-message rule, but a stranger cannot add you to one: see the next checklist.
+
+## Checklist for group invitations and profile visibility (migrations 027 and 028)
+
+Nothing below has been run against a live Supabase project. Use three accounts: O (owner), K (someone O has talked to who replied) and S (a stranger to O).
+
+- [ ] O creates a group with K and S. K is a member straight away. S is not: a toast says one person was sent an invitation.
+- [ ] S sees "1 group invitation" at the top of the chat list within a minute (or when the window regains focus), with O's name and the group name, and cannot see the group or its members.
+- [ ] S presses Join: the group appears, S can read messages once an admin's device is online (an admin must be signed in to share the group key). S presses Decline on another invitation: nothing happens and it disappears.
+- [ ] In the browser console as O: `supabase.from('conversation_members').insert({conversation_id: <group>, user_id: <S>})` is refused (row-level security).
+- [ ] In the console as S: `supabase.from('profiles').select('*')` returns only S's own row and people S shares a chat or community with; `supabase.from('group_invites').select('*')` is refused.
+- [ ] In the console as S: `supabase.rpc('search_profiles_by_prefix', {p_caller: '<any id>', p_prefix: 'abc'})` is refused (permission denied).
+- [ ] The people search box still finds a stranger by the start of their username (the server needs `SUPABASE_SERVICE_ROLE_KEY`), still never shows a platform admin, and old messages from someone who has left a chat still show their name.
+- [ ] Your block list still shows the names of people you blocked, including ones you no longer share a chat with.

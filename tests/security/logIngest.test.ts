@@ -18,7 +18,6 @@ vi.mock('@/lib/logging/errorLog', () => ({
   writeErrorLog: async (entry: Record<string, unknown>) => {
     written.push(entry);
   },
-  writeAdminAction: async () => {},
 }));
 
 import { POST } from '../../app/api/logs/client/route';

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase/server';
 import { boundedString, limitByIp, limitByUser, readJson, rejectCrossSite, serverError, uuidList } from '@/lib/api/security';
 import { ConversationType, Database } from '@/types/database';
+import { writeAdminAction } from '@/lib/logging/errorLog';
 
 export async function POST(request: NextRequest) {
   const cross = rejectCrossSite(request);
@@ -57,6 +58,13 @@ export async function POST(request: NextRequest) {
   }));
   const { error: membersInsertError } = await supabase.from('conversation_members').insert(memberRows as unknown as never);
   if (membersInsertError) return serverError('conversations.create.members', membersInsertError, 400, 'Could not add those people.', user.id);
+
+  // Platform admins may start a chat with anyone who has not blocked them (the database refuses otherwise).
+  // Each one is written to the admin activity log, so other admins can see who reached out to whom.
+  if (type === 'private') {
+    const { data: isAdmin } = await supabase.rpc('is_admin' as never);
+    if (isAdmin === true) await writeAdminAction(user.id, 'admin_start_chat', 'user', others[0], undefined);
+  }
 
   return NextResponse.json(createdConv, { status: 201 });
 }

@@ -1,6 +1,6 @@
 # Documentation
 
-Start with the [project README](../README.md) for what Private Chat is and how to run it.
+Start with the [project README](../README.md) for what Nook is and how to run it.
 
 **New to the project, or returning after a long time? Read the [Maintainer guide](MAINTAINER_GUIDE.md) first.** It explains the ideas, the layout, how to rebuild everything from scratch, and what to check as the underlying products age.
 

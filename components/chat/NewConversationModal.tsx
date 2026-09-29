@@ -11,7 +11,7 @@ import { UsernameLookup } from '../people/UsernameLookup';
 export interface NewConversationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  /** People you already know. New people are found by exact username only. */
+  /** People you already know. New people are found by the start of their username. */
   contacts: UserItem[];
   currentUserId: string;
   onLookup: (raw: string) => Promise<LookupOutcome>;

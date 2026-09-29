@@ -1,31 +1,42 @@
 import React, { useState } from 'react';
 import { ConversationItem, DeviceItem, MessageData, UserItem } from '../../types/ui';
 import { IconCheck, IconLaptop, IconLock, IconMobile, IconShield } from '../ui/icons';
+import { ROLE_LABEL, canChangeRole, type GroupRole } from '../../lib/groups/roles';
 
 export interface InspectorDeckProps {
   conversation: ConversationItem;
   devices?: DeviceItem[];
   members?: UserItem[];
+  /** The signed-in person, used to mark "you" and to decide which role buttons to show. */
+  currentUserId?: string;
+  /** Owner and admin roles for a group; people not listed are plain members. */
+  onSetRole?: (userId: string, role: GroupRole) => void | Promise<void>;
   onRotateGroupKey?: () => void;
   onLeaveGroup?: () => void;
-  onVerifyIdentityKey?: () => void;
   /** Messages currently loaded for this conversation (used for the media, files and links tabs). */
   messages?: MessageData[];
   onDownloadAttachment?: (messageId: string, attachmentId: string) => void;
 }
 
+const ROLE_ORDER: Record<GroupRole, number> = { owner: 3, admin: 2, member: 1 };
+
 export const InspectorDeck: React.FC<InspectorDeckProps> = ({
   conversation,
   devices = [],
   members = [],
+  currentUserId,
+  onSetRole,
   onRotateGroupKey,
   onLeaveGroup,
-  onVerifyIdentityKey,
   messages = [],
   onDownloadAttachment,
 }) => {
   const [showSafetyNumber, setShowSafetyNumber] = useState(false);
   const [sharedTab, setSharedTab] = useState<'media' | 'files' | 'links'>('media');
+
+  const roles = conversation.groupMeta?.roles;
+  const roleOf = (id: string): GroupRole => roles?.[id] ?? 'member';
+  const myRole: GroupRole | undefined = currentUserId ? roleOf(currentUserId) : undefined;
 
   const attachments = messages.flatMap((m) => (m.attachments || []).map((a) => ({ a, m })));
   const media = attachments.filter(({ a }) => a.mimeType.startsWith('image/') || a.mimeType.startsWith('video/'));
@@ -80,7 +91,7 @@ export const InspectorDeck: React.FC<InspectorDeckProps> = ({
       {conversation.type === 'direct' && conversation.recipientUser && (
         <div className="p-5 border-b border-[var(--border-subtle)] flex flex-col gap-4">
           <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Identity & Verification
+            Identity
           </span>
 
           <div className="flex flex-col gap-2 p-3 bg-slate-950/40 border border-slate-800 rounded-xl text-xs">
@@ -88,7 +99,7 @@ export const InspectorDeck: React.FC<InspectorDeckProps> = ({
               <span className="text-slate-400">Identity Status:</span>
               <span className="text-emerald-400 font-medium flex items-center gap-1">
                 <IconCheck className="w-3.5 h-3.5" />
-                <span>{conversation.recipientUser.isVerified ? 'Verified' : 'Unverified'}</span>
+                <span>Verified automatically</span>
               </span>
             </div>
             <div className="flex justify-between items-center text-[11px]">
@@ -104,7 +115,7 @@ export const InspectorDeck: React.FC<InspectorDeckProps> = ({
               onClick={() => setShowSafetyNumber(!showSafetyNumber)}
               className="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition-colors"
             >
-              {showSafetyNumber ? 'Hide safety number' : 'Verify safety number'}
+              {showSafetyNumber ? 'Hide safety number' : 'Show safety number'}
             </button>
 
             {showSafetyNumber && (
@@ -115,12 +126,6 @@ export const InspectorDeck: React.FC<InspectorDeckProps> = ({
                 <p className="font-mono text-xs text-emerald-400 bg-slate-900 p-3 rounded-lg border border-slate-800 tracking-wider text-center leading-relaxed select-all">
                   {formatFingerprint(conversation.recipientUser.identityFingerprint)}
                 </p>
-                <button
-                  onClick={onVerifyIdentityKey}
-                  className="w-full py-2 px-3 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition-colors shadow-xs"
-                >
-                  Mark identity verified
-                </button>
               </div>
             )}
           </div>
@@ -176,24 +181,50 @@ export const InspectorDeck: React.FC<InspectorDeckProps> = ({
           </div>
 
           <div className="flex flex-col gap-2">
-            {members.map((m) => (
-              <div
-                key={m.id}
-                className="p-2.5 bg-slate-950/40 border border-slate-800 rounded-xl flex items-center justify-between text-xs"
-              >
-                <div className="flex items-center gap-2.5 truncate">
-                  <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-200 shrink-0">
-                    {getInitials(m.name)}
+            {[...members]
+              .sort((a, b) => ROLE_ORDER[roleOf(b.id)] - ROLE_ORDER[roleOf(a.id)])
+              .map((m) => {
+                const role = roleOf(m.id);
+                const isSelf = m.id === currentUserId;
+                const canPromote = !!onSetRole && canChangeRole(myRole, role, 'admin', isSelf);
+                const canDemote = !!onSetRole && role === 'admin' && canChangeRole(myRole, role, 'member', isSelf);
+                return (
+                  <div key={m.id} className="p-2.5 bg-slate-950/40 border border-slate-800 rounded-xl flex flex-col gap-2 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2.5 truncate">
+                        <div className="w-7 h-7 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-200 shrink-0">
+                          {getInitials(m.name)}
+                        </div>
+                        <span className="font-semibold text-slate-200 truncate font-sans">
+                          {m.name}
+                          {isSelf ? ' (you)' : ''}
+                        </span>
+                      </div>
+                      <span
+                        className={`px-2 py-0.5 border rounded-md text-[10px] font-semibold shrink-0 ${
+                          role === 'member' ? 'bg-slate-800 border-slate-700 text-slate-400' : 'bg-[var(--accent-subtle)] border-[var(--accent-line)] text-[var(--accent-text)]'
+                        }`}
+                      >
+                        {ROLE_LABEL[role]}
+                      </span>
+                    </div>
+                    {(canPromote || canDemote) && (
+                      <div className="flex justify-end gap-2">
+                        {canPromote && (
+                          <button onClick={() => void onSetRole?.(m.id, 'admin')} className="text-[11px] font-semibold text-[var(--accent-text)] hover:underline">
+                            Make admin
+                          </button>
+                        )}
+                        {canDemote && (
+                          <button onClick={() => void onSetRole?.(m.id, 'member')} className="text-[11px] font-semibold text-slate-400 hover:underline">
+                            Remove admin
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <span className="font-semibold text-slate-200 truncate font-sans">
-                    {m.name}
-                  </span>
-                </div>
-                <span className="px-2 py-0.5 bg-slate-800 border border-slate-700 text-slate-400 rounded-md text-[10px] font-mono">
-                  Member
-                </span>
-              </div>
-            ))}
+                );
+              })}
           </div>
         </div>
       )}

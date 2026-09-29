@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/database';
 import {
   DeviceKeyStore,
+  requestDurableStorage,
   generateDeviceKeys,
   registerPeerKey,
   computeDeviceFingerprint,
@@ -43,6 +44,7 @@ export class MessagingCrypto {
     const loaded = await DeviceKeyStore.load();
     if (loaded && loaded.getIdentity()) {
       this.keyStore = loaded;
+      void requestDurableStorage(); // keys already saved earlier become protected from eviction too
       // Keep last_seen_at fresh so other clients' device lists are accurate.
       await this.supabase
         .from('user_devices')

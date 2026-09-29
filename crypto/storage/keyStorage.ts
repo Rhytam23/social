@@ -117,10 +117,14 @@ export class DeviceKeyStore {
     if (typeof indexedDB === 'undefined') return;
     const db = await openDb();
     try {
-      await idbPut(db, RECORD_KEY, this.exportSerializedState());
+      const serialized = this.exportSerializedState();
+      await idbPut(db, RECORD_KEY, serialized);
+      // Read it back: a key that only looks saved would send the person to the "link this device" screen next time.
+      if ((await idbGet(db, RECORD_KEY)) !== serialized) throw new Error('This browser could not save your encryption key.');
     } finally {
       db.close();
     }
+    void requestDurableStorage();
   }
 
   static async load(): Promise<DeviceKeyStore | null> {
@@ -135,6 +139,21 @@ export class DeviceKeyStore {
     } finally {
       db.close();
     }
+  }
+}
+
+/**
+ * Asks the browser not to evict this site's data when it is short of space. Without it, browsers may clear
+ * IndexedDB on their own, which would lose the key and ask the person to link the device again. Best effort:
+ * browsers may decline silently, and the answer never blocks anything.
+ */
+export async function requestDurableStorage(): Promise<boolean> {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.storage?.persist) return false;
+    if (await navigator.storage.persisted?.()) return true;
+    return await navigator.storage.persist();
+  } catch {
+    return false;
   }
 }
 

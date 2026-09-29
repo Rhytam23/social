@@ -8,13 +8,17 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconLaptop,
-  IconLock,
   IconMobile,
   IconShield,
+  IconX,
 } from '../ui/icons';
 import { createClient } from '../../lib/supabase/client';
 import { saveOwnProfile, validateUsername } from '../../lib/profile/profileClient';
 import { userError } from '../../lib/ui/errors';
+import { MB, UPLOAD_LIMITS } from '../../lib/limits';
+import { reservedNameMessage } from '../../lib/profile/names';
+import { LogoMark } from '../brand/Logo';
+import { SupportForm } from '../site/SupportForm';
 import { AppearanceSettings } from './AppearanceSettings';
 import { NotificationSettings } from './NotificationSettings';
 import { PrivacySettings, type PrivacySettingsProps } from './PrivacySettings';
@@ -53,6 +57,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   // Phones show the list of sections first, then one section at a time.
   const [showDetail, setShowDetail] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Profile Form State
   const [displayName, setDisplayName] = useState(currentUser.name);
@@ -89,6 +94,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const uErr = username.trim() ? validateUsername(username) : null;
     setUsernameError(uErr);
     if (uErr) return;
+    // Names that look official are for platform admins only (the database enforces it too).
+    const reserved = currentUser.role === 'admin' ? null : reservedNameMessage(displayName, username);
+    if (reserved) {
+      setErrorMessage(reserved);
+      return;
+    }
 
     setIsSavingProfile(true);
     setProfileSuccess(null);
@@ -176,12 +187,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith('image/')) {
-      setErrorMessage('Please choose an image file for your avatar.');
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+      setErrorMessage('Please choose a JPEG, PNG, WebP or GIF image for your photo.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorMessage('Avatar images must be under 5MB.');
+    if (file.size > UPLOAD_LIMITS.avatarMb * MB) {
+      setErrorMessage(`Profile photos can be up to ${UPLOAD_LIMITS.avatarMb} MB.`);
       return;
     }
 
@@ -305,7 +316,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       {errorMessage && (
         <div className="p-3.5 bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium rounded-xl flex items-center gap-2 mb-4">
-          <span>✕ {errorMessage}</span>
+          <IconX className="w-3.5 h-3.5 shrink-0" />
+          <span>{errorMessage}</span>
         </div>
       )}
 
@@ -317,7 +329,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               <label className="relative w-14 h-14 rounded-2xl bg-emerald-600 text-white font-bold flex items-center justify-center text-lg shadow-md shrink-0 cursor-pointer overflow-hidden group">
                 {avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                  <img src={avatarUrl} alt={displayName} decoding="async" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
                 ) : (
                   displayName.slice(0, 2).toUpperCase() || 'U'
                 )}
@@ -334,8 +346,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-1.5">
-                <label className="text-slate-300 font-semibold text-xs">Display Name</label>
+                <label htmlFor="pf-name" className="text-slate-300 font-semibold text-xs">Display Name</label>
                 <input
+                  id="pf-name"
                   type="text"
                   required
                   value={displayName}
@@ -405,8 +418,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-slate-300 font-semibold text-xs">Email Address</label>
+                <label htmlFor="pf-email" className="text-slate-300 font-semibold text-xs">Email Address</label>
                 <input
+                  id="pf-email"
                   type="email"
                   disabled
                   value={currentUser.email || 'Registered account'}
@@ -415,8 +429,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-slate-300 font-semibold text-xs">Phone number (private)</label>
+                <label htmlFor="pf-phone" className="text-slate-300 font-semibold text-xs">Phone number (private)</label>
                 <input
+                  id="pf-phone"
                   type="tel"
                   placeholder="+1 555-0199"
                   value={phoneNumber}
@@ -614,23 +629,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {activeTab === 'about' && (
         <div className="panel flex flex-col gap-4 shadow-xs text-xs">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center">
-              <IconLock className="w-5 h-5" />
-            </div>
+            <LogoMark className="w-10 h-10 text-[var(--accent-text)]" />
             <div className="flex flex-col">
-              <span className="font-bold text-white text-sm">Private Chat</span>
-              <span className="text-slate-400 text-[11px] font-mono">Version 1.0.0 (Production V1)</span>
+              <span className="font-semibold text-[var(--text-primary)] text-sm">Nook</span>
+              <span className="text-[var(--text-muted)] text-[11px] font-mono">Version 1.0</span>
             </div>
           </div>
 
           <p className="text-slate-300 leading-relaxed pt-2">
-            Private Chat encrypts messages client-side using X25519 key exchange with XSalsa20-Poly1305 authenticated encryption (libsodium), AES-256-GCM for attachments, and Argon2id for passphrase-protected key backups. The server only ever stores ciphertext.
+            Nook encrypts messages client-side using X25519 key exchange with XSalsa20-Poly1305 authenticated encryption (libsodium), AES-256-GCM for attachments, and Argon2id for passphrase-protected key backups. The server only ever stores ciphertext.
           </p>
 
           <div className="flex items-center gap-4 pt-3 border-t border-slate-800 text-slate-400">
             <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
             <span>•</span>
             <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
+            <span>•</span>
+            <Link href="/help" className="hover:text-white transition-colors">Help</Link>
+          </div>
+
+          <div className="pt-3 border-t border-slate-800 flex flex-col gap-3">
+            {reportOpen ? (
+              <>
+                <p className="text-[var(--text-secondary)] leading-relaxed">
+                  Tell us what went wrong. Your account is attached so we can reply by email. Do not include passwords, your encryption key or private message text.
+                </p>
+                <SupportForm askEmail={false} defaultTopic="problem" onSent={() => setTimeout(() => setReportOpen(false), 4000)} />
+              </>
+            ) : (
+              <div>
+                <Button variant="tertiary" size="sm" onClick={() => setReportOpen(true)}>
+                  Report a problem
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}

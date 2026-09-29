@@ -37,7 +37,7 @@ const AVATAR_TONES = [
   'bg-[#454356] text-[#dad8ea]',
 ] as const;
 
-export function avatarTone(name: string): string {
+function avatarTone(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
   return AVATAR_TONES[Math.abs(h) % AVATAR_TONES.length];
@@ -63,7 +63,7 @@ export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 'md', presence
   <span className={`relative inline-flex shrink-0 ${className}`}>
     {src ? (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={src} alt="" className={`${SIZES[size]} rounded-full object-cover bg-[var(--surface-2)]`} />
+      <img src={src} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" className={`${SIZES[size]} rounded-full object-cover bg-[var(--surface-2)]`} />
     ) : (
       <span
         aria-hidden="true"

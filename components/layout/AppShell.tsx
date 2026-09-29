@@ -18,13 +18,15 @@ import { CommunitySidebar } from '../community/CommunitySidebar';
 import { CreateChannelDialog, CommunitySettingsDialog } from '../community/CommunityDialogs';
 import { GroupsDialog } from '../groups/GroupsDialog';
 import type { LookupOutcome } from '../../lib/people/lookup';
+import type { GroupInviteItem } from '../../lib/groups/invites';
 import { isGroupManager, type GroupRole } from '../../lib/groups/roles';
 import { setTheme, effectiveTheme } from '../../lib/ui/theme';
 import { toast } from '../../lib/ui/toastStore';
 import { UserProfileModal } from '../profile/UserProfileModal';
-import { GroupSpaceView } from '../groups/GroupSpaceView';
+import { GroupSpaceView, type GroupTab } from '../groups/GroupSpaceView';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { ForwardMessageModal } from '../messages/ForwardMessageModal';
-import { IconLock, IconPlus } from '../ui/icons';
+import { IconLock, IconPlus, IconX } from '../ui/icons';
 import { Button } from '../ui/button';
 
 export interface AppShellProps {
@@ -53,7 +55,6 @@ export interface AppShellProps {
 
   devices: DeviceItem[];
   users: UserItem[];
-  onToggleUserRole: (userId: string, currentRole: 'admin' | 'member') => void;
 
   onExportKeyBackup: (passphrase: string) => Promise<void>;
   onRestoreKeyBackup: (passphrase: string, backupJson: string) => Promise<void>;
@@ -62,7 +63,7 @@ export interface AppShellProps {
   onNewMessage: () => void;
   /** Starts (or opens) a direct chat with someone, including people found by username. */
   onStartDirectChat?: (user: UserItem) => void | Promise<void>;
-  /** Finds one person by exact username. The only way to discover new people. */
+  /** Finds people whose username starts with the text. The only way to discover new people. */
   onLookupUser: (raw: string) => Promise<LookupOutcome>;
   onCreateGroup?: (name: string, memberIds: string[]) => Promise<boolean>;
 
@@ -97,6 +98,10 @@ export interface AppShellProps {
   onJoinCommunity?: (code: string) => Promise<string | null>;
   onCreateChannel?: (communityId: string, name: string, isPrivate: boolean, memberIds: string[]) => Promise<string | null>;
   onCreateInvite?: (communityId: string) => Promise<string | null>;
+  /** A group the app should show now (just joined through a link). */
+  focusGroupId?: string;
+  onCreateGroupInviteLink?: (groupId: string) => Promise<string | null>;
+  onRevokeGroupInviteLinks?: (groupId: string) => Promise<boolean>;
   onSetCommunityRole?: (communityId: string, userId: string, role: 'owner' | 'admin' | 'member') => Promise<void>;
   onRemoveCommunityMember?: (communityId: string, userId: string) => Promise<void>;
   onLeaveCommunity?: (communityId: string) => Promise<boolean>;
@@ -106,12 +111,13 @@ export interface AppShellProps {
 
   // Privacy
   blockedIds?: string[];
+  /** Group invitations waiting for an answer, and how to answer one. */
+  groupInvites?: GroupInviteItem[];
+  onRespondGroupInvite?: (inviteId: string, accept: boolean) => void;
   onBlockUser?: (userId: string) => void;
   onUnblockUser?: (userId: string) => void;
   onReportMessage?: (messageId: string, reason: string, includeText: boolean) => Promise<boolean>;
   onSetDisappearing?: (conversationId: string, seconds: number | null) => void;
-  onVerifyPeer?: (conversationId: string) => void;
-  onAcceptKeyChange?: (conversationId: string) => void;
   privacyProps?: Omit<PrivacySettingsProps, 'userId'>;
   /** Places a call to a contact. Provided in connected mode only. */
   onStartCall?: (peerUserId: string, video: boolean) => void;
@@ -141,7 +147,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   onRemoveGroupMember,
   devices,
   users,
-  onToggleUserRole,
   onExportKeyBackup,
   onRestoreKeyBackup,
   onRevokeDevice,
@@ -177,17 +182,20 @@ export const AppShell: React.FC<AppShellProps> = ({
   onJoinCommunity,
   onCreateChannel,
   onCreateInvite,
+  focusGroupId,
+  onCreateGroupInviteLink,
+  onRevokeGroupInviteLinks,
   onSetCommunityRole,
   onRemoveCommunityMember,
   onLeaveCommunity,
   currentUser,
   blockedIds = [],
+  groupInvites,
+  onRespondGroupInvite,
   onBlockUser,
   onUnblockUser,
   onReportMessage,
   onSetDisappearing,
-  onVerifyPeer,
-  onAcceptKeyChange,
   privacyProps,
   onStartCall,
   callActive,
@@ -206,9 +214,20 @@ export const AppShell: React.FC<AppShellProps> = ({
   const [activeCommunityId, setActiveCommunityId] = useState<string | null>(null);
   const [groupsDialogOpen, setGroupsDialogOpen] = useState(false);
   const [groupChatOpen, setGroupChatOpen] = useState(false);
+  // "Group info" in a group chat opens the group page on this tab.
+  const [groupInfoTab, setGroupInfoTab] = useState<GroupTab | undefined>(undefined);
   const [channelDialogOpen, setChannelDialogOpen] = useState(false);
   const [communitySettingsOpen, setCommunitySettingsOpen] = useState(false);
   const [reportingMessage, setReportingMessage] = useState<MessageData | null>(null);
+
+  // Just joined a group through a link: show it.
+  useEffect(() => {
+    if (!focusGroupId) return;
+    setActiveCategory('groups');
+    setGroupInfoTab(undefined);
+    setGroupChatOpen(true);
+    setMobileChatView(true);
+  }, [focusGroupId]);
 
   // An invite link (?join=CODE) opens the join dialog once.
   useEffect(() => {
@@ -286,6 +305,18 @@ export const AppShell: React.FC<AppShellProps> = ({
   const activeConversation = showGroupChat ? activeGroupConversation : activeChatConversation;
   const showChatCanvas = (activeCategory === 'chats' || showGroupChat) && !!activeConversation;
 
+  /** Everyone in a group (including you) for the details panel; other chats list all known people as before. */
+  const groupMembersOf = (conv: ConversationItem): UserItem[] => {
+    if (conv.type !== 'group') return users;
+    const ids = conv.groupMeta?.memberIds ?? [];
+    return [
+      ...(ids.includes(currentUserId)
+        ? [{ id: currentUserId, name: currentUserName, registrationId: currentUserRegistrationId, role: currentUserRole, deviceCount: 1, joinedAt: '', identityFingerprint: '', presence: 'online' as const }]
+        : []),
+      ...users.filter((u) => u.id !== currentUserId && ids.includes(u.id)),
+    ];
+  };
+
   const unreadTotal = directConversations.reduce((acc, c) => acc + c.unreadCount, 0);
   const groupUnreadTotal = groupConversations.reduce((acc, c) => acc + c.unreadCount, 0);
   const unreadByCommunity: Record<string, number> = {};
@@ -354,6 +385,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             onSelectHome={selectHome}
             onSelectCommunity={selectCommunity}
             onAdd={() => setGroupsDialogOpen(true)}
+            onOpenSettings={() => setActiveCategory('settings')}
           />
         </div>
       )}
@@ -386,7 +418,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           ) : (
           <NavDeck
             currentUserName={currentUserName}
-            currentUserRegistrationId={currentUserRegistrationId}
             userRole={currentUserRole}
             activeCategory={activeCategory}
             onSelectCategory={(cat) => {
@@ -404,7 +435,8 @@ export const AppShell: React.FC<AppShellProps> = ({
             }}
             onNewMessage={onNewMessage}
             onNewGroup={() => setGroupsDialogOpen(true)}
-            onOpenSettings={() => setActiveCategory('settings')}
+            groupInvites={groupInvites}
+            onRespondGroupInvite={onRespondGroupInvite}
             unreadTotal={unreadTotal}
             groupUnreadTotal={groupUnreadTotal}
             isLoading={isLoading}
@@ -431,8 +463,12 @@ export const AppShell: React.FC<AppShellProps> = ({
         >
           {showChatCanvas && activeConversation && (
             <>
+              <ErrorBoundary label="chat" resetKey={activeConversation.id}>
               <ChatCanvas
                 conversation={activeConversation}
+                currentUserId={currentUserId}
+                onOpenGroupInfo={showGroupChat ? () => { setGroupInfoTab('members'); setGroupChatOpen(false); } : undefined}
+                platformAdminIds={[...users.filter((u) => u.role === 'admin').map((u) => u.id), ...(currentUserRole === 'admin' ? [currentUserId] : [])]}
                 messages={shownMessages}
                 onSendMessage={onSendMessage}
                 replyTarget={
@@ -466,8 +502,6 @@ export const AppShell: React.FC<AppShellProps> = ({
                     ? (seconds) => onSetDisappearing(activeConversation.id, seconds)
                     : undefined
                 }
-                onAcceptKeyChange={onAcceptKeyChange ? () => onAcceptKeyChange(activeConversation.id) : undefined}
-                onVerifyPeer={onVerifyPeer ? () => onVerifyPeer(activeConversation.id) : undefined}
                 onReportMessage={onReportMessage ? (m) => setReportingMessage(m) : undefined}
                 onStartCall={
                   onStartCall && !callActive && activeConversation.type === 'direct' && activeConversation.recipientUser && !blockedDirect
@@ -494,6 +528,7 @@ export const AppShell: React.FC<AppShellProps> = ({
                   setGroupChatOpen(false);
                 }}
               />
+              </ErrorBoundary>
 
               {threadRoot && (
                 <ThreadPanel
@@ -511,24 +546,26 @@ export const AppShell: React.FC<AppShellProps> = ({
 
               {/* Context Inspector Deck (Desktop slide-over) */}
               {showInspector && (
-                <div className="absolute top-0 right-0 bottom-0 w-80 lg:w-96 bg-[var(--surface-1)] border-l border-[var(--border-subtle)] shadow-2xl z-30 flex flex-col animate-in slide-in-from-right duration-200">
+                <div className="absolute top-0 right-0 bottom-0 w-80 lg:w-96 bg-[var(--surface-1)] border-l border-[var(--border-subtle)] shadow-[var(--shadow-pop)] z-30 flex flex-col animate-in slide-in-from-right duration-200">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-subtle)] bg-slate-950/40">
                     <span className="text-xs font-bold text-slate-100">Conversation Details</span>
                     <button
                       onClick={() => setShowInspector(false)}
-                      className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+                      aria-label="Close details"
+                      className="p-1 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg hover:bg-[var(--surface-2)]"
                     >
-                      ✕
+                      <IconX className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="flex-1 overflow-y-auto">
                     <InspectorDeck
                       conversation={activeConversation}
                       devices={devices}
-                      members={users}
+                      members={groupMembersOf(activeConversation)}
+                      currentUserId={currentUserId}
+                      onSetRole={onSetMemberRole ? (userId, role) => onSetMemberRole(activeConversation.id, userId, role) : undefined}
                       messages={messages}
                       onDownloadAttachment={onDownloadAttachment}
-                      onVerifyIdentityKey={onVerifyPeer ? () => onVerifyPeer(activeConversation.id) : undefined}
                     />
                   </div>
                 </div>
@@ -544,7 +581,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               </div>
               <h3 className="text-base font-bold text-slate-100 mb-1">No chats yet</h3>
               <p className="text-xs text-slate-400 max-w-sm mb-6 leading-relaxed">
-                Your messages are end-to-end encrypted. Find someone by their exact username to start a private conversation.
+                Your messages are end-to-end encrypted. Find someone by their username to start a private conversation.
               </p>
               <Button variant="primary" size="md" onClick={onNewMessage} className="gap-2">
                 <IconPlus className="w-4 h-4" />
@@ -555,6 +592,8 @@ export const AppShell: React.FC<AppShellProps> = ({
 
           {activeCategory === 'groups' && activeGroupConversation && !showGroupChat && (
             <GroupSpaceView
+              key={`${activeGroupConversation.id}:${groupInfoTab ?? 'overview'}`}
+              initialTab={groupInfoTab}
               group={activeGroupConversation}
               currentUserId={currentUserId}
               onSetRole={onSetMemberRole ? (userId, role) => onSetMemberRole(activeGroupConversation.id, userId, role) : undefined}
@@ -573,6 +612,8 @@ export const AppShell: React.FC<AppShellProps> = ({
                 setGroupChatOpen(true);
                 setMobileChatView(true);
               }}
+              onCreateInviteLink={onCreateGroupInviteLink ? () => onCreateGroupInviteLink(activeGroupConversation.id) : undefined}
+              onRevokeInviteLinks={onRevokeGroupInviteLinks ? () => onRevokeGroupInviteLinks(activeGroupConversation.id) : undefined}
               onAddMember={onAddGroupMember ? (userId) => onAddGroupMember(activeGroupConversation.id, userId) : undefined}
               onRemoveMember={onRemoveGroupMember ? (userId) => onRemoveGroupMember(activeGroupConversation.id, userId) : undefined}
             />
@@ -640,7 +681,6 @@ export const AppShell: React.FC<AppShellProps> = ({
           {activeCategory === 'admin' && currentUserRole === 'admin' && (
             <AdminDashboard
               users={users}
-              onToggleUserRole={onToggleUserRole}
             />
           )}
         </main>

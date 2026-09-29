@@ -125,25 +125,6 @@ export const EmptyState: React.FC<{
   </div>
 );
 
-export const ErrorState: React.FC<{ title?: string; message: string; onRetry?: () => void }> = ({
-  title = 'Something went wrong',
-  message,
-  onRetry,
-}) => (
-  <div role="alert" className="flex flex-col items-center justify-center text-center p-8 gap-3">
-    <div className="w-12 h-12 rounded-2xl bg-[var(--danger-subtle)] border border-[var(--danger-neutral)]/30 flex items-center justify-center text-[var(--danger-neutral)] font-bold">
-      !
-    </div>
-    <h3 className="text-sm font-semibold text-[var(--text-primary)]">{title}</h3>
-    <p className="text-xs text-[var(--text-secondary)] max-w-sm break-words">{message}</p>
-    {onRetry && (
-      <Button variant="secondary" size="sm" onClick={onRetry}>
-        Try again
-      </Button>
-    )}
-  </div>
-);
-
 export const Kbd: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <kbd className="px-1.5 py-0.5 rounded-md bg-[var(--surface-2)] border border-[var(--border-strong)] text-[10px] font-mono text-[var(--text-secondary)]">
     {children}

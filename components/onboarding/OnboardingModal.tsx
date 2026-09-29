@@ -21,7 +21,7 @@ export interface OnboardingModalProps {
   onExportKeyBackup?: (passphrase: string) => Promise<void>;
 }
 
-const STEP_TITLES = ['Welcome to Private Chat', 'Protect your keys', 'Notifications', 'Ready to message'] as const;
+const STEP_TITLES = ['Welcome to Nook', 'Protect your keys', 'Notifications', 'Ready to message'] as const;
 const inputClass =
   'w-full bg-[var(--surface-2)] border border-[var(--border-subtle)] p-2.5 rounded-xl text-[var(--text-primary)] text-xs focus:outline-none focus:border-emerald-500/60 transition-all';
 
@@ -226,7 +226,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
             <h4 className="text-sm font-bold text-[var(--text-primary)]">Your encrypted workspace is ready</h4>
             {notifStatus && <p role="status" className="text-[11px]">{notifStatus}</p>}
-            <p className="max-w-xs text-[11px] leading-relaxed">Find people by name, username, or an exact email or phone number, then say hello. Press Ctrl+K anytime to jump anywhere.</p>
+            <p className="max-w-xs text-[11px] leading-relaxed">Find people by typing the start of their username, then say hello. Until they reply you can send 3 messages. Press Ctrl+K anytime to jump anywhere.</p>
           </div>
         )}
       </div>

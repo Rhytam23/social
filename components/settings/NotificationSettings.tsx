@@ -86,7 +86,7 @@ export const NotificationSettings: React.FC = () => {
       </SettingRow>
 
       <p className="text-[11px] text-[var(--text-muted)] pt-3 leading-relaxed">
-        Alerts only appear while Private Chat is open in a browser tab. Notifications when the app is closed (Web Push) are not available yet, because
+        Alerts only appear while Nook is open in a browser tab. Notifications when the app is closed (Web Push) are not available yet, because
         they would need message content to leave your device.
       </p>
     </section>

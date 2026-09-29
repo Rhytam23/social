@@ -1,7 +1,7 @@
 import React from 'react';
 import { CommunityItem } from '../../types/ui';
 import { initialsOf } from '../ui/avatar';
-import { IconLock, IconPlus } from '../ui/icons';
+import { IconLock, IconPlus, IconSettings } from '../ui/icons';
 
 export interface ServerRailProps {
   /** Empty in demo mode, where communities are not available. */
@@ -13,6 +13,8 @@ export interface ServerRailProps {
   onSelectHome: () => void;
   onSelectCommunity: (id: string) => void;
   onAdd: () => void;
+  /** Settings sit at the bottom of the rail on desktop (phones have them in the bottom bar). */
+  onOpenSettings?: () => void;
 }
 
 /**
@@ -20,7 +22,7 @@ export interface ServerRailProps {
  * Lock = Chat (private, one-to-one conversations). Plus = Groups (create, join, invite).
  * Communities you belong to sit between the two.
  */
-export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommunityId, unreadByCommunity, homeUnread, onSelectHome, onSelectCommunity, onAdd }) => {
+export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommunityId, unreadByCommunity, homeUnread, onSelectHome, onSelectCommunity, onAdd, onOpenSettings }) => {
   // A quiet tile; the active one gets an accent edge and tint instead of a solid fill.
   const item = (active: boolean) =>
     `pressable relative w-10 h-10 shrink-0 flex items-center justify-center text-xs font-semibold rounded-xl border ${
@@ -69,6 +71,16 @@ export const ServerRail: React.FC<ServerRailProps> = ({ communities, activeCommu
         <IconPlus className="w-5 h-5" />
       </button>
       <span className="hidden md:block -mt-1 text-[10px] font-semibold text-[var(--text-secondary)]" aria-hidden="true">Groups</span>
+      {onOpenSettings && (
+        <button
+          onClick={onOpenSettings}
+          aria-label="Settings"
+          title="Settings"
+          className="pressable hidden md:flex mt-auto w-10 h-10 shrink-0 items-center justify-center rounded-xl text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)]"
+        >
+          <IconSettings className="w-5 h-5" />
+        </button>
+      )}
     </nav>
   );
 };

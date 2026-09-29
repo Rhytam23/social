@@ -57,7 +57,7 @@ export const ResetPasswordForm: React.FC = () => {
   return (
     <AuthLayout
       title="Create new password"
-      subtitle="Enter a new secure password for your Private Chat account."
+      subtitle="Enter a new secure password for your Nook account."
     >
       {successMsg ? (
         <div className="flex flex-col gap-4">

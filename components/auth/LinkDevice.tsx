@@ -31,7 +31,7 @@ export const LinkDevice: React.FC<LinkDeviceProps> = ({ onLink, onStartFresh, on
     setError(null);
     if (!file) return;
     if (file.size > MAX_BACKUP_BYTES) {
-      setError('That file is too large to be a Private Chat backup.');
+      setError('That file is too large to be a Nook backup.');
       return;
     }
     setFileText(await file.text());
@@ -59,6 +59,11 @@ export const LinkDevice: React.FC<LinkDeviceProps> = ({ onLink, onStartFresh, on
             there (Settings, Security, Export backup). Up to 3 devices can be linked to one account.
           </p>
         </div>
+
+        <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+          You only do this once per browser. Your key is kept in this browser afterwards, so signing in again will not ask for it. You will be asked again if you
+          clear this site&apos;s data or use a private window.
+        </p>
 
         <label className="flex flex-col gap-1.5 text-xs font-medium text-[var(--text-secondary)]">
           Backup file

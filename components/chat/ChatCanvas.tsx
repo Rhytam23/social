@@ -2,11 +2,13 @@ import React, { useRef, useEffect, useState } from 'react';
 import { ConversationItem, MessageData, ReplyReference } from '../../types/ui';
 import { MessageItem } from '../messages/MessageItem';
 import { MessageComposer } from '../messages/MessageComposer';
-import { IconChevronDown, IconLock, IconPin, IconSearch, IconShield, IconX } from '../ui/icons';
+import { IconChevronDown, IconLock, IconPin, IconSearch, IconX } from '../ui/icons';
 import { PRESENCE_LABEL } from '../ui/avatar';
 import { MessageListSkeleton, TypingDots } from '../ui/primitives';
-import { NotifyMenu } from '../notifications/NotifyMenu';
-import { DisappearMenu } from '../privacy/DisappearMenu';
+import { ChatHeaderMenu } from './ChatHeaderMenu';
+import { VerifiedBadge } from '../brand/VerifiedBadge';
+import { dayKey, dayLabel, fullTimestamp } from '../../lib/ui/dateLabels';
+import { ROLE_LABEL, type GroupRole } from '../../lib/groups/roles';
 
 export interface ChatCanvasProps {
   conversation: ConversationItem;
@@ -40,11 +42,15 @@ export interface ChatCanvasProps {
   onSetNotify?: (level: 'all' | 'mentions' | 'none' | 'default', muteMs?: number) => void;
   mentionCandidates?: Array<{ id: string; name: string; username?: string }>;
   onSetDisappear?: (seconds: number | null) => void;
-  onAcceptKeyChange?: () => void;
-  onVerifyPeer?: () => void;
   onReportMessage?: (msg: MessageData) => void;
   /** Start a voice (false) or video (true) call with the other person (direct chats only). */
   onStartCall?: (video: boolean) => void;
+  /** Ids of platform admins: their messages and the chat title carry the verified badge. */
+  platformAdminIds?: string[];
+  /** The signed-in person: in a group their own role (Owner / Group admin) is shown in the header. */
+  currentUserId?: string;
+  /** Opens the group page on its Members tab (group chats only). */
+  onOpenGroupInfo?: () => void;
 }
 
 export const ChatCanvas: React.FC<ChatCanvasProps> = ({
@@ -58,6 +64,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   onDownloadAttachment,
   onRetryFailedMessage,
   onToggleInspector,
+  platformAdminIds = [],
+  currentUserId,
+  onOpenGroupInfo,
   onEditMessage,
   onDeleteMessage,
   onForwardMessage,
@@ -77,16 +86,27 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
   onSetNotify,
   mentionCandidates,
   onSetDisappear,
-  onAcceptKeyChange,
-  onVerifyPeer,
   onReportMessage,
   onStartCall,
 }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const groupRoles = conversation.type === 'group' ? conversation.groupMeta?.roles : undefined;
+  const myGroupRole: GroupRole | undefined = groupRoles && currentUserId ? groupRoles[currentUserId] ?? 'member' : undefined;
   const [showInChatSearch, setShowInChatSearch] = useState(false);
   const [inChatSearchQuery, setInChatSearchQuery] = useState('');
   const [showScrollBottomBtn, setShowScrollBottomBtn] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
+  // "Today" / "Yesterday" go stale once midnight passes: look again when the window regains focus and every few minutes.
+  const [, setDayTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setDayTick((n) => n + 1);
+    const timer = window.setInterval(bump, 5 * 60 * 1000);
+    window.addEventListener('focus', bump);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', bump);
+    };
+  }, []);
 
   const pinnedMsg = messages.find((m) => m.id === conversation.pinnedMessageId || m.isPinned);
 
@@ -146,7 +166,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
     >
       {/* Drag Over Overlay */}
       {isDragOver && (
-        <div className="absolute inset-0 z-40 bg-emerald-950/80 backdrop-blur-xs border-2 border-dashed border-emerald-400 flex flex-col items-center justify-center text-emerald-300 font-sans gap-2">
+        <div className="absolute inset-0 z-40 bg-[var(--surface-1)]/90 border-2 border-dashed border-[var(--accent-primary)] flex flex-col items-center justify-center text-[var(--accent-text)] font-sans gap-2">
           <IconLock className="w-8 h-8 text-emerald-400" />
           <span className="font-bold text-base">Drop File to Encrypt & Attach</span>
           <span className="text-xs text-emerald-400">File will be encrypted client-side before upload</span>
@@ -154,7 +174,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
       )}
 
       {/* Header Bar */}
-      <div className="h-14 bg-[var(--surface-1)]/90 backdrop-blur-md border-b border-[var(--border-subtle)] px-4 sm:px-6 flex items-center justify-between shrink-0 z-10">
+      <div className="h-14 bg-[var(--surface-1)] border-b border-[var(--border-subtle)] px-4 sm:px-6 flex items-center justify-between shrink-0 z-10">
         <div className="flex items-center gap-3 truncate">
           {onBackToList && (
             <button
@@ -172,6 +192,12 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
               <h2 className="text-sm font-bold text-slate-100 truncate font-sans">
                 {conversation.communityId ? `# ${conversation.title}` : conversation.title}
               </h2>
+              {conversation.type === 'direct' && conversation.recipientUser && platformAdminIds.includes(conversation.recipientUser.id) && <VerifiedBadge />}
+              {myGroupRole && myGroupRole !== 'member' && (
+                <span className="shrink-0 px-2 py-0.5 rounded-md border border-[var(--accent-line)] bg-[var(--accent-subtle)] text-[10px] font-semibold text-[var(--accent-text)]">
+                  {ROLE_LABEL[myGroupRole]}
+                </span>
+              )}
               {conversation.isMuted && (
                 <span className="text-[10px] text-slate-500">Muted</span>
               )}
@@ -218,41 +244,25 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
               </button>
             </>
           )}
-          {onSetDisappear && <DisappearMenu current={conversation.disappearAfter} onChange={onSetDisappear} />}
-          {onSetNotify && <NotifyMenu conversation={conversation} onChange={onSetNotify} />}
-          <button
-            onClick={() => setShowInChatSearch(!showInChatSearch)}
-            className={`p-2 rounded-xl transition-colors ${
-              showInChatSearch
-                ? 'bg-slate-800 text-white'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800'
-            }`}
-            title="Search in conversation"
-          >
-            <IconSearch className="w-4 h-4" />
-          </button>
-
-          {onToggleInspector && (
+          {conversation.type === 'group' && onOpenGroupInfo && (
             <button
-              onClick={onToggleInspector}
-              className="px-3 py-1.5 text-xs font-medium text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5"
+              type="button"
+              onClick={onOpenGroupInfo}
+              className="px-2.5 py-1 rounded-lg text-[11px] font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--surface-2)] border border-[var(--border-subtle)]"
             >
-              <IconShield className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden sm:inline">Security Context</span>
+              Group info
             </button>
           )}
+          <ChatHeaderMenu
+            conversation={conversation}
+            searchOpen={showInChatSearch}
+            onToggleSearch={() => setShowInChatSearch(!showInChatSearch)}
+            onOpenSecurity={onToggleInspector}
+            onSetNotify={onSetNotify}
+            onSetDisappear={onSetDisappear}
+          />
         </div>
       </div>
-
-      {conversation.recipientUser?.keyChanged && (
-        <div role="alert" className="px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/30 text-xs text-[var(--warning)] flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="flex-1 min-w-[12rem]">
-            {conversation.recipientUser.name}&apos;s security code changed. This happens when they use a new device or reinstall. If you did not expect it, compare safety numbers before sharing anything sensitive.
-          </span>
-          {onVerifyPeer && <button onClick={onVerifyPeer} className="font-semibold underline">I verified it</button>}
-          {onAcceptKeyChange && <button onClick={onAcceptKeyChange} className="font-semibold underline">Dismiss</button>}
-        </div>
-      )}
 
       {/* In-Chat Filter Search Bar */}
       {showInChatSearch && (
@@ -305,15 +315,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto p-4 sm:p-6 flex flex-col gap-3 relative"
       >
-        <div className="w-full max-w-4xl mx-auto flex flex-col gap-2">
-          {/* Security Badge Pill */}
-          <div className="py-1.5 px-3 my-2 bg-slate-900/60 border border-slate-800/80 rounded-full text-xs text-center flex items-center justify-center gap-2 max-w-fit mx-auto shadow-xs text-slate-400">
-            <IconLock className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="text-[11px] font-medium text-slate-300">
-              End-to-End Encrypted via {conversation.type === 'group' ? 'Per-Device Group Key Distribution' : 'X25519 Authenticated Encryption'}
-            </span>
-          </div>
-
+        <div className="w-full max-w-4xl mx-auto flex flex-col">
           {canLoadOlder && !inChatSearchQuery && (
             <button
               onClick={onLoadOlder}
@@ -330,13 +332,26 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
             <div className="my-auto text-center text-xs text-slate-500 p-12">
               {inChatSearchQuery
                 ? `No messages in this chat match "${inChatSearchQuery}"`
-                : 'No messages in this conversation yet. Send a message to establish session ratchet.'}
+                : 'No messages yet. Say hello.'}
             </div>
           ) : (
             displayedMessages.map((msg, index) => {
               const isFirstUnread = conversation.unreadCount > 0 && index === displayedMessages.length - conversation.unreadCount;
+              const prev = displayedMessages[index - 1];
+              // Same person, same minute, nothing in between: the name and photo are not repeated.
+              // A new calendar day (local time) starts with a date pill, like WhatsApp: Today, Yesterday, then the date.
+              const thisDay = msg.createdAt ? dayKey(msg.createdAt) : '';
+              const startsNewDay = !!thisDay && (!prev || !prev.createdAt || dayKey(prev.createdAt) !== thisDay);
+              const continuation = !!prev && !isFirstUnread && !startsNewDay && !prev.isDeletedLocally && prev.senderId === msg.senderId && prev.isSelf === msg.isSelf && prev.timestamp === msg.timestamp;
               return (
                 <React.Fragment key={msg.id}>
+                  {startsNewDay && msg.createdAt && (
+                    <div className="my-3 flex justify-center" role="separator" aria-label={dayLabel(msg.createdAt)}>
+                      <span className="text-[11px] font-semibold text-[var(--text-secondary)] px-3 py-1 rounded-full bg-[var(--surface-2)] border border-[var(--border-subtle)]" title={fullTimestamp(msg.createdAt)}>
+                        {dayLabel(msg.createdAt)}
+                      </span>
+                    </div>
+                  )}
                   {isFirstUnread && (
                     <div className="my-3 flex items-center gap-3">
                       <div className="flex-1 h-[1px] bg-emerald-500/40" />
@@ -360,6 +375,9 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
                     onOpenThread={onOpenThread}
                     onReportMessage={onReportMessage}
                     threadReplyCount={threadCounts.get(msg.id) ?? 0}
+                    continuation={continuation}
+                    senderVerified={platformAdminIds.includes(msg.senderId)}
+                    senderGroupRole={groupRoles && groupRoles[msg.senderId] !== 'member' ? groupRoles[msg.senderId] : undefined}
                   />
                 </React.Fragment>
               );
@@ -388,7 +406,7 @@ export const ChatCanvas: React.FC<ChatCanvasProps> = ({
       {showScrollBottomBtn && (
         <button
           onClick={scrollToBottom}
-          className="absolute bottom-20 right-6 p-2.5 rounded-full bg-slate-800 hover:bg-slate-700 text-white shadow-xl border border-slate-700 transition-all z-20"
+          className="absolute bottom-20 right-6 p-2.5 rounded-full bg-[var(--surface-2)] hover:bg-[var(--surface-hover)] text-[var(--text-primary)] shadow-[var(--shadow-2)] border border-[var(--border-strong)] transition-all z-20"
           title="Scroll to bottom"
         >
           <IconChevronDown className="w-4 h-4" />

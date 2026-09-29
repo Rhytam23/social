@@ -1,38 +1,48 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { encryptAttachment, decryptAttachment } from '../../crypto';
 import type { AttachmentEnvelope } from './envelope';
-
-export const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+import { createClient } from '../supabase/client';
+import { UserMessageError } from '../ui/errors';
+import { maxUploadBytes, uploadKindFor, uploadLimitMessage } from '../limits';
 
 /**
- * Encrypts a file client-side (AES-256-GCM, crypto/attachments) and uploads
- * the ciphertext through the existing IDOR-checked /api/uploads route. The
- * decryption key never leaves this function except inside the returned
- * envelope, which the caller must encrypt (via MessagingCrypto) before it
- * ever touches the network again.
+ * Encrypts a file client-side (AES-256-GCM, crypto/attachments), asks the server for permission and a signed
+ * upload address (POST /api/uploads/sign: membership, size per kind, rate and daily quota), sends the
+ * ciphertext straight to Storage, and has the server confirm the real size (POST /api/uploads/complete).
+ * The decryption key never leaves this function except inside the returned envelope, which the caller must
+ * encrypt (via MessagingCrypto) before it ever touches the network again.
  */
 export async function uploadEncryptedAttachment(
   conversationId: string,
   file: File
 ): Promise<AttachmentEnvelope> {
-  if (file.size > MAX_ATTACHMENT_BYTES) {
-    throw new Error(`File exceeds the 25MB limit (${(file.size / (1024 * 1024)).toFixed(1)}MB)`);
-  }
+  const mimeType = file.type || 'application/octet-stream';
+  const kind = uploadKindFor(mimeType);
+  if (file.size > maxUploadBytes(kind)) throw new UserMessageError(uploadLimitMessage(kind, file.size));
 
   const rawBytes = await file.arrayBuffer();
-  const encrypted = await encryptAttachment(rawBytes, file.name, file.type || 'application/octet-stream');
+  const encrypted = await encryptAttachment(rawBytes, file.name, mimeType);
+  const size = encrypted.encryptedBuffer.byteLength;
+  // The stored file is a little larger than the original (authentication tag): ask for the real size.
+  if (size > maxUploadBytes(kind)) throw new UserMessageError(uploadLimitMessage(kind, size));
 
-  const formData = new FormData();
-  formData.append('file', new Blob([encrypted.encryptedBuffer]), file.name);
-  formData.append('conversationId', conversationId);
+  const post = async <T>(url: string, body: Record<string, unknown>): Promise<T> => {
+    const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      throw new UserMessageError(data.error || `Upload failed (${res.status})`);
+    }
+    return (await res.json()) as T;
+  };
 
-  const res = await fetch('/api/uploads', { method: 'POST', body: formData });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `Upload failed (${res.status})`);
-  }
+  const { path, token } = await post<{ path: string; token: string }>('/api/uploads/sign', { conversationId, kind, size });
 
-  const { path } = (await res.json()) as { path: string };
+  const { error } = await createClient()
+    .storage.from('encrypted_attachments')
+    .uploadToSignedUrl(path, token, new Blob([encrypted.encryptedBuffer], { type: 'application/octet-stream' }), { contentType: 'application/octet-stream' });
+  if (error) throw new Error(`Upload failed: ${error.message}`);
+
+  await post<{ path: string; size: number }>('/api/uploads/complete', { path, kind });
 
   return {
     storagePath: path,

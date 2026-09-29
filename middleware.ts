@@ -17,10 +17,36 @@ export async function middleware(request: NextRequest) {
     return NextResponse.json({ error: "Request too large." }, { status: 413 });
   }
 
-  const limited = await limitByIp(request, isApi ? "mw-api" : "mw-page", isApi ? { limit: 300, windowMs: 60_000 } : { limit: 600, windowMs: 60_000 });
+  // Sign-in, sign-up, password reset and email-link pages are the ones bots hammer: a tighter per-address limit.
+  // (The sign-in requests themselves go to Supabase Auth, which the optional bot check in lib/captcha.ts protects.)
+  const isAuthEntry = /^\/(login|signup|register|forgot-password|reset-password|auth\/)/.test(pathname);
+  const limited = await limitByIp(
+    request,
+    isAuthEntry ? "mw-auth" : isApi ? "mw-api" : "mw-page",
+    isAuthEntry ? { limit: 60, windowMs: 60_000 } : isApi ? { limit: 300, windowMs: 60_000 } : { limit: 600, windowMs: 60_000 }
+  );
   if (limited) return limited;
 
-  const { supabase, user, supabaseResponse } = await updateSession(request);
+  // Only screens that depend on who you are pay for a session check (a network call to Supabase Auth
+  // when a cookie is present). Public pages and the API skip it: every API route verifies the caller
+  // itself, and the browser keeps its own session fresh.
+  const isProtectedUserRoute =
+    pathname.startsWith("/chat") ||
+    pathname.startsWith("/people") ||
+    pathname.startsWith("/groups") ||
+    pathname.startsWith("/settings");
+  const isAdminRoute = pathname.startsWith("/admin");
+  const isAuthRoute =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password");
+  const needsSession = isProtectedUserRoute || isAdminRoute || isAuthRoute;
+
+  const { supabase, user, supabaseResponse } = needsSession
+    ? await updateSession(request)
+    : { supabase: null, user: null, supabaseResponse: NextResponse.next({ request }) };
 
   // Set standard security headers on response
   supabaseResponse.headers.set("X-Frame-Options", "DENY");
@@ -56,16 +82,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(callbackUrl);
   }
 
-  // Protected user routes
-  const isProtectedUserRoute =
-    pathname.startsWith("/chat") ||
-    pathname.startsWith("/people") ||
-    pathname.startsWith("/groups") ||
-    pathname.startsWith("/settings");
-
-  // Protected admin routes
-  const isAdminRoute = pathname.startsWith("/admin");
-
   if (isProtectedUserRoute && !user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("redirect", pathname);
@@ -80,7 +96,7 @@ export async function middleware(request: NextRequest) {
     }
 
     // Authoritative Admin Check: verified against server-controlled profiles.is_admin
-    const { data: profile } = await supabase
+    const { data: profile } = await supabase!
       .from("profiles")
       .select("is_admin")
       .eq("id", user.id)
@@ -93,12 +109,6 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirect authenticated user away from auth pages (login/register) to /
-  const isAuthRoute =
-    pathname.startsWith("/login") ||
-    pathname.startsWith("/register") ||
-    pathname.startsWith("/forgot-password") ||
-    pathname.startsWith("/reset-password");
-
   if (isAuthRoute && user) {
     return NextResponse.redirect(new URL("/", request.url));
   }
@@ -108,6 +118,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|opengraph-image|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

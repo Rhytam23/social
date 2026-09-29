@@ -4,7 +4,7 @@
 
 ## What this is
 
-Private Chat is a web messenger where **message contents are encrypted in the user's browser** and the server only ever stores ciphertext. It has direct chats, groups, communities with channels, threads, files, voice notes, voice and video calls, and an admin role. People sign in with email or Google.
+Nook is a web messenger where **message contents are encrypted in the user's browser** and the server only ever stores ciphertext. It has direct chats, groups, communities with channels, threads, files, voice notes, voice and video calls, and an admin role. People sign in with email or Google.
 
 It is a web app (Next.js) on top of a hosted database service (Supabase). There is **no separate backend server of our own**: the "server" is a set of thin Next.js API routes plus the database's own rules.
 
@@ -20,7 +20,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 
 | Path | What is there |
 |---|---|
-| `app/` | Next.js App Router. `page.tsx` is the single-page app (landing, sign-in gate, "Link this device" screen, chat shell). `app/api/*` are the route handlers. `app/auth/confirm` handles email and Google sign-in redirects. `app/(auth)/*` are sign-in pages. `app/design-system/*` are development-only preview pages |
+| `app/` | Next.js App Router. `page.tsx` is a server component: the public landing page (real HTML for search engines) wrapped in `components/app/HomeGate.tsx`, which loads the chat application (`components/app/AppRoot.tsx`: boot, sign-in gate, "Link this device" screen, chat shell) only for visitors with a session. `robots.ts`, `sitemap.ts`, `manifest.ts`, `icon.svg` and `opengraph-image.tsx` are the search and sharing files (address from `lib/site.ts`). `app/api/*` are the route handlers. `app/auth/confirm` handles email and Google sign-in redirects. `app/(auth)/*` are sign-in pages. `app/design-system/*` are development-only preview pages |
 | `middleware.ts` | Runs before every page and API request: a first flood limit, session refresh, route protection, security headers |
 | `next.config.ts` | Content-Security-Policy and other response headers |
 | `components/` | UI grouped by area (`chat`, `messages`, `groups`, `community`, `settings`, `calls`, `landing`, `auth`, `ui`, ...) |
@@ -32,7 +32,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 | `lib/logging/` | The admin error log: scrubbing, the server writer, the browser reporter |
 | `lib/calls/`, `lib/realtime/` | WebRTC calls; presence and typing channels |
 | `crypto/` | The cryptographic primitives (libsodium, WebCrypto, Argon2id). Small and self-contained on purpose |
-| `database/migrations/` | **The schema.** `001` to `019` |
+| `database/migrations/` | **The schema.** `001` to `028` |
 | `types/database.ts` | Hand-maintained TypeScript mirror of the schema |
 | `tests/` | Vitest suites. `tests/security/` runs the real migrations on an in-process Postgres and attacks them |
 | `docs/` | This documentation |
@@ -78,7 +78,7 @@ It is a web app (Next.js) on top of a hosted database service (Supabase). There 
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 ```
 
-At the time of writing this gives: no type or lint errors, **304 tests passing in 26 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
+At the time of writing this gives: no type or lint errors, **495 tests passing in 50 files**, a compiling build and zero audit findings. The exact numbers will drift; what matters is that all commands succeed. A red `tests/security/rls.test.ts` means a database rule no longer holds: treat it as a security defect, not a test problem.
 
 ## What will change over ten years (and what to check)
 
@@ -89,7 +89,7 @@ At the time of writing this gives: no type or lint errors, **304 tests passing i
 | **libsodium-wrappers** | `crypto_box`, `crypto_secretbox`, `crypto_box_seal` (X25519, XSalsa20-Poly1305) | These are sound today. If they are ever weakened, use the per-message `encryption_version` field to introduce a new scheme and keep reading old messages |
 | **hash-wasm (Argon2id)** | 64 MiB, 3 iterations, parallelism 4 | Raise the parameters as hardware improves. The backup file stores its parameters, so old backups still open |
 | **Web platform** | IndexedDB, Web Crypto (AES-GCM), WebAssembly, WebRTC, `matchMedia` | Stable, but browsers do tighten IndexedDB storage rules and WebRTC privacy behaviour |
-| **Tailwind 3, three.js, Geist** | Design tokens are CSS variables; the landing scene uses plain three.js | Cosmetic. Tailwind 4 changes configuration |
+| **Tailwind 3, Geist** | Design tokens are CSS variables | Cosmetic. Tailwind 4 changes configuration |
 | **Vercel** | Hosting and Deployment Protection settings | Any Node host works. See [Deployment](DEPLOYMENT.md) |
 | **Upstash Redis** | Optional shared rate-limit store, used through its REST API | If absent, limits are per server instance and weaker |
 
@@ -118,8 +118,11 @@ These are what a review should defend. The full list is in [Security](SECURITY.m
 | **A secret was exposed** (service-role key, database password, `JWT_SECRET`, an `.env` file in git) | Rotate it at the source (Supabase → Project Settings → API; the database provider), update the host's environment variables, redeploy. Assume anything in public git history is permanently public. See `SECURITY_AUDIT.md` section 6 for the credentials that had to be rotated in 2026 |
 | **A migration fails halfway** | Read the error, fix the cause, run it again: migrations `011` and later are written to be re-run. Do not re-run `002` or `003` on a live database |
 | **You are not sure which migrations were applied** | Use the read-only check queries in [Setup](SETUP.md#3-run-the-database-migrations) |
+| **Someone is being reported a lot** | Admin, then the **Safety queue** at the top of People. People are ranked by how many *different* people reported them: 3 = warning sent, 10 = temporarily banned, above 10 shown in red, 20 = blocked. Read the reasons in the Reports list, then Ban or Lift ban yourself. If a block catches a shared network (the queue says "shared: N accounts") press Unblock. You cannot read anyone's messages: only what reporters chose to include |
+| **Someone wrote to support** | Open the app as an admin: **Admin, Support**. Requests from the contact form and Settings, Report a problem are listed with the sender's email; Reply by email opens your mail app; Mark resolved when done. Nothing is emailed to you automatically, so check the tab regularly (or the address on the Contact page). If it says "not available", check that migration `022` is applied |
 | **Users say something is broken** | Open the app as an admin: **Admin, Errors**. Server and browser errors are listed with how often, when, on which page and for which user, with no message content or secrets. Mark them resolved when fixed; **Activity** shows what other admins did. No Supabase or hosting access is needed, so this is where 3 or 4 admins should look first. If the list is empty or says "not available", check that migration `019` is applied |
 | **Someone is flooding the site** | Turn on the host's firewall or attack-challenge mode, and Cloudflare in front if needed. The app's own limits stop cheap floods only ([Security](SECURITY.md#denial-of-service)) |
+| **Someone should become a platform admin** | Only in Supabase, never in the app. Table editor: open `profiles`, find the person, tick `is_admin`. Or in the SQL editor: `update public.profiles set is_admin = true where username = 'their_username';` (use `false` to remove). Each change appears in **Admin, Activity** as `is_admin_changed_in_supabase`. The app cannot do this on purpose: a stolen admin session or a leaked service-role key then cannot create more admins (migration `025`). Group admins are different: they are ordinary users with a role inside one group or community, and they never see the Admin section |
 | **An admin account is compromised** | `update public.profiles set is_admin = false where id = '<id>';` in the SQL editor, and disable the user in Supabase Authentication |
 | **A user lost their device** | If they have the backup file and passphrase they can link a new browser. Without it their old messages cannot be recovered: the "Start fresh" option makes a new key |
 | **A user reports "security code changed"** | Their contact linked a new key ("Start fresh") or was attacked. Compare safety numbers out of band |

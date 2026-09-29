@@ -22,11 +22,16 @@ export function canRemoveMember(actor: GroupRole | undefined, target: GroupRole 
   return RANK[actor] > RANK[target];
 }
 
-/** Only the owner changes roles (promote to admin, demote to member, transfer ownership). */
+/**
+ * The owner changes any role (promote to admin, demote to member, transfer ownership). An admin can do exactly
+ * one thing: make a plain member an admin. Nobody changes their own role (ownership moves by promoting
+ * someone else to owner). The database enforces the same rules (migration 025).
+ */
 export function canChangeRole(actor: GroupRole | undefined, target: GroupRole | undefined, nextRole: GroupRole, isSelf: boolean): boolean {
-  if (actor !== 'owner' || !target) return false;
-  if (isSelf) return false; // ownership moves by promoting someone else to owner
-  return target !== nextRole;
+  if (!actor || !target || isSelf) return false;
+  if (actor === 'owner') return target !== nextRole;
+  if (actor === 'admin') return target === 'member' && nextRole === 'admin';
+  return false;
 }
 
 export function canEditGroup(role: GroupRole | undefined): boolean {
@@ -42,4 +47,5 @@ export function pickSuccessor(members: Array<{ userId: string; role: GroupRole; 
   return (admins[0] ?? rest.sort(byJoined)[0]).userId;
 }
 
-export const ROLE_LABEL: Record<GroupRole, string> = { owner: 'Owner', admin: 'Admin', member: 'Member' };
+/** "Group admin" is a role inside one group. It is not the platform admin, who has the verified badge. */
+export const ROLE_LABEL: Record<GroupRole, string> = { owner: 'Owner', admin: 'Group admin', member: 'Member' };

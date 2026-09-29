@@ -51,7 +51,10 @@ export interface MessageData {
   senderAvatar?: string;
   isSelf: boolean;
   content: string;
+  /** Short clock time shown beside the message ("10:30 AM"). */
   timestamp: string;
+  /** When it was sent (ISO). Drives the date separators and the full time shown on tap. */
+  createdAt?: string;
   status: MessageStatus;
   replyTo?: ReplyReference;
   reactions: ReactionItem[];
@@ -95,6 +98,8 @@ export interface ConversationItem {
   lastMessage?: {
     snippet: string;
     timestamp: string;
+    /** When it was sent (ISO), for the day label in the chat list. */
+    at?: string;
     status?: MessageStatus;
   };
   recipientUser?: {
@@ -103,8 +108,6 @@ export interface ConversationItem {
     registrationId: number;
     identityFingerprint: string;
     isVerified: boolean;
-    /** True when the contact's security code differs from the one we saw before. */
-    keyChanged?: boolean;
     presence?: UserPresence;
   };
   groupMeta?: {
