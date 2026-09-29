@@ -34,7 +34,7 @@
 | `components/app/AppRoot.tsx` | The signed-in application, loaded on demand. Boots the session, creates the store and crypto session, opens the Realtime channel, shows the **Link this device** screen (`components/auth/LinkDevice.tsx`, when this browser has no key but the account does) or the chat shell, and falls back to the landing page when there is no valid session |
 | `app/api/*` | Route handlers ([API reference](API.md)) |
 | `app/auth/confirm/route.ts` | Landing point for email confirmation, password reset and Google sign-in redirects |
-| `app/(auth)/*` | `/login`, `/signup`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email` (`/invite` just redirects to `/signup`), all rendering the same auth components |
+| `app/(auth)/*` | `/login`, `/signup`, `/register`, `/forgot-password`, `/reset-password`, `/verify-email`, all rendering the same auth components |
 | `app/(chat)/*`, `app/admin/*` | Thin routes that redirect into the single-page app |
 | `components/` | UI, grouped by area (see below) |
 | `lib/store/chatStore.ts` | All client state and actions (~1,300 lines). Real mode and demo mode |
@@ -129,7 +129,7 @@ Unknown kinds from a newer app version render as "not supported" rather than fai
 | Route | Purpose |
 |---|---|
 | `/` | The app: landing page when signed out, chat shell when signed in |
-| `/login`, `/signup`, `/register` | Sign in and create account (the last two open the sign-up tab). `/invite` redirects to `/signup` so old links still work |
+| `/login`, `/signup`, `/register` | Sign in and create account (the last two open the sign-up tab). |
 | `/forgot-password`, `/reset-password` | Password recovery |
 | `/verify-email` | Static "check your inbox" page |
 | `/auth/confirm` | Email link and Google callback handler |

@@ -30,10 +30,9 @@ Use these instead of writing long class strings.
 - **`Button`** ([`components/ui/button.tsx`](../components/ui/button.tsx)). Variants: `primary`, `secondary`, `tertiary`, `danger`, `ghost`. Sizes `sm`, `md`, `lg`. No white or default-styled buttons anywhere.
 - **`Input`** ([`components/ui/input.tsx`](../components/ui/input.tsx)) and the `.field` class for the rare raw control.
 - **`.panel`** (a card) and **`.floating`** (menus, popovers, dialogs) classes.
-- **`Dialog`, `Avatar`, `Badge`, `Switch`, `EmptyState`, `ErrorState`, skeletons, `Toast`** as before.
+- **`Dialog`, `Avatar`, `Badge`, `Switch`, `EmptyState`, skeletons, `Toast`** as before.
 - **`.pressable`** for press feedback, **`.anim-message`**, **`.anim-view`** and **`.stagger`** for entrances.
 
-The living style guide is at `/design-system` (development only).
 
 ## Motion and accessibility
 

@@ -41,7 +41,7 @@ export function fullTimestamp(iso: string): string {
 }
 
 /** The short time shown beside a message: "10:30 AM". */
-export function clockTime(iso: string): string {
+function clockTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });

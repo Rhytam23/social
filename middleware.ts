@@ -13,11 +13,6 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const isApi = pathname.startsWith("/api/") || pathname.startsWith("/auth/");
 
-  // The component preview pages exist for development only: a real 404 in production, not a page that says so.
-  if (process.env.NODE_ENV === "production" && pathname.startsWith("/design-system")) {
-    return new NextResponse("Not found", { status: 404 });
-  }
-
   if (isApi && Number(request.headers.get("content-length") || 0) > MAX_API_BODY_BYTES) {
     return NextResponse.json({ error: "Request too large." }, { status: 413 });
   }
