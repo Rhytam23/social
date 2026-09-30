@@ -13,6 +13,8 @@ export interface ConversationSummary {
   updatedAt: string;
   memberCount: number;
   memberIds: string[];
+  /** Display name (or username) of each member, so senders in groups are named. */
+  memberNames?: Record<string, string>;
   /** Group only (needs migration 013). */
   roles?: Record<string, GroupRole>;
   description?: string | null;
@@ -130,6 +132,12 @@ export async function fetchConversations(
       updatedAt: conv.updated_at,
       memberCount: members.length,
       memberIds: members.map((m) => m.userId),
+      memberNames: Object.fromEntries(
+        members.flatMap((m) => {
+          const name = m.profile?.display_name || m.profile?.username;
+          return name ? [[m.userId, name] as [string, string]] : [];
+        })
+      ),
     };
 
     summary.disappearAfter = conv.disappear_after ?? null;

@@ -140,7 +140,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
         }`}
       >
         {/* User Avatar */}
-        {continuation ? <span className="w-8 shrink-0" aria-hidden="true" /> : <Avatar name={isSelf ? 'You' : message.senderName} size="sm" className="mt-0.5" />}
+        {continuation ? <span className="w-8 shrink-0" aria-hidden="true" /> : <Avatar name={message.senderName} size="sm" className="mt-0.5" />}
 
         <div className={`flex flex-col gap-1 min-w-0 ${isSelf ? 'items-end' : 'items-start'}`}>
           {/* Name and time once per run of messages; flags always show */}
@@ -149,7 +149,7 @@ export const MessageItem: React.FC<MessageItemProps> = ({
             {!continuation && (
               <>
                 <span className="font-semibold text-slate-300 inline-flex items-center gap-1">
-                  {isSelf ? 'You' : message.senderName}
+                  {message.senderName}
                   {senderVerified && <VerifiedBadge className="w-3.5 h-3.5" />}
                   {senderGroupRole && senderGroupRole !== 'member' && (
                     <span className="px-1.5 py-px rounded border border-[var(--accent-line)] bg-[var(--accent-subtle)] text-[9px] font-semibold text-[var(--accent-text)]">

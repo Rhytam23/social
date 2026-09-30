@@ -5,6 +5,7 @@ import { useChatStore } from '../../hooks/useChatStore';
 import { AppShell } from '../../components/layout/AppShell';
 import { NewConversationModal } from '../../components/chat/NewConversationModal';
 import { OnboardingModal } from '../../components/onboarding/OnboardingModal';
+import { UsernameStep } from '../../components/onboarding/UsernameStep';
 import { UserItem, MessageData } from '../../types/ui';
 import { loadOwnProfile, saveOwnProfile } from '../../lib/profile/profileClient';
 import { initPreferences, type Preferences } from '../../lib/prefs/preferences';
@@ -40,6 +41,8 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
   const [newChatModalOpen, setNewChatModalOpen] = useState(false);
 
   const [onboardingOpen, setOnboardingOpen] = useState(false);
+  // Set while the person still has to choose a username (profiles.username_set is false, migration 030).
+  const [usernamePrompt, setUsernamePrompt] = useState<string | null>(null);
   const [warningOpen, setWarningOpen] = useState(false);
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -50,6 +53,9 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
   // Set after opening a group link: the app shows that group.
   const [focusGroupId, setFocusGroupId] = useState<string | undefined>(undefined);
   const realtimeChannelRef = useRef<RealtimeChannel | null>(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryAttemptRef = useRef(0);
+  const hadConnectionRef = useRef(false);
   const cryptoRef = useRef<MessagingCrypto | null>(null);
   const initedRef = useRef(false);
   const liveRef = useRef<LiveChannels | null>(null);
@@ -63,33 +69,35 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
     if (!configured) return;
     const supabase = createClient();
 
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
     if (realtimeChannelRef.current) {
-      supabase.removeChannel(realtimeChannelRef.current);
+      const old = realtimeChannelRef.current;
       realtimeChannelRef.current = null;
+      await supabase.removeChannel(old);
     }
 
-    const conversationIds = state.conversations.map((c) => c.id);
-    // Filtered by our known conversation ids as defense-in-depth; RLS
-    // (messages_select_policy) is the authoritative backstop even if this
-    // filter is momentarily stale (e.g. right after being added to a group).
-    // Supabase accepts at most 100 values in an in() filter; beyond that RLS alone scopes the feed.
-    const messageFilter = conversationIds.length > 0 && conversationIds.length <= 100 ? { filter: `conversation_id=in.(${conversationIds.join(',')})` } : {};
+    // Make sure the socket carries the current access token (it goes stale after a token refresh).
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data.session?.access_token) supabase.realtime.setAuth(data.session.access_token);
+    } catch {
+      // the subscribe below reports the failure through its status callback
+    }
+
+    // No conversation filter on purpose: a filter built from the conversations we already know would never
+    // deliver the first message of a brand-new chat. Row Level Security (messages_select_policy) is what
+    // limits this feed to conversations we belong to.
     const channel = supabase
       .channel('realtime-messages-feed')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', ...messageFilter },
-        (payload) => {
-          void store.receiveRealtimeMessageRow(payload.new as RealtimeMessageRow);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'messages', ...messageFilter },
-        (payload) => {
-          void store.receiveRealtimeMessageUpdate(payload.new as RealtimeMessageRow);
-        }
-      )
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        void store.receiveRealtimeMessageRow(payload.new as RealtimeMessageRow);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+        void store.receiveRealtimeMessageUpdate(payload.new as RealtimeMessageRow);
+      })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reactions' }, (payload) => {
         store.applyReactionEvent('INSERT', payload.new as { message_id?: string; user_id?: string; reaction?: string });
       })
@@ -109,10 +117,28 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'message_receipts' }, (payload) => {
         store.applyReceiptRow(payload.new as { message_id?: string; user_id?: string; delivered_at?: string | null; read_at?: string | null });
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          retryAttemptRef.current = 0;
+          // Anything sent while the socket was down is fetched now.
+          if (hadConnectionRef.current) void store.resyncAfterReconnect();
+          hadConnectionRef.current = true;
+          return;
+        }
+        if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          if (realtimeChannelRef.current !== channel || retryTimerRef.current) return;
+          const delay = Math.min(30000, 1000 * 2 ** retryAttemptRef.current++);
+          retryTimerRef.current = setTimeout(() => {
+            retryTimerRef.current = null;
+            void setupRealtimeSubscriptionRef.current();
+          }, delay);
+        }
+      });
 
     realtimeChannelRef.current = channel;
-  }, [configured, state.conversations, store]);
+  }, [configured, store]);
+  const setupRealtimeSubscriptionRef = useRef(setupRealtimeSubscription);
+  setupRealtimeSubscriptionRef.current = setupRealtimeSubscription;
 
   // Safety housekeeping after sign-in. Both parts are best effort and never block the app.
   const afterSignIn = useCallback(async (supabase: ReturnType<typeof createClient>) => {
@@ -172,6 +198,8 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
 
       const displayName =
         profile?.display_name || user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+
+      if (profile?.username_set === false) setUsernamePrompt(profile.username ?? '');
 
       if (typeof window !== 'undefined') {
         const completed =
@@ -280,15 +308,34 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // (Re-)subscribe to realtime whenever the set of conversations we belong
-  // to changes, so newly created/joined conversations are actually covered.
-  const conversationIdsKey = state.conversations.map((c) => c.id).sort().join(',');
+  // One realtime subscription for the whole session. It is not tied to the conversation list (see
+  // setupRealtimeSubscription), so it is not torn down and rebuilt while chats load. It is rebuilt when the tab
+  // comes back or the network returns and the channel is no longer healthy, and it re-authenticates on token refresh.
   useEffect(() => {
-    if (isAuthenticated && configured && state.mode === 'connected') {
-      void setupRealtimeSubscription();
-    }
+    if (!isAuthenticated || !configured || state.mode !== 'connected') return;
+    void setupRealtimeSubscription();
+    const supabase = createClient();
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' && session?.access_token) supabase.realtime.setAuth(session.access_token);
+    });
+    const reconnect = () => {
+      if (document.visibilityState === 'hidden') return;
+      const ch = realtimeChannelRef.current as unknown as { state?: string } | null;
+      if (!ch || ch.state !== 'joined') void setupRealtimeSubscriptionRef.current();
+    };
+    window.addEventListener('online', reconnect);
+    document.addEventListener('visibilitychange', reconnect);
+    return () => {
+      sub.subscription.unsubscribe();
+      window.removeEventListener('online', reconnect);
+      document.removeEventListener('visibilitychange', reconnect);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, configured, state.mode, conversationIdsKey]);
+  }, [isAuthenticated, configured, state.mode]);
 
   // A stale sign-in cookie must not keep the landing page hidden (see the data-session hint in themeScript.ts).
   useEffect(() => {
@@ -775,8 +822,19 @@ export function AppRoot({ landing }: { landing: React.ReactNode }) {
         </p>
       </Dialog>
 
+      {usernamePrompt !== null && (
+        <UsernameStep
+          userId={state.currentUser.id}
+          suggested={usernamePrompt}
+          onDone={(username) => {
+            store.updateCurrentUserProfile({ username });
+            setUsernamePrompt(null);
+          }}
+        />
+      )}
+
       <OnboardingModal
-        isOpen={onboardingOpen}
+        isOpen={onboardingOpen && usernamePrompt === null}
         onClose={() => setOnboardingOpen(false)}
         userId={state.currentUser.id}
         initialName={state.currentUser.name}

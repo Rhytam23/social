@@ -17,6 +17,8 @@ export interface OwnProfile {
   timezone?: string | null;
   preferences?: Record<string, unknown>;
   onboarding_completed?: boolean;
+  /** False until the person has chosen their own username (migration 030). Undefined before that migration. */
+  username_set?: boolean;
   email?: string;
   phone_number?: string | null;
 }
@@ -36,6 +38,13 @@ export async function loadOwnProfile(supabase: SupabaseClient, user: User): Prom
     if (!error && extra) Object.assign(profile, extra);
   } catch {
     // migration 011 not applied yet
+  }
+
+  try {
+    const { data: chosen, error } = await supabase.from('profiles').select('username_set').eq('id', user.id).maybeSingle();
+    if (!error && chosen) profile.username_set = (chosen as { username_set: boolean }).username_set;
+  } catch {
+    // migration 030 not applied yet: nobody is asked to choose a username
   }
 
   try {
@@ -79,9 +88,12 @@ export async function saveOwnProfile(
   }
 
   if (Object.keys(base).length > 0) {
+    if (typeof base.username === 'string') base.username = base.username.trim().toLowerCase();
     const { error } = await supabase.from('profiles').update(base).eq('id', userId);
     if (error) {
-      if ((error as { code?: string }).code === '23505') throw new UserMessageError('That username or phone number is already taken.');
+      const code = (error as { code?: string }).code;
+      if (code === '23505') throw new UserMessageError('That username or phone number is already taken.');
+      if (code === 'P0001' && error.message) throw new UserMessageError(error.message);
       throw new Error(error.message);
     }
   }

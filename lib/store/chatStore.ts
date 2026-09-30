@@ -364,6 +364,7 @@ export class ChatStore {
     this.conversationSummaries = new Map(summaries.map((s) => [s.id, s]));
     for (const s of summaries) {
       if (s.otherParticipant) this.participantNames.set(s.otherParticipant.id, s.otherParticipant.displayName);
+      for (const [id, name] of Object.entries(s.memberNames ?? {})) this.participantNames.set(id, name);
     }
 
     for (const s of summaries) {
@@ -635,15 +636,23 @@ export class ChatStore {
     }
   }
 
-  /** Called by the realtime postgres_changes subscription in app/page.tsx. */
+  /** Called when the realtime socket comes back after a drop: fetch what was missed while it was down. */
+  public async resyncAfterReconnect(): Promise<void> {
+    if (this.state.mode !== 'connected') return;
+    await this.loadConversationsReal();
+    await Promise.all([...this.loadedConversations].map((id) => this.loadMessagesForConversation(id)));
+  }
+
+  /** Called by the realtime postgres_changes subscription in components/app/AppRoot.tsx. */
   public async receiveRealtimeMessageRow(row: RealtimeMessageRow): Promise<void> {
     if (!this.crypto) return;
-    const summary = this.conversationSummaries.get(row.conversation_id);
+    let summary = this.conversationSummaries.get(row.conversation_id);
     if (!summary) {
-      // A message arrived for a conversation we don't know about yet
-      // (e.g. we were just added to a group) - refresh the list.
+      // A message arrived for a conversation we don't know about yet (a new direct chat, or we were just added to
+      // a group): load the list, then carry on with this message instead of dropping it.
       await this.loadConversationsReal();
-      return;
+      summary = this.conversationSummaries.get(row.conversation_id);
+      if (!summary) return;
     }
 
     const currentMsgs = this.state.messagesMap[row.conversation_id] || [];

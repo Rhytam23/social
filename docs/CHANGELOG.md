@@ -4,6 +4,13 @@ Newest first. Dates are when the change was merged.
 
 ## Unreleased
 
+**Live messages, real names, chosen usernames, no duplicates (September 2026).** Needs migration `030`. Run it once in the Supabase SQL editor after 029; it is safe to re-run.
+
+- **Messages arrive live.** The realtime feed no longer filters by the chats you already know, so the first message of a new chat is delivered without a refresh. It reconnects with backoff after a drop, re-authenticates when the sign-in token refreshes, reconnects when the tab or network comes back, and fetches what was missed. A message for a chat not yet in the list is processed after the list loads instead of being dropped.
+- **Names, not "You".** Your own messages show your name; group messages show each member's name.
+- **Choose your username (`030`).** After sign-in everyone without a chosen username must pick one (live availability check and suggestions, changeable once every 14 days).
+- **No duplicate people (`030`).** Usernames are unique ignoring letter case and stored lowercase; email and phone are unique after trimming and lowercasing. Existing clashes are renamed (the oldest account keeps the name), never deleted. Sign-up picks a free name instead of failing.
+
 **Group invite links, roles in the chat, dates on messages (September 2026).** Needs migration `029`. Run it once in the Supabase SQL editor; it only adds a table and functions, nothing existing changes.
 
 - **Group invite links (`029`).** An owner or admin of a group creates a link (Group page, Members tab: "Invite with a link"). Anyone signed in who opens it joins straight away; a signed-out visitor is taken through sign-in first and then joins. Links last 30 days or 100 people, can be stopped at any time, only their hash is stored, and every failure shows the same message. People who left or were removed, or whom an owner or admin blocked, cannot get back in this way. A new member reads the group once an admin's device shares the key.
