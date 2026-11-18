@@ -1,4 +1,54 @@
-# Nook
+<!-- Improved compatibility of back to top link: See: https://github.com/othneildrew/Best-README-Template/pull/73 -->
+<a id="readme-top"></a>
+
+<!-- PROJECT SHIELDS -->
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![License][license-shield]][license-url]
+
+
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+<h3 align="center">Nook</h3>
+
+  <p align="center">
+    A private messaging web app with end-to-end encryption.
+    <br />
+    <a href="https://github.com/Rhytam23/social"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/Rhytam23/social/issues/new?labels=bug">Report Bug</a>
+    &middot;
+    <a href="https://github.com/Rhytam23/social/issues/new?labels=enhancement">Request Feature</a>
+  </p>
+</div>
+
+
+<!-- TABLE OF CONTENTS -->
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li>
+      <a href="#about-the-project">About The Project</a>
+      <ul>
+        <li><a href="#built-with">Built With</a></li>
+      </ul>
+    </li>
+    <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ol>
+</details>
+
+
+<!-- ABOUT THE PROJECT -->
+## About The Project
 
 A private messaging web app with **end-to-end encryption**. Sign in with email or Google, find people, chat one-to-one or in groups, and share files and voice notes. Message contents are encrypted in your browser and the server only ever stores ciphertext.
 
@@ -8,9 +58,8 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 
 > **Picking this project up after a long time, or for the first time? Read the [Maintainer guide](docs/MAINTAINER_GUIDE.md) first.** It explains the ideas, the layout, how to rebuild everything, and what to re-check as the underlying products age. Everything else is linked from the [documentation index](docs/README.md).
 
----
+### Features
 
-## Features
 
 **Accounts**
 - Sign up with email and password (email confirmation required) or **Continue with Google**
@@ -56,7 +105,113 @@ Built with Next.js 15, React 19, TypeScript, Tailwind CSS and Supabase (Auth, Po
 
 ---
 
-## Quick start
+### How it works
+
+
+```
+Browser                                              Supabase
+┌───────────────────────────────┐                    ┌──────────────────────────┐
+│ React UI + ChatStore          │   ciphertext only  │ Postgres (RLS on every   │
+│ MessagingCrypto (libsodium)   ├───────────────────►│ table), Auth, Realtime,  │
+│ IndexedDB: your private key   │◄───────────────────┤ Storage (private bucket) │
+└───────────────────────────────┘   Next.js /api/*   └──────────────────────────┘
+```
+
+1. On first login your browser generates a key pair. The private key stays in IndexedDB; the public key is published.
+2. To send a message the browser encrypts it for the recipient (or for the group key) and posts `ciphertext` and `nonce`.
+3. The server checks you are a member of the conversation and stores the ciphertext. Everything else about the message, including attachment names and keys, lives *inside* the encrypted payload.
+4. Other members receive it over Realtime and decrypt it locally.
+
+More in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/E2EE.md`](docs/E2EE.md).
+
+#### Project structure
+
+```
+app/          Next.js routes: pages, /api route handlers, /auth/confirm
+middleware.ts First flood limit, session refresh, route protection, security headers
+components/   UI by area: auth, chat, messages, groups, community, calls, settings, landing, layout, ui, ...
+crypto/       Browser encryption: keys, 1:1, groups, attachments, backup (libsodium, WebCrypto)
+lib/          store/ (ChatStore), messaging/ (crypto orchestration, envelopes), api/ (shared route security helpers),
+              rate-limit/, supabase/, auth/, calls/, realtime/, ui/ (theme)
+database/     SQL migrations 001-029: the only definition of the schema
+docs/         Documentation (start at docs/README.md or docs/MAINTAINER_GUIDE.md)
+hooks/        React hooks
+tests/        Vitest suites (tests/security runs the real migrations on an in-process Postgres)
+types/        Shared TypeScript types, database types
+```
+
+---
+
+### Deployment
+
+
+Deploy to Vercel (or any Node host): set the three Supabase variables (mark the service-role key as sensitive) and `NEXT_PUBLIC_SITE_URL` (your production address, used for canonical links, the sitemap and link previews), add your production URL to Supabase's Site URL and Redirect URLs, and redeploy after any `NEXT_PUBLIC_*` change. Put a firewall in front for abuse protection: the app's own limits stop cheap floods, not a volumetric DDoS. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [Security](docs/SECURITY.md#denial-of-service).
+
+---
+
+### Known limitations
+
+
+- **No forward secrecy.** 1:1 messages use a long-lived key pair per user, so a stolen private key exposes past messages that were captured as ciphertext.
+- **Devices share one key.** A second device is linked by restoring the key backup, so losing any linked device (or the backup and its passphrase) exposes the whole account, and a key cannot be revoked from a device that has it. An account can register at most 3 keys.
+- **The key sits unencrypted in the browser's storage**, so a script-injection bug would expose it. The Content-Security-Policy limits that but still allows inline scripts.
+- **The server sees metadata**: who is in which conversation, timestamps, message and attachment sizes.
+- **Public keys are served by the database.** A malicious server could swap a key; compare safety numbers to detect it. The "mark verified" button is not wired up yet.
+- Pins are stored only in your browser; saved messages, reactions and read state are stored on the server (ids only).
+- A group member who has never signed in cannot get the group key until it is re-shared.
+- The database rules were tested on a real Postgres with an *emulated* Supabase, not on a live Supabase project (see the [roadmap](docs/ROADMAP.md#what-is-verified)). Realtime Authorization, real email and sign-in flows were not exercised end to end.
+- Presence (who is online) is one shared channel that any signed-in user can read.
+- Search covers messages loaded on this device only; notifications only work while the app is open in a browser tab.
+- New community members can read a channel only after an admin's device shares its key, so an admin must have the app open.
+- Calls may not connect on strict networks unless you configure a TURN relay.
+
+The complete list, and what is planned, is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
+
+---
+
+### Documentation
+
+
+| Document | What's in it |
+|---|---|
+| [Maintainer guide](docs/MAINTAINER_GUIDE.md) | **Start here when returning after a long time**: ideas, repository map, glossary, rebuild steps, runbook, what will age |
+| [Setup](docs/SETUP.md) | Supabase project, migrations, auth settings, Google sign-in, first run, linking a second device |
+| [Deployment](docs/DEPLOYMENT.md) | Vercel, environment, release checklist, rollback |
+| [Design](docs/DESIGN.md) | Design tokens, shared components, the landing page and its performance rules |
+| [Architecture](docs/ARCHITECTURE.md) | Components, data flows, routes, state |
+| [E2EE](docs/E2EE.md) | Cryptographic design and its limits |
+| [Database](docs/DATABASE.md) | Tables, functions, security rules, storage, migrations |
+| [API](docs/API.md) | Route reference |
+| [Security](docs/SECURITY.md) | Threat model, controls, denial-of-service layers, rules and known gaps |
+| [Security audit](SECURITY_AUDIT.md) | The September 2026 review: vulnerabilities found and fixed, tests, remaining risks, credentials to rotate |
+| [Testing](docs/TESTING.md) | Automated tests and the manual checklist |
+| [Troubleshooting](docs/TROUBLESHOOTING.md) | Fixes for problems people actually hit |
+| [Decisions](docs/DECISIONS.md) | Why things are built this way |
+| [Roadmap](docs/ROADMAP.md) | What is planned |
+| [Changelog](docs/CHANGELOG.md) | History |
+| [Contributing](docs/CONTRIBUTING.md) | Workflow and rules |
+| [V1 status](docs/V1_STATUS.md) | The V1 audit report |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+### Built With
+
+* [![Next.js](https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+* [![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=white)](https://react.dev/)
+* [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+* [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/)
+* [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+* [![Vitest](https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white)](https://vitest.dev/)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+<!-- GETTING STARTED -->
+## Getting Started
+
+### Quick start
+
 
 You need Node.js 20+, npm, and a free [Supabase](https://supabase.com) project.
 
@@ -78,7 +233,7 @@ npm run dev      # http://localhost:3000
 
 The full walkthrough, including Google sign-in, is in [`docs/SETUP.md`](docs/SETUP.md). If something goes wrong, see [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md).
 
-### Environment variables
+#### Environment variables
 
 | Variable | Required | Notes |
 |---|---|---|
@@ -89,13 +244,20 @@ The full walkthrough, including Google sign-in, is in [`docs/SETUP.md`](docs/SET
 
 `NEXT_PUBLIC_*` values are baked into the build. After changing them on a host such as Vercel, redeploy.
 
-### Demo mode
+#### Demo mode
 
 With no Supabase variables set, `npm run dev` runs a local demo with seeded example people and messages (clearly labelled as demo data, not encrypted). In a production build, missing variables make the server return HTTP 500 instead of silently running without authentication.
 
 ---
 
-## Scripts
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+<!-- USAGE EXAMPLES -->
+## Usage
+
+### Scripts
+
 
 | Command | What it does |
 |---|---|
@@ -109,43 +271,8 @@ With no Supabase variables set, `npm run dev` runs a local demo with seeded exam
 
 ---
 
-## How it works
+### Testing
 
-```
-Browser                                              Supabase
-┌───────────────────────────────┐                    ┌──────────────────────────┐
-│ React UI + ChatStore          │   ciphertext only  │ Postgres (RLS on every   │
-│ MessagingCrypto (libsodium)   ├───────────────────►│ table), Auth, Realtime,  │
-│ IndexedDB: your private key   │◄───────────────────┤ Storage (private bucket) │
-└───────────────────────────────┘   Next.js /api/*   └──────────────────────────┘
-```
-
-1. On first login your browser generates a key pair. The private key stays in IndexedDB; the public key is published.
-2. To send a message the browser encrypts it for the recipient (or for the group key) and posts `ciphertext` and `nonce`.
-3. The server checks you are a member of the conversation and stores the ciphertext. Everything else about the message, including attachment names and keys, lives *inside* the encrypted payload.
-4. Other members receive it over Realtime and decrypt it locally.
-
-More in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/E2EE.md`](docs/E2EE.md).
-
-### Project structure
-
-```
-app/          Next.js routes: pages, /api route handlers, /auth/confirm
-middleware.ts First flood limit, session refresh, route protection, security headers
-components/   UI by area: auth, chat, messages, groups, community, calls, settings, landing, layout, ui, ...
-crypto/       Browser encryption: keys, 1:1, groups, attachments, backup (libsodium, WebCrypto)
-lib/          store/ (ChatStore), messaging/ (crypto orchestration, envelopes), api/ (shared route security helpers),
-              rate-limit/, supabase/, auth/, calls/, realtime/, ui/ (theme)
-database/     SQL migrations 001-029: the only definition of the schema
-docs/         Documentation (start at docs/README.md or docs/MAINTAINER_GUIDE.md)
-hooks/        React hooks
-tests/        Vitest suites (tests/security runs the real migrations on an in-process Postgres)
-types/        Shared TypeScript types, database types
-```
-
----
-
-## Testing
 
 ```bash
 npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
@@ -155,55 +282,63 @@ npx tsc --noEmit && npm run lint && npm test && npm run build && npm audit
 
 ---
 
-## Deployment
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-Deploy to Vercel (or any Node host): set the three Supabase variables (mark the service-role key as sensitive) and `NEXT_PUBLIC_SITE_URL` (your production address, used for canonical links, the sitemap and link previews), add your production URL to Supabase's Site URL and Redirect URLs, and redeploy after any `NEXT_PUBLIC_*` change. Put a firewall in front for abuse protection: the app's own limits stop cheap floods, not a volumetric DDoS. See [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) and [Security](docs/SECURITY.md#denial-of-service).
 
----
+<!-- ROADMAP -->
+## Roadmap
 
-## Known limitations
+See the [open issues](https://github.com/Rhytam23/social/issues) for a full list of proposed features (and known issues).
 
-- **No forward secrecy.** 1:1 messages use a long-lived key pair per user, so a stolen private key exposes past messages that were captured as ciphertext.
-- **Devices share one key.** A second device is linked by restoring the key backup, so losing any linked device (or the backup and its passphrase) exposes the whole account, and a key cannot be revoked from a device that has it. An account can register at most 3 keys.
-- **The key sits unencrypted in the browser's storage**, so a script-injection bug would expose it. The Content-Security-Policy limits that but still allows inline scripts.
-- **The server sees metadata**: who is in which conversation, timestamps, message and attachment sizes.
-- **Public keys are served by the database.** A malicious server could swap a key; compare safety numbers to detect it. The "mark verified" button is not wired up yet.
-- Pins are stored only in your browser; saved messages, reactions and read state are stored on the server (ids only).
-- A group member who has never signed in cannot get the group key until it is re-shared.
-- The database rules were tested on a real Postgres with an *emulated* Supabase, not on a live Supabase project (see the [roadmap](docs/ROADMAP.md#what-is-verified)). Realtime Authorization, real email and sign-in flows were not exercised end to end.
-- Presence (who is online) is one shared channel that any signed-in user can read.
-- Search covers messages loaded on this device only; notifications only work while the app is open in a browser tab.
-- New community members can read a channel only after an admin's device shares its key, so an admin must have the app open.
-- Calls may not connect on strict networks unless you configure a TURN relay.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-The complete list, and what is planned, is in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
----
+<!-- CONTRIBUTING -->
+## Contributing
 
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
+
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+Don't forget to give the project a star! Thanks again!
+
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+<!-- LICENSE -->
 ## License
+
 
 This project is **source-available, not open source**. The [Nook Non-Commercial Learning License](LICENSE) lets you clone, run, read and modify it **for your own personal, non-commercial learning and testing**. You may **not** use it commercially, **not** use it in any hackathon, competition or contest, **not** run it as a service for other people, and **not** publish or redistribute it or a modified copy. Using it in a way the license does not allow ends your permission and may lead to action against you.
 
 For any other use, email **rhytam.biswas0823@gmail.com** and ask first.
 
-## Documentation
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-| Document | What's in it |
-|---|---|
-| [Maintainer guide](docs/MAINTAINER_GUIDE.md) | **Start here when returning after a long time**: ideas, repository map, glossary, rebuild steps, runbook, what will age |
-| [Setup](docs/SETUP.md) | Supabase project, migrations, auth settings, Google sign-in, first run, linking a second device |
-| [Deployment](docs/DEPLOYMENT.md) | Vercel, environment, release checklist, rollback |
-| [Design](docs/DESIGN.md) | Design tokens, shared components, the landing page and its performance rules |
-| [Architecture](docs/ARCHITECTURE.md) | Components, data flows, routes, state |
-| [E2EE](docs/E2EE.md) | Cryptographic design and its limits |
-| [Database](docs/DATABASE.md) | Tables, functions, security rules, storage, migrations |
-| [API](docs/API.md) | Route reference |
-| [Security](docs/SECURITY.md) | Threat model, controls, denial-of-service layers, rules and known gaps |
-| [Security audit](SECURITY_AUDIT.md) | The September 2026 review: vulnerabilities found and fixed, tests, remaining risks, credentials to rotate |
-| [Testing](docs/TESTING.md) | Automated tests and the manual checklist |
-| [Troubleshooting](docs/TROUBLESHOOTING.md) | Fixes for problems people actually hit |
-| [Decisions](docs/DECISIONS.md) | Why things are built this way |
-| [Roadmap](docs/ROADMAP.md) | What is planned |
-| [Changelog](docs/CHANGELOG.md) | History |
-| [Contributing](docs/CONTRIBUTING.md) | Workflow and rules |
-| [V1 status](docs/V1_STATUS.md) | The V1 audit report |
+
+<!-- CONTACT -->
+## Contact
+
+Rhytam Biswas - [@Rhytam23](https://github.com/Rhytam23)
+
+Project Link: [https://github.com/Rhytam23/social](https://github.com/Rhytam23/social)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+
+<!-- MARKDOWN LINKS & IMAGES -->
+[contributors-shield]: https://img.shields.io/github/contributors/Rhytam23/social.svg?style=for-the-badge
+[contributors-url]: https://github.com/Rhytam23/social/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/Rhytam23/social.svg?style=for-the-badge
+[forks-url]: https://github.com/Rhytam23/social/network/members
+[stars-shield]: https://img.shields.io/github/stars/Rhytam23/social.svg?style=for-the-badge
+[stars-url]: https://github.com/Rhytam23/social/stargazers
+[issues-shield]: https://img.shields.io/github/issues/Rhytam23/social.svg?style=for-the-badge
+[issues-url]: https://github.com/Rhytam23/social/issues
+[license-shield]: https://img.shields.io/github/license/Rhytam23/social.svg?style=for-the-badge
+[license-url]: https://github.com/Rhytam23/social/blob/main/LICENSE
